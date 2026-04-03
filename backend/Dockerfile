@@ -27,6 +27,8 @@ EXPOSE 8000
 # ── Production: prod deps only + gunicorn ─────────────────────────────────────
 FROM base AS production
 
+ARG CACHE_BUST=1
+
 COPY requirements.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
