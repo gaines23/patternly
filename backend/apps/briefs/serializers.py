@@ -128,6 +128,34 @@ class CaseFileDetailSerializer(serializers.ModelSerializer):
         return obj.logged_by.email if obj.logged_by else None
 
 
+class PublicCaseFileSerializer(serializers.ModelSerializer):
+    """Read-only serializer for unauthenticated client share links."""
+    audit = AuditLayerSerializer(read_only=True)
+    intake = IntakeLayerSerializer(read_only=True)
+    build = BuildLayerSerializer(read_only=True)
+    delta = DeltaLayerSerializer(read_only=True)
+    reasoning = ReasoningLayerSerializer(read_only=True)
+    outcome = OutcomeLayerSerializer(read_only=True)
+    project_updates = ProjectUpdateSerializer(many=True, read_only=True)
+    logged_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CaseFile
+        fields = [
+            "id", "name", "logged_by_name",
+            "industries", "tools", "process_frameworks", "workflow_type", "team_size",
+            "satisfaction_score", "roadblock_count", "built_outcome",
+            "created_at", "updated_at",
+            "audit", "intake", "build", "delta", "reasoning", "outcome",
+            "project_updates",
+        ]
+
+    def get_logged_by_name(self, obj):
+        if obj.logged_by:
+            return obj.logged_by.full_name
+        return obj.logged_by_name or "Unknown"
+
+
 class CaseFileListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views."""
     logged_by_name = serializers.SerializerMethodField()

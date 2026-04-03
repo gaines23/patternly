@@ -71,6 +71,10 @@ class CaseFile(models.Model):
         max_length=20, choices=BuildStatus.choices, blank=True
     )
 
+    # Shareable client brief
+    share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    share_enabled = models.BooleanField(default=False)
+
     class Meta:
         db_table = "case_files"
         ordering = ["-created_at"]

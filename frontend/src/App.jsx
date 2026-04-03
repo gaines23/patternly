@@ -12,6 +12,7 @@ import CaseFileDetailPage from "./pages/casefile/CaseFileDetailPage";
 import EditCaseFilePage from "./pages/casefile/EditCaseFilePage";
 import GeneratePage from "./pages/generate/GeneratePage";
 import SettingsPage from "./pages/settings/SettingsPage";
+import SharedBriefPage from "./pages/shared/SharedBriefPage";
 
 function Protected({ children }) {
   return (
@@ -28,6 +29,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/brief/:shareToken" element={<SharedBriefPage />} />
 
           <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
           <Route path="/generate" element={<Protected><GeneratePage /></Protected>} />

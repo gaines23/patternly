@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile } from "../../hooks/useCaseFiles";
+import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile, useShareCaseFile } from "../../hooks/useCaseFiles";
 import { formatDate, satisfactionLabel, formStateToCaseFilePayload, caseFileToFormState } from "../../utils/transforms";
 import { ChipGroup, IndustryPicker, FrameworkPicker, TOOLS, PAIN_POINTS, CLICKUP_TRIGGERS, CLICKUP_ACTIONS, THIRD_PARTY_PLATFORMS, CURRENT_TOOLS_USED, FAILURE_REASONS, WORKFLOW_TYPES } from "../../components/CaseFileForm";
 
@@ -867,6 +867,101 @@ function CaseFileEditView({ cf, onSave, onCancel, isSaving, apiError }) {
   );
 }
 
+function ShareModal({ cf, onClose }) {
+  const shareMutation = useShareCaseFile(cf.id);
+  const [copied, setCopied] = useState(false);
+
+  const shareUrl = cf.share_token
+    ? `${window.location.origin}/brief/${cf.share_token}`
+    : null;
+
+  const handleToggle = () => {
+    shareMutation.mutate();
+    setCopied(false);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: 16,
+    }} onClick={onClose}>
+      <div style={{
+        background: "#fff", borderRadius: 16, padding: "28px 32px",
+        maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontFamily: "'Fraunces', serif" }}>Share client brief</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#9CA3AF", lineHeight: 1 }}>×</button>
+        </div>
+        <p style={{ margin: "0 0 20px", fontSize: 13, color: "#6B7280", fontFamily: F, lineHeight: 1.6 }}>
+          Generate a read-only link you can send to your client for sign-off. The link shows the workspace blueprint without any internal notes or account details.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <span style={{ fontSize: 13, fontFamily: F, color: "#374151", fontWeight: 600 }}>Sharing</span>
+          <button
+            onClick={handleToggle}
+            disabled={shareMutation.isPending}
+            style={{
+              width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+              background: cf.share_enabled ? BLUE : "#D1D5DB",
+              position: "relative", transition: "background 0.2s",
+              flexShrink: 0,
+            }}
+          >
+            <span style={{
+              position: "absolute", top: 3, left: cf.share_enabled ? 22 : 3,
+              width: 18, height: 18, borderRadius: "50%", background: "#fff",
+              transition: "left 0.2s", display: "block",
+            }} />
+          </button>
+          <span style={{ fontSize: 13, fontFamily: F, color: cf.share_enabled ? "#059669" : "#9CA3AF" }}>
+            {cf.share_enabled ? "Active" : "Off"}
+          </span>
+        </div>
+        {cf.share_enabled && shareUrl && (
+          <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+            <input
+              readOnly
+              value={shareUrl}
+              style={{
+                flex: 1, fontFamily: F, fontSize: 12, color: "#374151",
+                border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "9px 12px",
+                background: "#F9FAFB", outline: "none",
+              }}
+            />
+            <button
+              onClick={handleCopy}
+              style={{
+                padding: "9px 16px", borderRadius: 8, border: "none",
+                background: copied ? "#059669" : BLUE,
+                color: "#fff", fontSize: 13, fontWeight: 600,
+                fontFamily: F, cursor: "pointer", whiteSpace: "nowrap",
+                transition: "background 0.2s",
+              }}
+            >
+              {copied ? "Copied!" : "Copy link"}
+            </button>
+          </div>
+        )}
+        {!cf.share_enabled && (
+          <div style={{ padding: "12px 14px", background: "#F9FAFB", borderRadius: 8, border: "1px solid #E5E7EB" }}>
+            <p style={{ margin: 0, fontSize: 13, color: "#9CA3AF", fontFamily: F }}>
+              Enable sharing above to generate a link.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CaseFileDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -875,6 +970,7 @@ export default function CaseFileDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [showShare, setShowShare] = useState(false);
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 900);
   useEffect(() => {
     const fn = () => setW(window.innerWidth);
@@ -972,56 +1068,64 @@ export default function CaseFileDetailPage() {
       )}
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap", gap: 14 }}>
-        <div>
-          <Link to="/case-files" className="fp-no-print" style={{ fontSize: 13, color: "#9CA3AF", fontFamily: F, textDecoration: "none", display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
-            ← Case files
-          </Link>
-          <h1 style={{ margin: "0 0 6px", fontSize: 24, fontFamily: "'Fraunces', serif" }}>
-            {cf.name || cf.workflow_type || "Untitled workflow"}
-          </h1>
-          {cf.name && cf.workflow_type && (
-            <p style={{ margin: "0 0 6px", fontSize: 14, color: "#6B7280", fontFamily: F }}>{cf.workflow_type}</p>
-          )}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, color: "#6B7280", fontFamily: F }}>
-            <span>Logged by <strong style={{ color: "#374151" }}>{cf.logged_by_name || "—"}</strong></span>
-            <span>·</span>
-            <span>{formatDate(cf.created_at)}</span>
-            {cf.satisfaction_score && (
-              <>
-                <span>·</span>
-                <span>{cf.satisfaction_score}/5 satisfaction</span>
-              </>
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+          <div style={{ flex: "1 1 0", minWidth: 0 }}>
+            <Link to="/case-files" className="fp-no-print" style={{ fontSize: 13, color: "#9CA3AF", fontFamily: F, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
+              ← Case files
+            </Link>
+            <h1 style={{ margin: "0 0 6px", fontSize: 24, fontFamily: "'Fraunces', serif", wordBreak: "break-word" }}>
+              {cf.name || cf.workflow_type || "Untitled workflow"}
+            </h1>
+            {cf.name && cf.workflow_type && (
+              <p style={{ margin: "0 0 6px", fontSize: 14, color: "#6B7280", fontFamily: F }}>{cf.workflow_type}</p>
             )}
-            {cf.roadblock_count > 0 && (
-              <>
-                <span>·</span>
-                <span style={{ color: "#EA580C" }}>{cf.roadblock_count} roadblock{cf.roadblock_count !== 1 ? "s" : ""}</span>
-              </>
-            )}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, color: "#6B7280", fontFamily: F }}>
+              <span>Logged by <strong style={{ color: "#374151" }}>{cf.logged_by_name || "—"}</strong></span>
+              <span>·</span>
+              <span>{formatDate(cf.created_at)}</span>
+              {cf.satisfaction_score && (
+                <>
+                  <span>·</span>
+                  <span>{cf.satisfaction_score}/5 satisfaction</span>
+                </>
+              )}
+              {cf.roadblock_count > 0 && (
+                <>
+                  <span>·</span>
+                  <span style={{ color: "#EA580C" }}>{cf.roadblock_count} roadblock{cf.roadblock_count !== 1 ? "s" : ""}</span>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="fp-no-print" style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => {
-            const name = (cf.name || cf.workflow_type || "Case_File").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
-            const date = new Date().toISOString().slice(0, 10);
-            const prev = document.title;
-            document.title = `${name}_${date}_Flowpath`;
-            window.onafterprint = () => { document.title = prev; window.onafterprint = null; };
-            window.print();
-          }} style={{ padding: "9px 18px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 9, color: "#374151", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer" }}>
-            Export PDF
-          </button>
-          <button onClick={() => setIsEditing(true)} style={{ padding: "9px 18px", background: BLUE, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer" }}>
-            Edit
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-            style={{ padding: "9px 18px", background: "#fff", border: "1.5px solid #FECACA", borderRadius: 9, color: "#EF4444", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer" }}
-          >
-            {deleteMutation.isPending ? "Deleting…" : "Delete"}
-          </button>
+          <div className="fp-no-print" style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 28 }}>
+            <button onClick={() => {
+              const name = (cf.name || cf.workflow_type || "Case_File").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
+              const date = new Date().toISOString().slice(0, 10);
+              const prev = document.title;
+              document.title = `${name}_${date}_Flowpath`;
+              window.onafterprint = () => { document.title = prev; window.onafterprint = null; };
+              window.print();
+            }} style={{ padding: "9px 16px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 9, color: "#374151", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}>
+              Export PDF
+            </button>
+            <button
+              onClick={() => setShowShare(true)}
+              style={{ padding: "9px 16px", background: "#fff", border: `1.5px solid ${cf.share_enabled ? BLUE : "#E5E7EB"}`, borderRadius: 9, color: cf.share_enabled ? BLUE : "#374151", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              {cf.share_enabled ? "🔗 Shared" : "Share"}
+            </button>
+            <button onClick={() => setIsEditing(true)} style={{ padding: "9px 16px", background: BLUE, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}>
+              Edit
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              style={{ padding: "9px 16px", background: "#fff", border: "1.5px solid #FECACA", borderRadius: 9, color: "#EF4444", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1379,6 +1483,7 @@ export default function CaseFileDetailPage() {
       </div>
     )}
   </div>
+    {showShare && <ShareModal cf={cf} onClose={() => setShowShare(false)} />}
   </>
   );
 }
