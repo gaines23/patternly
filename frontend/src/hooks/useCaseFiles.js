@@ -88,6 +88,22 @@ export function useDeleteCaseFile() {
   });
 }
 
+// ── Toggle shareable link ─────────────────────────────────────────────────────
+export function useShareCaseFile(id) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/v1/briefs/${id}/share/`);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(caseFileKeys.detail(id), (old) =>
+        old ? { ...old, share_enabled: data.share_enabled, share_token: data.share_token } : old
+      );
+    },
+  });
+}
+
 // ── Dashboard stats ───────────────────────────────────────────────────────────
 export function useCaseFileStats() {
   return useQuery({

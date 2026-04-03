@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile } from "../../hooks/useCaseFiles";
+import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile, useShareCaseFile } from "../../hooks/useCaseFiles";
 import { formatDate, satisfactionLabel, formStateToCaseFilePayload, caseFileToFormState } from "../../utils/transforms";
 import { ChipGroup, IndustryPicker, FrameworkPicker, TOOLS, PAIN_POINTS, CLICKUP_TRIGGERS, CLICKUP_ACTIONS, THIRD_PARTY_PLATFORMS, CURRENT_TOOLS_USED, FAILURE_REASONS, WORKFLOW_TYPES } from "../../components/CaseFileForm";
 
@@ -867,6 +867,101 @@ function CaseFileEditView({ cf, onSave, onCancel, isSaving, apiError }) {
   );
 }
 
+function ShareModal({ cf, onClose }) {
+  const shareMutation = useShareCaseFile(cf.id);
+  const [copied, setCopied] = useState(false);
+
+  const shareUrl = cf.share_token
+    ? `${window.location.origin}/brief/${cf.share_token}`
+    : null;
+
+  const handleToggle = () => {
+    shareMutation.mutate();
+    setCopied(false);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: 16,
+    }} onClick={onClose}>
+      <div style={{
+        background: "#fff", borderRadius: 16, padding: "28px 32px",
+        maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontFamily: "'Fraunces', serif" }}>Share client brief</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#9CA3AF", lineHeight: 1 }}>×</button>
+        </div>
+        <p style={{ margin: "0 0 20px", fontSize: 13, color: "#6B7280", fontFamily: F, lineHeight: 1.6 }}>
+          Generate a read-only link you can send to your client for sign-off. The link shows the workspace blueprint without any internal notes or account details.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <span style={{ fontSize: 13, fontFamily: F, color: "#374151", fontWeight: 600 }}>Sharing</span>
+          <button
+            onClick={handleToggle}
+            disabled={shareMutation.isPending}
+            style={{
+              width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+              background: cf.share_enabled ? BLUE : "#D1D5DB",
+              position: "relative", transition: "background 0.2s",
+              flexShrink: 0,
+            }}
+          >
+            <span style={{
+              position: "absolute", top: 3, left: cf.share_enabled ? 22 : 3,
+              width: 18, height: 18, borderRadius: "50%", background: "#fff",
+              transition: "left 0.2s", display: "block",
+            }} />
+          </button>
+          <span style={{ fontSize: 13, fontFamily: F, color: cf.share_enabled ? "#059669" : "#9CA3AF" }}>
+            {cf.share_enabled ? "Active" : "Off"}
+          </span>
+        </div>
+        {cf.share_enabled && shareUrl && (
+          <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+            <input
+              readOnly
+              value={shareUrl}
+              style={{
+                flex: 1, fontFamily: F, fontSize: 12, color: "#374151",
+                border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "9px 12px",
+                background: "#F9FAFB", outline: "none",
+              }}
+            />
+            <button
+              onClick={handleCopy}
+              style={{
+                padding: "9px 16px", borderRadius: 8, border: "none",
+                background: copied ? "#059669" : BLUE,
+                color: "#fff", fontSize: 13, fontWeight: 600,
+                fontFamily: F, cursor: "pointer", whiteSpace: "nowrap",
+                transition: "background 0.2s",
+              }}
+            >
+              {copied ? "Copied!" : "Copy link"}
+            </button>
+          </div>
+        )}
+        {!cf.share_enabled && (
+          <div style={{ padding: "12px 14px", background: "#F9FAFB", borderRadius: 8, border: "1px solid #E5E7EB" }}>
+            <p style={{ margin: 0, fontSize: 13, color: "#9CA3AF", fontFamily: F }}>
+              Enable sharing above to generate a link.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CaseFileDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -875,6 +970,7 @@ export default function CaseFileDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [showShare, setShowShare] = useState(false);
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 900);
   useEffect(() => {
     const fn = () => setW(window.innerWidth);
@@ -1011,6 +1107,12 @@ export default function CaseFileDetailPage() {
             window.print();
           }} style={{ padding: "9px 18px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 9, color: "#374151", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer" }}>
             Export PDF
+          </button>
+          <button
+            onClick={() => setShowShare(true)}
+            style={{ padding: "9px 18px", background: "#fff", border: `1.5px solid ${cf.share_enabled ? BLUE : "#E5E7EB"}`, borderRadius: 9, color: cf.share_enabled ? BLUE : "#374151", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer" }}
+          >
+            {cf.share_enabled ? "🔗 Shared" : "Share"}
           </button>
           <button onClick={() => setIsEditing(true)} style={{ padding: "9px 18px", background: BLUE, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer" }}>
             Edit
@@ -1379,6 +1481,7 @@ export default function CaseFileDetailPage() {
       </div>
     )}
   </div>
+    {showShare && <ShareModal cf={cf} onClose={() => setShowShare(false)} />}
   </>
   );
 }

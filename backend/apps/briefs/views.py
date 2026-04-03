@@ -8,6 +8,7 @@ from .serializers import (
     CaseFileDetailSerializer,
     CaseFileListSerializer,
     CaseFileWriteSerializer,
+    PublicCaseFileSerializer,
 )
 
 
@@ -87,6 +88,51 @@ class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method in ["PUT", "PATCH"]:
             return CaseFileWriteSerializer
         return CaseFileDetailSerializer
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_share(request, pk):
+    """
+    POST /api/v1/briefs/<id>/share/
+    Toggles share_enabled on/off. Returns the share URL and current state.
+    """
+    try:
+        case_file = CaseFile.objects.get(pk=pk, logged_by=request.user)
+    except CaseFile.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    case_file.share_enabled = not case_file.share_enabled
+    case_file.save(update_fields=["share_enabled"])
+
+    return Response({
+        "share_enabled": case_file.share_enabled,
+        "share_token": str(case_file.share_token),
+    })
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_brief(request, share_token):
+    """
+    GET /api/v1/briefs/shared/<share_token>/
+    Public read-only endpoint — no authentication required.
+    """
+    try:
+        case_file = CaseFile.objects.select_related("logged_by").prefetch_related(
+            "audit__builds",
+            "intake",
+            "build",
+            "delta__roadblocks",
+            "reasoning",
+            "outcome",
+            "project_updates",
+        ).get(share_token=share_token, share_enabled=True)
+    except CaseFile.DoesNotExist:
+        return Response({"detail": "This link is invalid or has been disabled."}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = PublicCaseFileSerializer(case_file)
+    return Response(serializer.data)
 
 
 @api_view(["GET"])
