@@ -3,15 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useCreateCaseFile } from "../../hooks/useCaseFiles";
 import { formStateToCaseFilePayload } from "../../utils/transforms";
 import { useAuth } from "../../hooks/useAuth";
+import { useTheme } from "../../hooks/useTheme";
 
-// Import the full intake form (the JSX we've been building)
-// In the real project this lives at src/components/CaseFileForm.jsx
-// We inline the default state and step logic here and delegate rendering to it
 import CaseFileForm from "../../components/CaseFileForm";
 
 export default function NewCaseFilePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { theme } = useTheme();
   const createMutation = useCreateCaseFile();
 
   const [apiError, setApiError] = useState(null);
@@ -46,7 +45,7 @@ export default function NewCaseFilePage() {
           margin: "0 32px",
           marginTop: 24,
           padding: "14px 18px",
-          background: "#FEF2F2",
+          background: theme.surface,
           border: "1px solid #FECACA",
           borderRadius: 10,
           fontSize: 13,

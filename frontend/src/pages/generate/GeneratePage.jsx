@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useGenerateBrief, useGeneratedBriefs } from "../../hooks/useWorkflows";
+import { useTheme } from "../../hooks/useTheme";
 import { formatDate } from "../../utils/transforms";
 
 const F = "'Plus Jakarta Sans', sans-serif";
-const BLUE = "#2563EB";
 
 const EXAMPLE_PROMPTS = [
   "We're a 9-person marketing agency managing 15 clients. We use Slack and HubSpot but nothing syncs. Deliverables fall through the cracks every week.",
@@ -13,7 +13,7 @@ const EXAMPLE_PROMPTS = [
   "DTC brand producing 40+ content pieces per month. Currently in Airtable but team finds it too database-y. Need a content calendar that shows what's in production.",
 ];
 
-function RecommendationPanel({ brief }) {
+function RecommendationPanel({ brief, theme }) {
   const rec = brief.recommendation;
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [rating, setRating] = useState(0);
@@ -33,7 +33,7 @@ function RecommendationPanel({ brief }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: BLUE, fontFamily: F }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: theme.blue, fontFamily: F }}>
               Recommendation ready
             </span>
             {brief.confidence_score && (
@@ -43,13 +43,13 @@ function RecommendationPanel({ brief }) {
             )}
           </div>
           {brief.source_case_file_ids?.length > 0 && (
-            <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF", fontFamily: F }}>
+            <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>
               Based on {brief.source_case_file_ids.length} similar past build{brief.source_case_file_ids.length !== 1 ? "s" : ""}
             </p>
           )}
         </div>
         <Link to="/case-files/new">
-          <button style={{ padding: "9px 18px", background: BLUE, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
+          <button style={{ padding: "9px 18px", background: theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
             Log this as a case file →
           </button>
         </Link>
@@ -66,7 +66,7 @@ function RecommendationPanel({ brief }) {
               <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: "#92400E", fontFamily: F }}>{w.tool}</p>
               <p style={{ margin: "0 0 2px", fontSize: 12, color: "#B45309", fontFamily: F }}>{w.warning}</p>
               {w.workaround && (
-                <p style={{ margin: 0, fontSize: 12, color: "#6B7280", fontFamily: F }}>
+                <p style={{ margin: 0, fontSize: 12, color: theme.textMuted, fontFamily: F }}>
                   Workaround: {w.workaround}
                 </p>
               )}
@@ -77,12 +77,12 @@ function RecommendationPanel({ brief }) {
 
       {/* Recommendation sections */}
       {sections.map(({ label, value, mono }) => value ? (
-        <div key={label} style={{ marginBottom: 16, background: "#fff", border: "1px solid #F0F0F0", borderRadius: 10, padding: "14px 16px" }}>
-          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</p>
+        <div key={label} style={{ marginBottom: 16, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "14px 16px" }}>
+          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</p>
           {mono ? (
-            <pre style={{ margin: 0, fontSize: 13, color: "#374151", fontFamily: "monospace", background: "#F9FAFB", padding: "10px 12px", borderRadius: 8, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{value}</pre>
+            <pre style={{ margin: 0, fontSize: 13, color: theme.textSec, fontFamily: "monospace", background: theme.codeBg, padding: "10px 12px", borderRadius: 8, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{value}</pre>
           ) : (
-            <p style={{ margin: 0, fontSize: 14, color: "#374151", fontFamily: F, lineHeight: 1.6 }}>{value}</p>
+            <p style={{ margin: 0, fontSize: 14, color: theme.textSec, fontFamily: F, lineHeight: 1.6 }}>{value}</p>
           )}
         </div>
       ) : null)}
@@ -98,10 +98,10 @@ function RecommendationPanel({ brief }) {
       {/* Integrations */}
       {rec.integrations?.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>Integrations to connect</p>
+          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>Integrations to connect</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {rec.integrations.map(t => (
-              <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EFF6FF", border: "1px solid #BFDBFE", color: BLUE, fontFamily: F, fontWeight: 500 }}>{t}</span>
+              <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, color: theme.blue, fontFamily: F, fontWeight: 500 }}>{t}</span>
             ))}
           </div>
         </div>
@@ -110,13 +110,13 @@ function RecommendationPanel({ brief }) {
       {/* Complexity */}
       {rec.estimated_complexity && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F }}>COMPLEXITY</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: theme.textFaint, fontFamily: F }}>COMPLEXITY</span>
           <div style={{ display: "flex", gap: 4 }}>
             {[1, 2, 3, 4, 5].map(n => (
-              <div key={n} style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${rec.estimated_complexity >= n ? BLUE : "#E5E7EB"}`, background: rec.estimated_complexity >= n ? "#EFF6FF" : "#fff" }} />
+              <div key={n} style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${rec.estimated_complexity >= n ? theme.blue : theme.borderInput}`, background: rec.estimated_complexity >= n ? theme.blueLight : theme.surface }} />
             ))}
           </div>
-          <span style={{ fontSize: 12, color: "#6B7280", fontFamily: F }}>
+          <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
             {["", "Very simple", "Simple", "Moderate", "Complex", "Very complex"][rec.estimated_complexity]}
           </span>
         </div>
@@ -124,14 +124,14 @@ function RecommendationPanel({ brief }) {
 
       {/* Rating */}
       {!feedbackSent ? (
-        <div style={{ padding: "16px 18px", background: "#F9FAFB", border: "1px solid #F0F0F0", borderRadius: 10 }}>
-          <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "#374151", fontFamily: F }}>
+        <div style={{ padding: "16px 18px", background: theme.surfaceAlt, border: `1px solid ${theme.border}`, borderRadius: 10 }}>
+          <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: theme.textSec, fontFamily: F }}>
             Was this recommendation useful?
           </p>
           <div style={{ display: "flex", gap: 6 }}>
             {[1, 2, 3, 4, 5].map(n => (
               <button key={n} onClick={() => { setRating(n); setFeedbackSent(true); }}
-                style={{ padding: "8px 14px", border: `1.5px solid ${rating === n ? BLUE : "#E5E7EB"}`, borderRadius: 8, background: rating === n ? "#EFF6FF" : "#fff", color: rating === n ? BLUE : "#9CA3AF", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: F }}>
+                style={{ padding: "8px 14px", border: `1.5px solid ${rating === n ? theme.blue : theme.borderInput}`, borderRadius: 8, background: rating === n ? theme.blueLight : theme.surface, color: rating === n ? theme.blue : theme.textFaint, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: F }}>
                 {"★".repeat(n)}
               </button>
             ))}
@@ -150,6 +150,7 @@ export default function GeneratePage() {
   const [prompt, setPrompt] = useState("");
   const [currentBrief, setCurrentBrief] = useState(null);
   const [focused, setFocused] = useState(false);
+  const { theme } = useTheme();
 
   const generateMutation = useGenerateBrief();
   const { data: pastBriefs } = useGeneratedBriefs();
@@ -176,10 +177,10 @@ export default function GeneratePage() {
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <div style={{ width: 36, height: 36, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✨</div>
+          <div style={{ width: 36, height: 36, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✨</div>
           <h1 style={{ margin: 0, fontSize: 24, fontFamily: "'Fraunces', serif" }}>Generate Workflow</h1>
         </div>
-        <p style={{ margin: 0, fontSize: 14, color: "#6B7280", fontFamily: F, maxWidth: 600 }}>
+        <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F, maxWidth: 600 }}>
           Describe your team and what you're trying to solve. Flowpath will analyse past builds and recommend the optimal ClickUp setup.
         </p>
       </div>
@@ -189,7 +190,7 @@ export default function GeneratePage() {
         {/* Left: Input */}
         <div>
           {/* Prompt input */}
-          <div style={{ background: "#fff", border: `1.5px solid ${focused ? BLUE : "#E5E7EB"}`, borderRadius: 12, overflow: "hidden", boxShadow: focused ? "0 0 0 3px #EFF6FF" : "0 1px 4px rgba(0,0,0,0.04)", transition: "all 0.15s", marginBottom: 16 }}>
+          <div style={{ background: theme.surface, border: `1.5px solid ${focused ? theme.blue : theme.borderInput}`, borderRadius: 12, overflow: "hidden", boxShadow: focused ? `0 0 0 3px ${theme.blueLight}` : `0 1px 4px rgba(0,0,0,0.04)`, transition: "all 0.15s", marginBottom: 16 }}>
             <textarea
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
@@ -199,16 +200,16 @@ export default function GeneratePage() {
 
 Example: We're a 9-person marketing agency managing 15 clients. We use Slack and HubSpot but nothing syncs. Project managers manually update a spreadsheet every Monday. We miss deadlines because nobody knows the real status of deliverables."
               rows={8}
-              style={{ width: "100%", padding: "16px 18px", border: "none", outline: "none", fontFamily: F, fontSize: 14, color: "#111827", resize: "vertical", lineHeight: 1.7, boxSizing: "border-box", background: "transparent" }}
+              style={{ width: "100%", padding: "16px 18px", border: "none", outline: "none", fontFamily: F, fontSize: 14, color: theme.text, resize: "vertical", lineHeight: 1.7, boxSizing: "border-box", background: "transparent" }}
             />
-            <div style={{ padding: "12px 18px", borderTop: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: prompt.length < 20 ? "#EF4444" : "#9CA3AF", fontFamily: F }}>
+            <div style={{ padding: "12px 18px", borderTop: `1px solid ${theme.borderSubtle}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: prompt.length < 20 ? "#EF4444" : theme.textFaint, fontFamily: F }}>
                 {prompt.length < 20 ? `${20 - prompt.length} more characters needed` : `${prompt.length} characters`}
               </span>
               <button
                 onClick={handleGenerate}
                 disabled={generateMutation.isPending || prompt.trim().length < 20}
-                style={{ padding: "9px 22px", background: generateMutation.isPending || prompt.trim().length < 20 ? "#D1D5DB" : BLUE, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: generateMutation.isPending || prompt.trim().length < 20 ? "not-allowed" : "pointer", transition: "background 0.15s" }}
+                style={{ padding: "9px 22px", background: generateMutation.isPending || prompt.trim().length < 20 ? theme.borderInput : theme.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: generateMutation.isPending || prompt.trim().length < 20 ? "not-allowed" : "pointer", transition: "background 0.15s" }}
               >
                 {generateMutation.isPending ? "Analysing…" : "Generate →"}
               </button>
@@ -224,30 +225,30 @@ Example: We're a 9-person marketing agency managing 15 clients. We use Slack and
 
           {/* Loading state */}
           {generateMutation.isPending && (
-            <div style={{ padding: "24px 20px", background: "#fff", border: "1px solid #F0F0F0", borderRadius: 12, textAlign: "center", marginBottom: 16 }}>
+            <div style={{ padding: "24px 20px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, textAlign: "center", marginBottom: 16 }}>
               <div style={{ marginBottom: 12 }}>
                 {["Parsing your scenario…", "Retrieving similar past builds…", "Generating recommendation…"].map((step, i) => (
-                  <p key={i} style={{ margin: "4px 0", fontSize: 13, color: i === 0 ? BLUE : "#9CA3AF", fontFamily: F }}>
+                  <p key={i} style={{ margin: "4px 0", fontSize: 13, color: i === 0 ? theme.blue : theme.textFaint, fontFamily: F }}>
                     {i === 0 ? "⟳ " : "○ "}{step}
                   </p>
                 ))}
               </div>
-              <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF", fontFamily: F }}>This takes 5–15 seconds</p>
+              <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>This takes 5–15 seconds</p>
             </div>
           )}
 
           {/* Example prompts */}
           {!generateMutation.isPending && !currentBrief && (
             <div>
-              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                 Try an example
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {EXAMPLE_PROMPTS.map((ex, i) => (
                   <button key={i} onClick={() => handleExample(ex)}
-                    style={{ padding: "10px 14px", background: "#fff", border: "1px solid #E5E7EB", borderRadius: 9, cursor: "pointer", textAlign: "left", fontSize: 12, color: "#6B7280", fontFamily: F, lineHeight: 1.5, transition: "border-color 0.15s" }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = BLUE}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = "#E5E7EB"}
+                    style={{ padding: "10px 14px", background: theme.surface, border: `1px solid ${theme.borderInput}`, borderRadius: 9, cursor: "pointer", textAlign: "left", fontSize: 12, color: theme.textMuted, fontFamily: F, lineHeight: 1.5, transition: "border-color 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = theme.blue}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = theme.borderInput}
                   >
                     {ex.slice(0, 100)}…
                   </button>
@@ -259,19 +260,19 @@ Example: We're a 9-person marketing agency managing 15 clients. We use Slack and
           {/* Past generated briefs */}
           {pastBriefs?.results?.length > 0 && !currentBrief && (
             <div style={{ marginTop: 28 }}>
-              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                 Recent generations
               </p>
               {pastBriefs.results.slice(0, 5).map(b => (
                 <button key={b.id} onClick={() => setCurrentBrief(b)}
-                  style={{ width: "100%", padding: "10px 14px", background: "#fff", border: "1px solid #F0F0F0", borderRadius: 9, cursor: "pointer", textAlign: "left", marginBottom: 6, transition: "border-color 0.15s" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = BLUE}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = "#F0F0F0"}
+                  style={{ width: "100%", padding: "10px 14px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 9, cursor: "pointer", textAlign: "left", marginBottom: 6, transition: "border-color 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = theme.blue}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
                 >
-                  <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: "#374151", fontFamily: F }}>
+                  <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: theme.textSec, fontFamily: F }}>
                     {b.parsed_scenario?.workflow_type || "Untitled scenario"}
                   </p>
-                  <p style={{ margin: 0, fontSize: 11, color: "#9CA3AF", fontFamily: F }}>
+                  <p style={{ margin: 0, fontSize: 11, color: theme.textFaint, fontFamily: F }}>
                     {b.parsed_scenario?.industry} · {formatDate(b.created_at)}
                   </p>
                 </button>
@@ -282,8 +283,8 @@ Example: We're a 9-person marketing agency managing 15 clients. We use Slack and
 
         {/* Right: Recommendation */}
         {currentBrief && (
-          <div style={{ background: "#F9FAFB", borderRadius: 12, padding: "20px", border: "1px solid #E5E7EB" }}>
-            <RecommendationPanel brief={currentBrief} />
+          <div style={{ background: theme.surfaceAlt, borderRadius: 12, padding: "20px", border: `1px solid ${theme.borderInput}` }}>
+            <RecommendationPanel brief={currentBrief} theme={theme} />
           </div>
         )}
       </div>

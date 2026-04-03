@@ -3,12 +3,14 @@ import { useCaseFile, useUpdateCaseFile } from "../../hooks/useCaseFiles";
 import { formStateToCaseFilePayload, caseFileToFormState } from "../../utils/transforms";
 import CaseFileForm from "../../components/CaseFileForm";
 import { useState } from "react";
+import { useTheme } from "../../hooks/useTheme";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
 export default function EditCaseFilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const { data: caseFile, isLoading, isError } = useCaseFile(id);
   const updateMutation = useUpdateCaseFile(id);
   const [apiError, setApiError] = useState(null);
@@ -28,7 +30,7 @@ export default function EditCaseFilePage() {
 
   if (isLoading) {
     return (
-      <div style={{ padding: 60, textAlign: "center", color: "#9CA3AF", fontFamily: F }}>
+      <div style={{ padding: 60, textAlign: "center", color: theme.textFaint, fontFamily: F }}>
         Loading…
       </div>
     );
@@ -49,7 +51,7 @@ export default function EditCaseFilePage() {
       {apiError && (
         <div style={{
           margin: "0 32px", marginTop: 24, padding: "14px 18px",
-          background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10,
+          background: theme.surface, border: "1px solid #FECACA", borderRadius: 10,
           fontSize: 13, color: "#DC2626", fontFamily: F, whiteSpace: "pre-wrap",
         }}>
           <strong>Save failed:</strong> {apiError}

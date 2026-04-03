@@ -1,3 +1,30 @@
+/* ── CSS Variables ───────────────────────────────────────────────────────── */
+:root {
+  --color-bg: #F9FAFB;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+  --color-text-heading: #111827;
+  --color-text-muted: #6B7280;
+  --color-blue: #2563EB;
+  --color-border: #E5E7EB;
+  --scrollbar-thumb: #D1D5DB;
+  --scrollbar-thumb-hover: #9CA3AF;
+  --focus-outline: #2563EB;
+}
+
+[data-theme="dark"] {
+  --color-bg: #111827;
+  --color-surface: #1F2937;
+  --color-text: #F9FAFB;
+  --color-text-heading: #F1F5F9;
+  --color-text-muted: #9CA3AF;
+  --color-blue: #60A5FA;
+  --color-border: #374151;
+  --scrollbar-thumb: #4B5563;
+  --scrollbar-thumb-hover: #6B7280;
+  --focus-outline: #60A5FA;
+}
+
 /* ── Reset ──────────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -14,10 +41,11 @@ body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 14px;
   line-height: 1.6;
-  color: #111827;
-  background: #F9FAFB;
+  color: var(--color-text);
+  background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background 0.2s, color 0.2s;
 }
 
 /* ── Typography ─────────────────────────────────────────────────────────── */
@@ -25,11 +53,11 @@ h1, h2, h3, h4, h5, h6 {
   font-family: 'Fraunces', Georgia, serif;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #111827;
+  color: var(--color-text-heading);
 }
 
 a {
-  color: #2563EB;
+  color: var(--color-blue);
   text-decoration: none;
 }
 
@@ -70,16 +98,16 @@ input, textarea, select {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ── Focus ring ─────────────────────────────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid #2563EB;
+  outline: 2px solid var(--focus-outline);
   outline-offset: 2px;
 }

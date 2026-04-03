@@ -9,6 +9,7 @@
  * reusable component that can be used for both Create and Edit flows.
  */
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "../hooks/useTheme";
 
 // ── All data constants (same as workflow-intake.jsx) ──────────────────────────
 const INDUSTRY_MAP = {
@@ -178,10 +179,11 @@ function useWidth() {
 }
 
 function Lbl({ children, hint }) {
+  const { theme } = useTheme();
   return (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
-      <span style={{ fontSize:13, fontWeight:600, color:"#111827", fontFamily:F }}>{children}</span>
-      {hint && <span style={{ fontSize:11, color:"#9CA3AF", fontFamily:F }}>{hint}</span>}
+      <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{children}</span>
+      {hint && <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F }}>{hint}</span>}
     </div>
   );
 }
@@ -197,7 +199,8 @@ function Field({ label, hint, children, style }) {
 
 function TI({ value, onChange, placeholder, rows }) {
   const [f, setF] = useState(false);
-  const s = { width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:14, color:"#111827", background:"#fff", border:`1.5px solid ${f?BLUE:"#E5E7EB"}`, borderRadius:10, padding:"10px 13px", outline:"none", transition:"border-color 0.15s, box-shadow 0.15s", boxShadow:f?"0 0 0 3px #EFF6FF":"none", resize:"vertical", lineHeight:1.6, WebkitAppearance:"none" };
+  const { theme } = useTheme();
+  const s = { width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:14, color:theme.text, background:theme.inputBg, border:`1.5px solid ${f?theme.blue:theme.borderInput}`, borderRadius:10, padding:"10px 13px", outline:"none", transition:"border-color 0.15s, box-shadow 0.15s", boxShadow:f?`0 0 0 3px ${theme.blueLight}`:"none", resize:"vertical", lineHeight:1.6, WebkitAppearance:"none" };
   return rows
     ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={s} onFocus={()=>setF(true)} onBlur={()=>setF(false)}/>
     : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={s} onFocus={()=>setF(true)} onBlur={()=>setF(false)}/>;
@@ -205,9 +208,10 @@ function TI({ value, onChange, placeholder, rows }) {
 
 function Sel({ value, onChange, options, placeholder="Choose one…" }) {
   const [f, setF] = useState(false);
+  const { theme } = useTheme();
   return (
     <select value={value} onChange={e=>onChange(e.target.value)} onFocus={()=>setF(true)} onBlur={()=>setF(false)}
-      style={{ width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:14, color:value?"#111827":"#9CA3AF", background:"#fff", border:`1.5px solid ${f?BLUE:"#E5E7EB"}`, borderRadius:10, padding:"10px 13px", outline:"none", cursor:"pointer", boxShadow:f?"0 0 0 3px #EFF6FF":"none", WebkitAppearance:"none", appearance:"none", backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239CA3AF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\")", backgroundRepeat:"no-repeat", backgroundPosition:"right 12px center", paddingRight:36 }}>
+      style={{ width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:14, color:value?theme.text:theme.textFaint, background:theme.inputBg, border:`1.5px solid ${f?theme.blue:theme.borderInput}`, borderRadius:10, padding:"10px 13px", outline:"none", cursor:"pointer", boxShadow:f?`0 0 0 3px ${theme.blueLight}`:"none", WebkitAppearance:"none", appearance:"none", backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239CA3AF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\")", backgroundRepeat:"no-repeat", backgroundPosition:"right 12px center", paddingRight:36 }}>
       <option value="">{placeholder}</option>
       {options.map(o=><option key={o} value={o}>{o}</option>)}
     </select>
@@ -216,6 +220,7 @@ function Sel({ value, onChange, options, placeholder="Choose one…" }) {
 
 function SelDesc({ value, onChange, options, placeholder="Choose one…" }) {
   const [open, setOpen] = useState(false);
+  const { theme } = useTheme();
   const ref = useRef(null);
   const selected = options.find(o => o.name === value);
 
@@ -229,10 +234,10 @@ function SelDesc({ value, onChange, options, placeholder="Choose one…" }) {
     <div ref={ref} style={{ position:"relative", width:"100%" }}>
       <button type="button" onClick={() => setOpen(o => !o)} style={{
         width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:14,
-        color: value ? "#111827" : "#9CA3AF",
-        background:"#fff", border:`1.5px solid ${open ? BLUE : "#E5E7EB"}`,
+        color: value ? theme.text : theme.textFaint,
+        background:theme.inputBg, border:`1.5px solid ${open ? theme.blue : theme.borderInput}`,
         borderRadius:10, padding:"10px 36px 10px 13px", outline:"none", cursor:"pointer",
-        textAlign:"left", boxShadow: open ? "0 0 0 3px #EFF6FF" : "none",
+        textAlign:"left", boxShadow: open ? `0 0 0 3px ${theme.blueLight}` : "none",
         backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%239CA3AF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\")",
         backgroundRepeat:"no-repeat", backgroundPosition:"right 12px center",
       }}>
@@ -241,20 +246,20 @@ function SelDesc({ value, onChange, options, placeholder="Choose one…" }) {
       {open && (
         <div style={{
           position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:100,
-          background:"#fff", border:"1.5px solid #E5E7EB", borderRadius:12,
-          boxShadow:"0 8px 24px rgba(0,0,0,0.10)", maxHeight:320, overflowY:"auto",
+          background:theme.surface, border:`1.5px solid ${theme.borderInput}`, borderRadius:12,
+          boxShadow:"0 8px 24px rgba(0,0,0,0.15)", maxHeight:320, overflowY:"auto",
         }}>
           {options.map(o => (
             <button key={o.name} type="button" onClick={() => { onChange(o.name); setOpen(false); }} style={{
               display:"block", width:"100%", textAlign:"left", padding:"10px 14px",
-              background: value === o.name ? "#EFF6FF" : "transparent",
+              background: value === o.name ? theme.blueLight : "transparent",
               border:"none", cursor:"pointer", fontFamily:F,
             }}
-            onMouseEnter={e => { if (value !== o.name) e.currentTarget.style.background = "#F9FAFB"; }}
+            onMouseEnter={e => { if (value !== o.name) e.currentTarget.style.background = theme.surfaceAlt; }}
             onMouseLeave={e => { if (value !== o.name) e.currentTarget.style.background = "transparent"; }}
             >
-              <span style={{ display:"block", fontSize:13, fontWeight:600, color: value === o.name ? BLUE : "#111827" }}>{o.name}</span>
-              <span style={{ display:"block", fontSize:12, color:"#6B7280", marginTop:2, lineHeight:1.4 }}>{o.desc}</span>
+              <span style={{ display:"block", fontSize:13, fontWeight:600, color: value === o.name ? theme.blue : theme.text }}>{o.name}</span>
+              <span style={{ display:"block", fontSize:12, color:theme.textMuted, marginTop:2, lineHeight:1.4 }}>{o.desc}</span>
             </button>
           ))}
         </div>
@@ -264,21 +269,23 @@ function SelDesc({ value, onChange, options, placeholder="Choose one…" }) {
 }
 
 function Chip({ label, active, color=BLUE, onClick }) {
+  const { theme } = useTheme();
   return (
-    <button onClick={onClick} style={{ padding:"7px 14px", borderRadius:20, fontSize:12, fontWeight:500, fontFamily:F, cursor:"pointer", transition:"all 0.15s", border:active?`1.5px solid ${color}`:"1.5px solid #E5E7EB", background:active?color+"18":"#fff", color:active?color:"#6B7280", minHeight:36, WebkitTapHighlightColor:"transparent" }}>
+    <button onClick={onClick} style={{ padding:"7px 14px", borderRadius:20, fontSize:12, fontWeight:500, fontFamily:F, cursor:"pointer", transition:"all 0.15s", border:active?`1.5px solid ${color}`:`1.5px solid ${theme.borderInput}`, background:active?color+"18":theme.inputBg, color:active?color:theme.textMuted, minHeight:36, WebkitTapHighlightColor:"transparent" }}>
       {label}
     </button>
   );
 }
 
 export function ChipGroup({ options, selected, onChange, color=BLUE }) {
+  const { theme } = useTheme();
   const toggle = item => onChange(selected.includes(item)?selected.filter(i=>i!==item):[...selected,item]);
   return (
     <div>
       {selected.length>0 && (
         <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10, padding:"10px 12px", background:color+"10", border:`1px solid ${color}30`, borderRadius:8 }}>
           <span style={{ fontSize:11, fontWeight:700, color, alignSelf:"center", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.05em" }}>Selected:</span>
-          {selected.map(s=><span key={s} onClick={()=>toggle(s)} style={{ fontSize:12, color, background:"#fff", border:`1px solid ${color}40`, borderRadius:12, padding:"3px 10px", cursor:"pointer", fontFamily:F, fontWeight:500 }}>{s} ×</span>)}
+          {selected.map(s=><span key={s} onClick={()=>toggle(s)} style={{ fontSize:12, color, background:theme.surface, border:`1px solid ${color}40`, borderRadius:12, padding:"3px 10px", cursor:"pointer", fontFamily:F, fontWeight:500 }}>{s} ×</span>)}
         </div>
       )}
       <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>{options.map(o=><Chip key={o} label={o} active={selected.includes(o)} color={color} onClick={()=>toggle(o)}/>)}</div>
@@ -287,10 +294,11 @@ export function ChipGroup({ options, selected, onChange, color=BLUE }) {
 }
 
 function TogGroup({ options, value, onChange, color=BLUE }) {
+  const { theme } = useTheme();
   return (
     <div style={{ display:"flex", gap:8 }}>
       {options.map(o=>(
-        <button key={o} onClick={()=>onChange(value===o?null:o)} style={{ flex:1, padding:"11px 8px", borderRadius:10, fontSize:13, fontWeight:500, fontFamily:F, cursor:"pointer", transition:"all 0.15s", border:value===o?`1.5px solid ${color}`:"1.5px solid #E5E7EB", background:value===o?color+"14":"#fff", color:value===o?color:"#6B7280", minHeight:44, WebkitTapHighlightColor:"transparent" }}>
+        <button key={o} onClick={()=>onChange(value===o?null:o)} style={{ flex:1, padding:"11px 8px", borderRadius:10, fontSize:13, fontWeight:500, fontFamily:F, cursor:"pointer", transition:"all 0.15s", border:value===o?`1.5px solid ${color}`:`1.5px solid ${theme.borderInput}`, background:value===o?color+"14":theme.inputBg, color:value===o?color:theme.textMuted, minHeight:44, WebkitTapHighlightColor:"transparent" }}>
           {o}
         </button>
       ))}
@@ -299,29 +307,32 @@ function TogGroup({ options, value, onChange, color=BLUE }) {
 }
 
 function Card({ children, accent, style }) {
+  const { theme } = useTheme();
   return (
-    <div style={{ background:"#fff", border:accent?`1.5px solid ${accent}28`:"1px solid #F0F0F0", borderRadius:14, padding:"20px 18px", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.04)", borderLeft:accent?`4px solid ${accent}`:undefined, ...style }}>
+    <div style={{ background:theme.surface, border:accent?`1.5px solid ${accent}28`:`1px solid ${theme.border}`, borderRadius:14, padding:"20px 18px", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.04)", borderLeft:accent?`4px solid ${accent}`:undefined, ...style }}>
       {children}
     </div>
   );
 }
 
 function CardTitle({ children, sub }) {
+  const { theme } = useTheme();
   return (
     <div style={{ marginBottom:16 }}>
-      <p style={{ margin:0, fontSize:15, fontWeight:700, color:"#111827", fontFamily:F }}>{children}</p>
-      {sub && <p style={{ margin:"3px 0 0", fontSize:12, color:"#9CA3AF", fontFamily:F, lineHeight:1.5 }}>{sub}</p>}
+      <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>{children}</p>
+      {sub && <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F, lineHeight:1.5 }}>{sub}</p>}
     </div>
   );
 }
 
 function Banner({ emoji, title, body, color }) {
+  const { theme } = useTheme();
   return (
     <div style={{ display:"flex", gap:12, padding:"14px 16px", background:color+"0D", border:`1px solid ${color}30`, borderRadius:12, marginBottom:18 }}>
       <span style={{ fontSize:20, flexShrink:0, lineHeight:1.4 }}>{emoji}</span>
       <div>
         <p style={{ margin:"0 0 3px", fontSize:12, fontWeight:700, color, fontFamily:F }}>{title}</p>
-        <p style={{ margin:0, fontSize:12, color:"#6B7280", fontFamily:F, lineHeight:1.65 }}>{body}</p>
+        <p style={{ margin:0, fontSize:12, color:theme.textMuted, fontFamily:F, lineHeight:1.65 }}>{body}</p>
       </div>
     </div>
   );
@@ -365,30 +376,31 @@ function Grid2({ children, w }) {
 
 export function IndustryPicker({ selected, onChange }) {
   const [open, setOpen] = useState(null);
+  const { theme } = useTheme();
   const toggle = item => onChange(selected.includes(item)?selected.filter(i=>i!==item):[...selected,item]);
   return (
     <div>
       {selected.length>0 && (
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10, padding:"10px 12px", background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:8 }}>
-          <span style={{ fontSize:11, fontWeight:700, color:BLUE, alignSelf:"center", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.05em" }}>Selected:</span>
-          {selected.map(s=><span key={s} onClick={()=>toggle(s)} style={{ fontSize:12, color:BLUE, background:"#fff", border:"1px solid #BFDBFE", borderRadius:12, padding:"3px 10px", cursor:"pointer", fontFamily:F, fontWeight:500 }}>{s} ×</span>)}
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10, padding:"10px 12px", background:theme.blueLight, border:`1px solid ${theme.blueBorder}`, borderRadius:8 }}>
+          <span style={{ fontSize:11, fontWeight:700, color:theme.blue, alignSelf:"center", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.05em" }}>Selected:</span>
+          {selected.map(s=><span key={s} onClick={()=>toggle(s)} style={{ fontSize:12, color:theme.blue, background:theme.surface, border:`1px solid ${theme.blueBorder}`, borderRadius:12, padding:"3px 10px", cursor:"pointer", fontFamily:F, fontWeight:500 }}>{s} ×</span>)}
         </div>
       )}
-      <div style={{ border:"1px solid #E5E7EB", borderRadius:12, overflow:"hidden" }}>
+      <div style={{ border:`1px solid ${theme.borderInput}`, borderRadius:12, overflow:"hidden" }}>
         {Object.entries(INDUSTRY_MAP).map(([grp,items],gi,arr)=>{
           const count = items.filter(i=>selected.includes(i)).length;
           const isOpen = open===grp;
           return (
-            <div key={grp} style={{ borderBottom:gi<arr.length-1?"1px solid #F3F4F6":"none" }}>
-              <button onClick={()=>setOpen(isOpen?null:grp)} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", background:isOpen?"#EFF6FF":"#fff", border:"none", cursor:"pointer", minHeight:48 }}>
-                <span style={{ fontSize:13, fontWeight:600, color:"#374151", fontFamily:F }}>{grp}</span>
+            <div key={grp} style={{ borderBottom:gi<arr.length-1?`1px solid ${theme.borderSubtle}`:"none" }}>
+              <button onClick={()=>setOpen(isOpen?null:grp)} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", background:isOpen?theme.blueLight:theme.surface, border:"none", cursor:"pointer", minHeight:48 }}>
+                <span style={{ fontSize:13, fontWeight:600, color:theme.textSec, fontFamily:F }}>{grp}</span>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  {count>0 && <span style={{ background:BLUE, color:"#fff", fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:10, fontFamily:F }}>{count}</span>}
-                  <span style={{ color:"#9CA3AF", fontSize:11 }}>{isOpen?"▲":"▼"}</span>
+                  {count>0 && <span style={{ background:theme.blue, color:"#fff", fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:10, fontFamily:F }}>{count}</span>}
+                  <span style={{ color:theme.textFaint, fontSize:11 }}>{isOpen?"▲":"▼"}</span>
                 </div>
               </button>
               {isOpen && (
-                <div style={{ padding:"12px 14px", background:"#F9FAFB", borderTop:"1px solid #F3F4F6", display:"flex", flexWrap:"wrap", gap:7 }}>
+                <div style={{ padding:"12px 14px", background:theme.surfaceAlt, borderTop:`1px solid ${theme.borderSubtle}`, display:"flex", flexWrap:"wrap", gap:7 }}>
                   {items.map(item=><Chip key={item} label={item} active={selected.includes(item)} onClick={()=>toggle(item)}/>)}
                 </div>
               )}
@@ -402,48 +414,49 @@ export function IndustryPicker({ selected, onChange }) {
 
 export function FrameworkPicker({ selected, onChange }) {
   const [open, setOpen] = useState(null);
+  const { theme } = useTheme();
   const toggle = name => onChange(selected.includes(name)?selected.filter(i=>i!==name):[...selected,name]);
   return (
     <div>
       {selected.length>0 && (
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10, padding:"10px 12px", background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:8 }}>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10, padding:"10px 12px", background:theme.blueLight, border:`1px solid ${theme.blueBorder}`, borderRadius:8 }}>
           <span style={{ fontSize:11, fontWeight:700, color:BLUE, alignSelf:"center", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.05em" }}>Selected:</span>
-          {selected.map(s=><span key={s} onClick={()=>toggle(s)} style={{ fontSize:12, color:BLUE, background:"#fff", border:"1px solid #BFDBFE", borderRadius:12, padding:"3px 10px", cursor:"pointer", fontFamily:F, fontWeight:500 }}>{s} ×</span>)}
+          {selected.map(s=><span key={s} onClick={()=>toggle(s)} style={{ fontSize:12, color:BLUE, background:theme.surface, border:`1px solid ${theme.blueBorder}`, borderRadius:12, padding:"3px 10px", cursor:"pointer", fontFamily:F, fontWeight:500 }}>{s} ×</span>)}
         </div>
       )}
-      <div style={{ border:"1px solid #E5E7EB", borderRadius:12, overflow:"hidden" }}>
+      <div style={{ border:`1px solid ${theme.borderInput}`, borderRadius:12, overflow:"hidden" }}>
         {Object.entries(WORKFLOW_PROCESS_MAP).map(([cat,procs],ci,arr)=>{
           const count = procs.filter(p=>selected.includes(p.name)).length;
           const isOpen = open===cat;
           return (
-            <div key={cat} style={{ borderBottom:ci<arr.length-1?"1px solid #F3F4F6":"none" }}>
-              <button onClick={()=>setOpen(isOpen?null:cat)} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", background:isOpen?"#EFF6FF":"#fff", border:"none", cursor:"pointer", minHeight:48 }}>
-                <span style={{ fontSize:13, fontWeight:600, color:"#374151", fontFamily:F }}>{cat}</span>
+            <div key={cat} style={{ borderBottom:ci<arr.length-1?`1px solid ${theme.borderSubtle}`:"none" }}>
+              <button onClick={()=>setOpen(isOpen?null:cat)} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", background:isOpen?theme.blueLight:theme.surface, border:"none", cursor:"pointer", minHeight:48 }}>
+                <span style={{ fontSize:13, fontWeight:600, color:theme.textSec, fontFamily:F }}>{cat}</span>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                   {count>0 && <span style={{ background:BLUE, color:"#fff", fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:10, fontFamily:F }}>{count}</span>}
-                  <span style={{ color:"#9CA3AF", fontSize:11 }}>{isOpen?"▲":"▼"}</span>
+                  <span style={{ color:theme.textFaint, fontSize:11 }}>{isOpen?"▲":"▼"}</span>
                 </div>
               </button>
               {isOpen && (
-                <div style={{ background:"#F9FAFB", borderTop:"1px solid #F3F4F6", overflowX:"auto" }}>
+                <div style={{ background:theme.surfaceAlt, borderTop:`1px solid ${theme.borderSubtle}`, overflowX:"auto" }}>
                   <table style={{ width:"100%", borderCollapse:"collapse", minWidth:320 }}>
                     <thead>
                       <tr>
                         <th style={{ width:44 }}/>
-                        <th style={{ textAlign:"left", padding:"8px 0", fontSize:11, fontWeight:700, color:"#9CA3AF", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Framework</th>
-                        <th style={{ textAlign:"left", padding:"8px 16px 8px 0", fontSize:11, fontWeight:700, color:"#9CA3AF", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>What it is</th>
+                        <th style={{ textAlign:"left", padding:"8px 0", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Framework</th>
+                        <th style={{ textAlign:"left", padding:"8px 16px 8px 0", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>What it is</th>
                       </tr>
                     </thead>
                     <tbody>
                       {procs.map(p=>(
-                        <tr key={p.name} onClick={()=>toggle(p.name)} style={{ cursor:"pointer", background:selected.includes(p.name)?"#EFF6FF":"#fff", borderTop:"1px solid #F3F4F6" }}>
+                        <tr key={p.name} onClick={()=>toggle(p.name)} style={{ cursor:"pointer", background:selected.includes(p.name)?theme.blueLight:theme.surface, borderTop:`1px solid ${theme.borderSubtle}` }}>
                           <td style={{ padding:"11px 16px", textAlign:"center" }}>
-                            <div style={{ width:18, height:18, borderRadius:4, border:`2px solid ${selected.includes(p.name)?BLUE:"#D1D5DB"}`, background:selected.includes(p.name)?BLUE:"transparent", display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+                            <div style={{ width:18, height:18, borderRadius:4, border:`2px solid ${selected.includes(p.name)?BLUE:theme.borderInput}`, background:selected.includes(p.name)?BLUE:"transparent", display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
                               {selected.includes(p.name) && <span style={{ color:"#fff", fontSize:11, fontWeight:700 }}>✓</span>}
                             </div>
                           </td>
-                          <td style={{ padding:"11px 12px 11px 0", fontSize:13, fontWeight:600, color:selected.includes(p.name)?BLUE:"#374151", fontFamily:F, whiteSpace:"nowrap" }}>{p.name}</td>
-                          <td style={{ padding:"11px 14px 11px 0", fontSize:12, color:"#6B7280", fontFamily:F, lineHeight:1.5 }}>{p.desc}</td>
+                          <td style={{ padding:"11px 12px 11px 0", fontSize:13, fontWeight:600, color:selected.includes(p.name)?BLUE:theme.textSec, fontFamily:F, whiteSpace:"nowrap" }}>{p.name}</td>
+                          <td style={{ padding:"11px 14px 11px 0", fontSize:12, color:theme.textMuted, fontFamily:F, lineHeight:1.5 }}>{p.desc}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -459,15 +472,16 @@ export function FrameworkPicker({ selected, onChange }) {
 }
 
 function FailureList({ selected, onChange, w }) {
+  const { theme } = useTheme();
   const toggle = r => onChange(selected.includes(r)?selected.filter(x=>x!==r):[...selected,r]);
   return (
     <div style={{ display:"grid", gridTemplateColumns:w>=560?"1fr 1fr":"1fr", gap:7 }}>
       {FAILURE_REASONS.map(r=>(
-        <button key={r} onClick={()=>toggle(r)} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"11px 13px", background:selected.includes(r)?"#FEF2F2":"#fff", border:`1.5px solid ${selected.includes(r)?"#EF4444":"#E5E7EB"}`, borderRadius:10, cursor:"pointer", textAlign:"left", minHeight:44 }}>
-          <div style={{ width:17, height:17, borderRadius:4, border:`2px solid ${selected.includes(r)?"#EF4444":"#D1D5DB"}`, background:selected.includes(r)?"#EF4444":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+        <button key={r} onClick={()=>toggle(r)} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"11px 13px", background:selected.includes(r)?"#FEF2F2":theme.surface, border:`1.5px solid ${selected.includes(r)?"#EF4444":theme.borderInput}`, borderRadius:10, cursor:"pointer", textAlign:"left", minHeight:44 }}>
+          <div style={{ width:17, height:17, borderRadius:4, border:`2px solid ${selected.includes(r)?"#EF4444":theme.borderInput}`, background:selected.includes(r)?"#EF4444":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
             {selected.includes(r) && <span style={{ color:"#fff", fontSize:9, fontWeight:700 }}>✓</span>}
           </div>
-          <span style={{ fontSize:13, color:selected.includes(r)?"#DC2626":"#6B7280", fontFamily:F, fontWeight:selected.includes(r)?600:400, lineHeight:1.4 }}>{r}</span>
+          <span style={{ fontSize:13, color:selected.includes(r)?"#DC2626":theme.textMuted, fontFamily:F, fontWeight:selected.includes(r)?600:400, lineHeight:1.4 }}>{r}</span>
         </button>
       ))}
     </div>
@@ -479,6 +493,7 @@ const emptyBuild = () => ({tool:"",structure:"",failureReasons:[],whatBreaks:"",
 
 function RBCard({ rb, index, onChange, onRemove, w }) {
   const [open, setOpen] = useState(true);
+  const { theme } = useTheme();
   const SC={Low:"#10B981",Medium:"#F59E0B",High:"#F97316",Blocker:"#EF4444"};
   return (
     <div style={{ border:"1.5px solid #FED7AA", borderRadius:12, marginBottom:10, overflow:"hidden" }}>
@@ -493,7 +508,7 @@ function RBCard({ rb, index, onChange, onRemove, w }) {
         </div>
       </button>
       {open && (
-        <div style={{ padding:"18px 16px", background:"#fff" }}>
+        <div style={{ padding:"18px 16px", background:theme.surface }}>
           <Grid2 w={w}>
             <Field label="Roadblock type"><Sel value={rb.type} onChange={v=>onChange({...rb,type:v})} options={ROADBLOCK_TYPES}/></Field>
             <Field label="Severity"><Sel value={rb.severity} onChange={v=>onChange({...rb,severity:v})} options={SEVERITIES}/></Field>
@@ -512,13 +527,14 @@ function RBCard({ rb, index, onChange, onRemove, w }) {
 
 function BuildCard({ item, index, onChange, onRemove, w }) {
   const [open, setOpen] = useState(true);
+  const { theme } = useTheme();
   const UC={Low:"#10B981",Medium:"#F59E0B",High:"#F97316",Critical:"#EF4444"};
   return (
     <div style={{ border:"1.5px solid #FED7AA", borderRadius:12, marginBottom:10, overflow:"hidden" }}>
       <button onClick={()=>setOpen(o=>!o)} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", background:"#FFFBF5", border:"none", cursor:"pointer", borderBottom:open?"1px solid #FED7AA":"none", minHeight:52 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:13, fontWeight:700, color:"#EA580C", fontFamily:F }}>Build {index+1}</span>
-          {item.tool && <span style={{ fontSize:12, color:"#374151", fontFamily:F, fontWeight:500 }}>{item.tool}</span>}
+          {item.tool && <span style={{ fontSize:12, color:theme.textSec, fontFamily:F, fontWeight:500 }}>{item.tool}</span>}
           <span style={{ fontSize:11, fontWeight:700, color:UC[item.urgency]||"#9CA3AF", background:(UC[item.urgency]||"#9CA3AF")+"18", borderRadius:10, padding:"2px 8px", fontFamily:F }}>{item.urgency}</span>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -527,12 +543,12 @@ function BuildCard({ item, index, onChange, onRemove, w }) {
         </div>
       </button>
       {open && (
-        <div style={{ padding:"18px 16px", background:"#fff" }}>
+        <div style={{ padding:"18px 16px", background:theme.surface }}>
           <Grid2 w={w}>
             <Field label="Current tool"><Sel value={item.tool} onChange={v=>onChange({...item,tool:v})} options={CURRENT_TOOLS_USED}/></Field>
             <Field label="Fix urgency">
               <div style={{ display:"flex", gap:6 }}>
-                {["Low","Medium","High","Critical"].map(u=><button key={u} onClick={()=>onChange({...item,urgency:u})} style={{ flex:1, padding:"8px 4px", borderRadius:8, fontSize:11, fontWeight:600, fontFamily:F, cursor:"pointer", border:item.urgency===u?`1.5px solid ${UC[u]}`:"1.5px solid #E5E7EB", background:item.urgency===u?UC[u]+"18":"#fff", color:item.urgency===u?UC[u]:"#9CA3AF", minHeight:40 }}>{u}</button>)}
+                {["Low","Medium","High","Critical"].map(u=><button key={u} onClick={()=>onChange({...item,urgency:u})} style={{ flex:1, padding:"8px 4px", borderRadius:8, fontSize:11, fontWeight:600, fontFamily:F, cursor:"pointer", border:item.urgency===u?`1.5px solid ${UC[u]}`:`1.5px solid ${theme.borderInput}`, background:item.urgency===u?UC[u]+"18":theme.surface, color:item.urgency===u?UC[u]:theme.textFaint, minHeight:40 }}>{u}</button>)}
               </div>
             </Field>
           </Grid2>
@@ -555,6 +571,7 @@ function BuildCard({ item, index, onChange, onRemove, w }) {
 // ── Step screens ──────────────────────────────────────────────────────────────
 
 function StepAudit({ data, set, w, caseName, setCaseName }) {
+  const { theme } = useTheme();
   const add=()=>set({...data,builds:[...data.builds,emptyBuild()]});
   const upd=(i,v)=>set({...data,builds:data.builds.map((b,idx)=>idx===i?v:b)});
   const rem=(i)=>set({...data,builds:data.builds.filter((_,idx)=>idx!==i)});
@@ -587,12 +604,12 @@ function StepAudit({ data, set, w, caseName, setCaseName }) {
         </Card>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
           <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:"#111827", fontFamily:F }}>Builds to audit <span style={{ color:"#9CA3AF", fontWeight:400 }}>({data.builds.length})</span></p>
-            <p style={{ margin:"2px 0 0", fontSize:12, color:"#9CA3AF", fontFamily:F }}>One entry per broken tool or workflow area</p>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Builds to audit <span style={{ color:theme.textFaint, fontWeight:400 }}>({data.builds.length})</span></p>
+            <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>One entry per broken tool or workflow area</p>
           </div>
-          <button onClick={add} style={{ padding:"11px 18px", background:"#fff", border:"1.5px solid #EA580C", borderRadius:10, color:"#EA580C", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Build</button>
+          <button onClick={add} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #EA580C", borderRadius:10, color:"#EA580C", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Build</button>
         </div>
-        {data.builds.length===0 && <div style={{ padding:32, textAlign:"center", border:"2px dashed #E5E7EB", borderRadius:12 }}><p style={{ margin:0, fontSize:13, color:"#9CA3AF", fontFamily:F }}>Click "Add Build" to document what's broken.</p></div>}
+        {data.builds.length===0 && <div style={{ padding:32, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>Click "Add Build" to document what's broken.</p></div>}
         {data.builds.map((b,i)=><BuildCard key={i} item={b} index={i} onChange={v=>upd(i,v)} onRemove={()=>rem(i)} w={w}/>)}
         {data.builds.length>0 && (
           <Card accent="#EA580C">
@@ -646,6 +663,7 @@ const emptyList = () => ({ name:"", statuses:"", customFields:"", automations:[]
 const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()] });
 
 function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp, onMoveDown, isFirst, isLast, color, pipelinePhases }) {
+  const { theme } = useTheme();
   const updTrigger = (i,k,v) => onChange({ ...auto, triggers: auto.triggers.map((t,idx)=>idx===i?{...t,[k]:v}:t) });
   const addTrigger = () => onChange({ ...auto, triggers:[...auto.triggers, emptyTrigger()] });
   const remTrigger = i => onChange({ ...auto, triggers: auto.triggers.filter((_,idx)=>idx!==i) });
@@ -654,15 +672,15 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
   const remAction = i => onChange({ ...auto, actions: auto.actions.filter((_,idx)=>idx!==i) });
   const validPhases = (pipelinePhases||[]).filter(p=>p.trim());
   return (
-    <div style={{ border:`1px solid ${color}20`, borderLeft:`3px solid ${color}80`, borderRadius:9, padding:"14px 16px", marginBottom:10, background:"#fff" }}>
+    <div style={{ border:`1px solid ${color}20`, borderLeft:`3px solid ${color}80`, borderRadius:9, padding:"14px 16px", marginBottom:10, background:theme.surface }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:11, fontWeight:700, color, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Automation {autoIdx+1}</span>
           {auto.pipelinePhase && <span style={{ fontSize:10, fontWeight:700, color, background:color+"12", border:`1px solid ${color}30`, borderRadius:6, padding:"2px 8px", fontFamily:F }}>{auto.pipelinePhase}</span>}
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          <button type="button" onClick={onMoveUp} disabled={isFirst} style={{ fontSize:13, color:isFirst?"#D1D5DB":"#6B7280", background:"none", border:"none", cursor:isFirst?"default":"pointer", padding:"2px 4px", lineHeight:1 }} title="Move up">▲</button>
-          <button type="button" onClick={onMoveDown} disabled={isLast} style={{ fontSize:13, color:isLast?"#D1D5DB":"#6B7280", background:"none", border:"none", cursor:isLast?"default":"pointer", padding:"2px 4px", lineHeight:1 }} title="Move down">▼</button>
+          <button type="button" onClick={onMoveUp} disabled={isFirst} style={{ fontSize:13, color:isFirst?theme.borderInput:theme.textMuted, background:"none", border:"none", cursor:isFirst?"default":"pointer", padding:"2px 4px", lineHeight:1 }} title="Move up">▲</button>
+          <button type="button" onClick={onMoveDown} disabled={isLast} style={{ fontSize:13, color:isLast?theme.borderInput:theme.textMuted, background:"none", border:"none", cursor:isLast?"default":"pointer", padding:"2px 4px", lineHeight:1 }} title="Move down">▼</button>
           {canRemove && <button type="button" onClick={onRemove} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F, marginLeft:4 }}>Remove</button>}
         </div>
       </div>
@@ -674,13 +692,13 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
         </div>
       )}
       {/* Platform toggle */}
-      <div style={{ display:"flex", gap:0, marginBottom:14, border:"1.5px solid #E5E7EB", borderRadius:9, overflow:"hidden", width:"fit-content" }}>
+      <div style={{ display:"flex", gap:0, marginBottom:14, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, overflow:"hidden", width:"fit-content" }}>
         {["clickup","third_party"].map(p=>{
           const active = (auto.platform||"clickup")===p;
           const label = p==="clickup" ? "ClickUp" : "3rd Party";
           return (
             <button key={p} type="button" onClick={()=>onChange({...auto,platform:p})}
-              style={{ padding:"6px 16px", fontSize:12, fontWeight:600, fontFamily:F, border:"none", cursor:"pointer", background:active?color:"#fff", color:active?"#fff":"#6B7280", transition:"all 0.15s" }}>
+              style={{ padding:"6px 16px", fontSize:12, fontWeight:600, fontFamily:F, border:"none", cursor:"pointer", background:active?color:theme.surface, color:active?"#fff":theme.textMuted, transition:"all 0.15s" }}>
               {label}
             </button>
           );
@@ -689,13 +707,13 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
       {/* 3rd party platform picker */}
       {(auto.platform||"clickup")==="third_party" && (
         <div style={{ marginBottom:12 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:"#6B7280", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Platform</div>
+          <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Platform</div>
           <Sel value={auto.third_party_platform||""} onChange={v=>onChange({...auto,third_party_platform:v})} options={THIRD_PARTY_PLATFORMS} placeholder="Select platform…"/>
         </div>
       )}
       {/* Triggers */}
       <div style={{ marginBottom:12 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:"#6B7280", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Triggers</div>
+        <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Triggers</div>
         {auto.triggers.map((t,ti)=>(
           <div key={ti} style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:8 }}>
             <div style={{ flex:"0 0 190px" }}><Sel value={t.type} onChange={v=>updTrigger(ti,"type",v)} options={auto.third_party_platform==="HubSpot Workflows" ? HUBSPOT_TRIGGERS : CLICKUP_TRIGGERS} placeholder="Select trigger…"/></div>
@@ -708,7 +726,7 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
       {/* Actions — ClickUp only */}
       {(auto.platform||"clickup")==="clickup" && (
         <div style={{ marginBottom:12 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:"#6B7280", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Actions</div>
+          <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Actions</div>
           {auto.actions.map((a,ai)=>(
             <div key={ai} style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:8 }}>
               <div style={{ flex:"0 0 190px" }}><Sel value={a.type} onChange={v=>updAction(ai,"type",v)} options={CLICKUP_ACTIONS} placeholder="Select action…"/></div>
@@ -723,12 +741,12 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
       <div style={{ marginBottom:4 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:11, fontWeight:700, color:"#6B7280", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>
+            <span style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>
               {(auto.platform||"clickup")==="clickup" ? "Agent / Automation Instructions" : "Actions / Instructions"}
             </span>
             {auto.use_agent && <span style={{ fontSize:10, fontWeight:700, color:"#7C3AED", background:"#F5F3FF", border:"1px solid #DDD6FE", borderRadius:6, padding:"2px 7px", fontFamily:F, letterSpacing:"0.04em" }}>AGENT ON</span>}
           </div>
-          <span style={{ fontSize:11, color:"#9CA3AF", fontFamily:F }}>optional</span>
+          <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F }}>optional</span>
         </div>
         <textarea
           value={auto.instructions}
@@ -785,6 +803,7 @@ function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color,
 }
 
 function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w }) {
+  const { theme } = useTheme();
   const color = "#0284C7";
   const updList = (i,v) => onChange({ ...wf, lists: wf.lists.map((l,idx)=>idx===i?v:l) });
   const addList = () => onChange({ ...wf, lists: [...wf.lists, emptyList()] });
@@ -794,7 +813,7 @@ function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w }) {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ width:24, height:24, borderRadius:6, background:color, color:"#fff", fontSize:12, fontWeight:700, fontFamily:F, display:"inline-flex", alignItems:"center", justifyContent:"center" }}>{wfIdx+1}</span>
-          <span style={{ fontSize:14, fontWeight:700, color:"#111827", fontFamily:F }}>{wf.name||`Workflow ${wfIdx+1}`}</span>
+          <span style={{ fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{wf.name||`Workflow ${wfIdx+1}`}</span>
         </div>
         <button type="button" onClick={onRemove} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F, flexShrink:0 }}>Remove workflow</button>
       </div>
@@ -806,12 +825,12 @@ function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w }) {
           <div key={pi} style={{ display:"flex", gap:6, alignItems:"center", marginBottom:6 }}>
             <span style={{ fontSize:11, fontWeight:700, color:"#9CA3AF", fontFamily:F, minWidth:22, textAlign:"right" }}>{pi+1}.</span>
             <div style={{ flex:1 }}><TI value={phase} onChange={v=>onChange({...wf,pipeline:(wf.pipeline||[]).map((p,idx)=>idx===pi?v:p)})} placeholder={`Phase ${pi+1} name…`}/></div>
-            <button type="button" onClick={()=>{const n=[...(wf.pipeline||[])];[n[pi],n[pi-1]]=[n[pi-1],n[pi]];onChange({...wf,pipeline:n});}} disabled={pi===0} style={{ fontSize:13, color:pi===0?"#D1D5DB":"#6B7280", background:"none", border:"none", cursor:pi===0?"default":"pointer", padding:"4px 2px" }} title="Move up">▲</button>
-            <button type="button" onClick={()=>{const n=[...(wf.pipeline||[])];[n[pi],n[pi+1]]=[n[pi+1],n[pi]];onChange({...wf,pipeline:n});}} disabled={pi===(wf.pipeline||[]).length-1} style={{ fontSize:13, color:pi===(wf.pipeline||[]).length-1?"#D1D5DB":"#6B7280", background:"none", border:"none", cursor:pi===(wf.pipeline||[]).length-1?"default":"pointer", padding:"4px 2px" }} title="Move down">▼</button>
+            <button type="button" onClick={()=>{const n=[...(wf.pipeline||[])];[n[pi],n[pi-1]]=[n[pi-1],n[pi]];onChange({...wf,pipeline:n});}} disabled={pi===0} style={{ fontSize:13, color:pi===0?theme.borderInput:theme.textMuted, background:"none", border:"none", cursor:pi===0?"default":"pointer", padding:"4px 2px" }} title="Move up">▲</button>
+            <button type="button" onClick={()=>{const n=[...(wf.pipeline||[])];[n[pi],n[pi+1]]=[n[pi+1],n[pi]];onChange({...wf,pipeline:n});}} disabled={pi===(wf.pipeline||[]).length-1} style={{ fontSize:13, color:pi===(wf.pipeline||[]).length-1?theme.borderInput:theme.textMuted, background:"none", border:"none", cursor:pi===(wf.pipeline||[]).length-1?"default":"pointer", padding:"4px 2px" }} title="Move down">▼</button>
             <button type="button" onClick={()=>onChange({...wf,pipeline:(wf.pipeline||[]).filter((_,idx)=>idx!==pi)})} style={{ fontSize:16, color:"#EF4444", background:"none", border:"none", cursor:"pointer", padding:"4px 2px", lineHeight:1 }}>×</button>
           </div>
         ))}
-        {(wf.pipeline||[]).length===0 && <p style={{ margin:"0 0 6px", fontSize:12, color:"#9CA3AF", fontFamily:F }}>No pipeline phases yet.</p>}
+        {(wf.pipeline||[]).length===0 && <p style={{ margin:"0 0 6px", fontSize:12, color:theme.textFaint, fontFamily:F }}>No pipeline phases yet.</p>}
         <button type="button" onClick={()=>onChange({...wf,pipeline:[...(wf.pipeline||[]),""]}) } style={{ fontSize:12, color, background:"none", border:`1px dashed ${color}50`, borderRadius:7, padding:"5px 12px", cursor:"pointer", fontFamily:F }}>+ Add phase</button>
       </div>
       <HR label={`lists (${wf.lists.length})`}/>
@@ -826,6 +845,7 @@ function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w }) {
 }
 
 function StepBuild({ data, set, w, deltaData, setDelta }) {
+  const { theme } = useTheme();
   const workflows = data.workflows || [];
   const addWf = () => set({ ...data, workflows: [...workflows, emptyWorkflow()] });
   const updWf = (i,v) => set({ ...data, workflows: workflows.map((wf,idx)=>idx===i?v:wf) });
@@ -837,8 +857,8 @@ function StepBuild({ data, set, w, deltaData, setDelta }) {
     <div>
       <Banner emoji="🏗️" title="Map each workflow build in detail." body="Add one workflow per distinct space or flow. Each workflow has its own lists — and each list has its own statuses, custom fields, and automations." color="#0284C7"/>
       {workflows.length === 0 ? (
-        <div style={{ padding:"40px 24px", textAlign:"center", background:"#fff", border:"1.5px dashed #BFDBFE", borderRadius:14, marginBottom:14 }}>
-          <p style={{ margin:"0 0 16px", fontSize:14, color:"#6B7280", fontFamily:F }}>No workflows yet. Add one to start mapping the build.</p>
+        <div style={{ padding:"40px 24px", textAlign:"center", background:theme.surface, border:"1.5px dashed #BFDBFE", borderRadius:14, marginBottom:14 }}>
+          <p style={{ margin:"0 0 16px", fontSize:14, color:theme.textMuted, fontFamily:F }}>No workflows yet. Add one to start mapping the build.</p>
           <button type="button" onClick={addWf} style={{ padding:"10px 24px", background:"#0284C7", border:"none", borderRadius:10, color:"#fff", fontSize:13, fontWeight:700, fontFamily:F, cursor:"pointer" }}>+ Add first workflow</button>
         </div>
       ) : (
@@ -854,12 +874,12 @@ function StepBuild({ data, set, w, deltaData, setDelta }) {
       <Card><CardTitle hint="optional">Overall build notes</CardTitle><TI rows={3} value={data.buildNotes} onChange={v=>set({...data,buildNotes:v})} placeholder="General notes that apply across all workflows…"/></Card>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
         <div>
-          <p style={{ margin:0, fontSize:14, fontWeight:700, color:"#111827", fontFamily:F }}>Roadblocks</p>
-          <p style={{ margin:"2px 0 0", fontSize:12, color:"#9CA3AF", fontFamily:F }}>Each becomes a proactive warning for future similar builds</p>
+          <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Roadblocks</p>
+          <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Each becomes a proactive warning for future similar builds</p>
         </div>
-        <button onClick={addRb} style={{ padding:"11px 18px", background:"#fff", border:"1.5px solid #F97316", borderRadius:10, color:"#F97316", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Roadblock</button>
+        <button onClick={addRb} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #F97316", borderRadius:10, color:"#F97316", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Roadblock</button>
       </div>
-      {deltaData.roadblocks.length===0 && <div style={{ padding:24, textAlign:"center", border:"2px dashed #E5E7EB", borderRadius:12 }}><p style={{ margin:0, fontSize:13, color:"#9CA3AF", fontFamily:F }}>No roadblocks — add one if something broke.</p></div>}
+      {deltaData.roadblocks.length===0 && <div style={{ padding:24, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>No roadblocks — add one if something broke.</p></div>}
       {deltaData.roadblocks.map((r,i)=><RBCard key={i} rb={r} index={i} onChange={v=>updRb(i,v)} onRemove={()=>remRb(i)} w={w}/>)}
     </div>
   );
@@ -886,6 +906,7 @@ function StepDelta({ data, set, w }) {
 }
 
 function StepReasoning({ data, set, w }) {
+  const { theme } = useTheme();
   return (
     <div>
       <Banner emoji="🧠" title="Document the thinking, not just the output." body="The 'why' behind every decision is what makes this system intelligent over time." color="#059669"/>
@@ -905,11 +926,11 @@ function StepReasoning({ data, set, w }) {
         <CardTitle sub="How complex was this build overall?">Complexity rating</CardTitle>
         <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
           {[1,2,3,4,5].map(n=>(
-            <button key={n} onClick={()=>set({...data,complexity:n})} style={{ width:48, height:48, borderRadius:10, border:`2px solid ${data.complexity>=n?BLUE:"#E5E7EB"}`, background:data.complexity>=n?"#EFF6FF":"#fff", fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <span style={{ color:data.complexity>=n?BLUE:"#D1D5DB" }}>◆</span>
+            <button key={n} onClick={()=>set({...data,complexity:n})} style={{ width:48, height:48, borderRadius:10, border:`2px solid ${data.complexity>=n?BLUE:theme.borderInput}`, background:data.complexity>=n?theme.blueLight:theme.surface, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <span style={{ color:data.complexity>=n?BLUE:theme.borderInput }}>◆</span>
             </button>
           ))}
-          <span style={{ fontSize:13, color:"#6B7280", fontFamily:F }}>
+          <span style={{ fontSize:13, color:theme.textMuted, fontFamily:F }}>
             {["","Very simple","Simple","Moderate","Complex","Very complex"][data.complexity]}
           </span>
         </div>
@@ -946,23 +967,24 @@ function StepOutcome({ data, set, w }) {
 
 // ── Mobile step drawer ────────────────────────────────────────────────────────
 function MobileStepDrawer({ step, setStep, cs, open, onClose }) {
+  const { theme } = useTheme();
   if (!open) return null;
   return (
     <>
       <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:40 }}/>
-      <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"#fff", borderRadius:"18px 18px 0 0", zIndex:50, padding:"12px 0 32px" }}>
-        <div style={{ width:36, height:4, background:"#E5E7EB", borderRadius:4, margin:"0 auto 16px" }}/>
-        <p style={{ margin:"0 0 8px", padding:"0 20px", fontSize:11, fontWeight:700, color:"#9CA3AF", fontFamily:F, letterSpacing:"0.08em", textTransform:"uppercase" }}>Jump to step</p>
+      <div style={{ position:"fixed", bottom:0, left:0, right:0, background:theme.surface, borderRadius:"18px 18px 0 0", zIndex:50, padding:"12px 0 32px" }}>
+        <div style={{ width:36, height:4, background:theme.border, borderRadius:4, margin:"0 auto 16px" }}/>
+        <p style={{ margin:"0 0 8px", padding:"0 20px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, letterSpacing:"0.08em", textTransform:"uppercase" }}>Jump to step</p>
         {STEPS.map((s,i)=>(
           <button key={s.id} onClick={()=>{setStep(i);onClose();}} style={{ width:"100%", display:"flex", alignItems:"center", gap:14, padding:"14px 20px", background:i===step?s.color+"0D":"transparent", border:"none", cursor:"pointer", borderLeft:i===step?`3px solid ${s.color}`:"3px solid transparent" }}>
-            <div style={{ width:28, height:28, borderRadius:"50%", background:i<step?"#059669":i===step?s.color:"#F3F4F6", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <div style={{ width:28, height:28, borderRadius:"50%", background:i<step?"#059669":i===step?s.color:theme.skeleton, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
               {i<step
                 ? <span style={{ color:"#fff", fontSize:12, fontWeight:700 }}>✓</span>
-                : <span style={{ fontSize:11, fontWeight:700, color:i===step?"#fff":"#9CA3AF", fontFamily:F }}>{i+1}</span>}
+                : <span style={{ fontSize:11, fontWeight:700, color:i===step?"#fff":theme.textFaint, fontFamily:F }}>{i+1}</span>}
             </div>
             <div style={{ textAlign:"left" }}>
-              <p style={{ margin:0, fontSize:14, fontWeight:i===step?700:500, color:i===step?s.color:"#374151", fontFamily:F }}>{s.label}</p>
-              <p style={{ margin:0, fontSize:11, color:"#9CA3AF", fontFamily:F }}>{STEP_DESC[i].slice(0,48)}…</p>
+              <p style={{ margin:0, fontSize:14, fontWeight:i===step?700:500, color:i===step?s.color:theme.textSec, fontFamily:F }}>{s.label}</p>
+              <p style={{ margin:0, fontSize:11, color:theme.textFaint, fontFamily:F }}>{STEP_DESC[i].slice(0,48)}…</p>
             </div>
           </button>
         ))}
@@ -979,6 +1001,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
   const [caseName, setCaseName] = useState(initialName || "");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const w = useWidth();
+  const { theme } = useTheme();
 
   const isMobile = w < 640;
   const cs = STEPS[step];
@@ -990,17 +1013,17 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
   const handleSave = () => onSubmit(data, enteredBy, caseName);
 
   return (
-    <div style={{ background:"#F9FAFB", minHeight:"100vh" }}>
+    <div style={{ background:theme.bg, minHeight:"100vh" }}>
 
       {/* ── Sub-header (inside app layout) ──────────────────────────────── */}
-      <div style={{ position:"sticky", top: isMobile ? 56 : 0, zIndex:20, background:"#fff", borderBottom:"1px solid #F0F0F0", boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
+      <div style={{ position:"sticky", top: isMobile ? 56 : 0, zIndex:20, background:theme.surface, borderBottom:`1px solid ${theme.border}`, boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
         <div style={{ maxWidth:820, margin:"0 auto", padding:`0 ${px}px` }}>
 
           {/* Top row */}
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", height: isMobile ? 52 : 60 }}>
             <div>
-              <p style={{ margin:0, fontSize:11, fontWeight:700, color:"#9CA3AF", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{isEditing ? "Edit project file" : "New case file"}</p>
-              <p style={{ margin:0, fontSize:14, fontWeight:700, color:"#111827", fontFamily:F }}>{STEP_TITLES[step]}</p>
+              <p style={{ margin:0, fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{isEditing ? "Edit project file" : "New case file"}</p>
+              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{STEP_TITLES[step]}</p>
             </div>
             {isMobile ? (
               <button onClick={()=>setDrawerOpen(true)} style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 12px", background:`${cs.color}10`, border:`1px solid ${cs.color}40`, borderRadius:8, cursor:"pointer" }}>
@@ -1009,9 +1032,9 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
               </button>
             ) : (
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <label style={{ fontSize:12, color:"#9CA3AF", fontFamily:F, fontWeight:500 }}>Logged by</label>
+                <label style={{ fontSize:12, color:theme.textFaint, fontFamily:F, fontWeight:500 }}>Logged by</label>
                 <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
-                  style={{ width:160, fontFamily:F, fontSize:13, color:"#374151", background:"#F9FAFB", border:"1.5px solid #E5E7EB", borderRadius:9, padding:"8px 12px", outline:"none" }}/>
+                  style={{ width:160, fontFamily:F, fontSize:13, color:theme.textSec, background:theme.surfaceAlt, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"8px 12px", outline:"none" }}/>
               </div>
             )}
           </div>
@@ -1022,7 +1045,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
               {STEPS.map((s,i)=>(
                 <button key={s.id} onClick={()=>setStep(i)} style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 16px", background:"transparent", border:"none", cursor:"pointer", flexShrink:0, borderBottom:i===step?`3px solid ${s.color}`:"3px solid transparent", transition:"all 0.2s" }}>
                   {i<step && <span style={{ width:16, height:16, background:"#059669", borderRadius:"50%", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:700 }}>✓</span>}
-                  <span style={{ fontSize:12, fontWeight:i===step?700:500, color:i===step?s.color:i<step?"#9CA3AF":"#D1D5DB", fontFamily:F, whiteSpace:"nowrap" }}>{w < 900 ? s.short : s.label}</span>
+                  <span style={{ fontSize:12, fontWeight:i===step?700:500, color:i===step?s.color:i<step?theme.textFaint:theme.borderInput, fontFamily:F, whiteSpace:"nowrap" }}>{w < 900 ? s.short : s.label}</span>
                 </button>
               ))}
             </div>
@@ -1032,7 +1055,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
           {isMobile && (
             <div style={{ display:"flex", gap:5, padding:"10px 0 11px" }}>
               {STEPS.map((_,i)=>(
-                <div key={i} onClick={()=>setStep(i)} style={{ flex:i===step?3:1, height:4, borderRadius:4, background:i===step?cs.color:i<step?"#D1D5DB":"#E5E7EB", cursor:"pointer", transition:"all 0.3s" }}/>
+                <div key={i} onClick={()=>setStep(i)} style={{ flex:i===step?3:1, height:4, borderRadius:4, background:i===step?cs.color:i<step?theme.textFaint:theme.border, cursor:"pointer", transition:"all 0.3s" }}/>
               ))}
             </div>
           )}
@@ -1040,7 +1063,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
 
         {/* Progress bar */}
         {!isMobile && (
-          <div style={{ height:3, background:"#F3F4F6" }}>
+          <div style={{ height:3, background:theme.skeleton }}>
             <div style={{ height:"100%", background:cs.color, width:`${pct}%`, transition:"width 0.4s ease" }}/>
           </div>
         )}
@@ -1054,10 +1077,10 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
 
         {/* Mobile: logged by */}
         {isMobile && (
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, background:"#fff", border:"1px solid #F0F0F0", borderRadius:12, padding:"10px 14px" }}>
-            <span style={{ fontSize:12, color:"#9CA3AF", fontFamily:F, fontWeight:500, flexShrink:0 }}>Logged by</span>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:12, padding:"10px 14px" }}>
+            <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F, fontWeight:500, flexShrink:0 }}>Logged by</span>
             <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
-              style={{ flex:1, fontFamily:F, fontSize:14, color:"#374151", background:"transparent", border:"none", outline:"none" }}/>
+              style={{ flex:1, fontFamily:F, fontSize:14, color:theme.textSec, background:"transparent", border:"none", outline:"none" }}/>
           </div>
         )}
 
@@ -1070,16 +1093,16 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
       </div>
 
       {/* ── Sticky footer ────────────────────────────────────────────────── */}
-      <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"#fff", borderTop:"1px solid #F0F0F0", padding:`12px ${isMobile?16:24}px`, boxShadow:"0 -4px 16px rgba(0,0,0,0.06)", zIndex:20 }}>
+      <div style={{ position:"fixed", bottom:0, left:0, right:0, background:theme.surface, borderTop:`1px solid ${theme.border}`, padding:`12px ${isMobile?16:24}px`, boxShadow:"0 -4px 16px rgba(0,0,0,0.06)", zIndex:20 }}>
         <div style={{ maxWidth:820, margin:"0 auto", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           {step === 0 && onCancel ? (
             <button onClick={onCancel}
-              style={{ padding:`11px ${isMobile?18:24}px`, border:"1.5px solid #E5E7EB", borderRadius:10, background:"#fff", color:"#374151", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:F, minHeight:44 }}>
+              style={{ padding:`11px ${isMobile?18:24}px`, border:`1.5px solid ${theme.borderInput}`, borderRadius:10, background:theme.surface, color:theme.textSec, fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:F, minHeight:44 }}>
               Cancel
             </button>
           ) : (
             <button onClick={()=>setStep(s=>s-1)} disabled={step===0}
-              style={{ padding:`11px ${isMobile?18:24}px`, border:"1.5px solid #E5E7EB", borderRadius:10, background:"#fff", color:step===0?"#D1D5DB":"#374151", fontSize:13, fontWeight:600, cursor:step===0?"not-allowed":"pointer", fontFamily:F, opacity:step===0?0.45:1, minHeight:44 }}>
+              style={{ padding:`11px ${isMobile?18:24}px`, border:`1.5px solid ${theme.borderInput}`, borderRadius:10, background:theme.surface, color:step===0?theme.borderInput:theme.textSec, fontSize:13, fontWeight:600, cursor:step===0?"not-allowed":"pointer", fontFamily:F, opacity:step===0?0.45:1, minHeight:44 }}>
               ← Back
             </button>
           )}

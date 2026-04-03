@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile, useShareCaseFile } from "../../hooks/useCaseFiles";
 import { formatDate, satisfactionLabel, formStateToCaseFilePayload, caseFileToFormState } from "../../utils/transforms";
 import { ChipGroup, IndustryPicker, FrameworkPicker, TOOLS, PAIN_POINTS, CLICKUP_TRIGGERS, CLICKUP_ACTIONS, THIRD_PARTY_PLATFORMS, CURRENT_TOOLS_USED, FAILURE_REASONS, WORKFLOW_TYPES } from "../../components/CaseFileForm";
+import { useTheme } from "../../hooks/useTheme";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 const BLUE = "#2563EB";
@@ -17,6 +18,7 @@ const STEP_COLORS = {
 };
 
 function Section({ title, emoji, color, children }) {
+  const { theme } = useTheme();
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{
@@ -32,7 +34,7 @@ function Section({ title, emoji, color, children }) {
         <span style={{ fontSize: 14, fontWeight: 700, color, fontFamily: F }}>{title}</span>
       </div>
       <div style={{
-        background: "#fff",
+        background: theme.surface,
         border: `1px solid ${color}20`,
         borderTop: "none",
         borderRadius: "0 0 12px 12px",
@@ -45,6 +47,7 @@ function Section({ title, emoji, color, children }) {
 }
 
 function Row({ label, value, fullWidth }) {
+  const { theme } = useTheme();
   if (!value && value !== 0) return null;
   const displayValue = Array.isArray(value)
     ? value.length === 0 ? null : value.join(", ")
@@ -56,12 +59,12 @@ function Row({ label, value, fullWidth }) {
       gridTemplateColumns: "180px 1fr",
       gap: 12,
       padding: "10px 0",
-      borderBottom: "1px solid #F9FAFB",
+      borderBottom: `1px solid ${theme.borderSubtle}`,
     }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", paddingTop: fullWidth ? 0 : 1 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", paddingTop: fullWidth ? 0 : 1 }}>
         {label}
       </span>
-      <span style={{ fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6, marginTop: fullWidth ? 6 : 0 }}>
+      <span style={{ fontSize: 13, color: theme.textSec, fontFamily: F, lineHeight: 1.6, marginTop: fullWidth ? 6 : 0 }}>
         {typeof displayValue === "boolean"
           ? displayValue ? "Yes" : "No"
           : displayValue}
@@ -71,7 +74,8 @@ function Row({ label, value, fullWidth }) {
 }
 
 function TagList({ items, color = BLUE }) {
-  if (!items?.length) return <span style={{ fontSize: 13, color: "#9CA3AF", fontFamily: F }}>None</span>;
+  const { theme } = useTheme();
+  if (!items?.length) return <span style={{ fontSize: 13, color: theme.textFaint, fontFamily: F }}>None</span>;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
       {items.map(item => (
@@ -182,19 +186,22 @@ function CurrentBuildCard({ build, index }) {
 
 function EInput({ value, onChange, placeholder }) {
   const [f, setF] = useState(false);
-  const s = { width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:13, color:"#374151", border:`1.5px solid ${f?BLUE:"#E5E7EB"}`, borderRadius:9, padding:"9px 12px", outline:"none", background:"#fff", boxShadow:f?"0 0 0 3px #EFF6FF":"none" };
+  const { theme } = useTheme();
+  const s = { width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:13, color:theme.text, border:`1.5px solid ${f?theme.blue:theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg, boxShadow:f?`0 0 0 3px ${theme.blueLight}`:"none" };
   return <input value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} onFocus={()=>setF(true)} onBlur={()=>setF(false)} style={s}/>;
 }
 
 function ETextarea({ value, onChange, placeholder, rows=3 }) {
   const [f, setF] = useState(false);
-  const s = { width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:13, color:"#374151", border:`1.5px solid ${f?BLUE:"#E5E7EB"}`, borderRadius:9, padding:"9px 12px", outline:"none", background:"#fff", resize:"vertical", lineHeight:1.6, boxShadow:f?"0 0 0 3px #EFF6FF":"none" };
+  const { theme } = useTheme();
+  const s = { width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:13, color:theme.text, border:`1.5px solid ${f?theme.blue:theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg, resize:"vertical", lineHeight:1.6, boxShadow:f?`0 0 0 3px ${theme.blueLight}`:"none" };
   return <textarea value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} onFocus={()=>setF(true)} onBlur={()=>setF(false)} style={s}/>;
 }
 
 function ESelect({ value, onChange, options }) {
   const [f, setF] = useState(false);
-  const s = { width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:13, color:value?"#374151":"#9CA3AF", border:`1.5px solid ${f?BLUE:"#E5E7EB"}`, borderRadius:9, padding:"9px 12px", outline:"none", background:"#fff", cursor:"pointer", WebkitAppearance:"none", appearance:"none", boxShadow:f?"0 0 0 3px #EFF6FF":"none" };
+  const { theme } = useTheme();
+  const s = { width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:13, color:value?theme.text:theme.textFaint, border:`1.5px solid ${f?theme.blue:theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg, cursor:"pointer", WebkitAppearance:"none", appearance:"none", boxShadow:f?`0 0 0 3px ${theme.blueLight}`:"none" };
   return (
     <select value={value||""} onChange={e=>onChange(e.target.value)} onFocus={()=>setF(true)} onBlur={()=>setF(false)} style={s}>
       <option value="">— choose —</option>
@@ -204,10 +211,11 @@ function ESelect({ value, onChange, options }) {
 }
 
 function EToggle({ value, options, onChange }) {
+  const { theme } = useTheme();
   return (
     <div style={{ display:"flex", gap:6, flexWrap:"wrap", paddingTop:2 }}>
       {options.map(o=>(
-        <button key={o} type="button" onClick={()=>onChange(value===o?null:o)} style={{ padding:"7px 16px", borderRadius:8, border:`1.5px solid ${value===o?BLUE:"#E5E7EB"}`, background:value===o?"#EFF6FF":"#fff", color:value===o?BLUE:"#6B7280", fontSize:12, fontWeight:600, fontFamily:F, cursor:"pointer" }}>
+        <button key={o} type="button" onClick={()=>onChange(value===o?null:o)} style={{ padding:"7px 16px", borderRadius:8, border:`1.5px solid ${value===o?theme.blue:theme.borderInput}`, background:value===o?theme.blueLight:theme.inputBg, color:value===o?theme.blue:theme.textMuted, fontSize:12, fontWeight:600, fontFamily:F, cursor:"pointer" }}>
           {o}
         </button>
       ))}
@@ -217,24 +225,26 @@ function EToggle({ value, options, onChange }) {
 
 
 function EComplexity({ value, onChange }) {
+  const { theme } = useTheme();
   const labels = ["","Very simple","Simple","Moderate","Complex","Very complex"];
   return (
     <div style={{ display:"flex", gap:6, alignItems:"center", paddingTop:2 }}>
       {[1,2,3,4,5].map(n=>(
-        <button key={n} type="button" onClick={()=>onChange(n)} style={{ width:32, height:32, borderRadius:8, border:`2px solid ${value>=n?BLUE:"#E5E7EB"}`, background:value>=n?"#EFF6FF":"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <span style={{ color:value>=n?BLUE:"#D1D5DB", fontSize:12 }}>◆</span>
+        <button key={n} type="button" onClick={()=>onChange(n)} style={{ width:32, height:32, borderRadius:8, border:`2px solid ${value>=n?theme.blue:theme.borderInput}`, background:value>=n?theme.blueLight:theme.inputBg, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <span style={{ color:value>=n?theme.blue:theme.borderInput, fontSize:12 }}>◆</span>
         </button>
       ))}
-      <span style={{ fontSize:13, color:"#6B7280", fontFamily:F, paddingLeft:4 }}>{labels[value]||""}</span>
+      <span style={{ fontSize:13, color:theme.textMuted, fontFamily:F, paddingLeft:4 }}>{labels[value]||""}</span>
     </div>
   );
 }
 
 function ESatisfaction({ value, onChange }) {
+  const { theme } = useTheme();
   return (
     <div style={{ display:"flex", gap:4 }}>
       {[1,2,3,4,5].map(n=>(
-        <button key={n} type="button" onClick={()=>onChange(n)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:26, color:value>=n?"#F59E0B":"#E5E7EB", padding:0, lineHeight:1 }}>
+        <button key={n} type="button" onClick={()=>onChange(n)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:26, color:value>=n?"#F59E0B":theme.borderInput, padding:0, lineHeight:1 }}>
           {value>=n?"★":"☆"}
         </button>
       ))}
@@ -243,9 +253,10 @@ function ESatisfaction({ value, onChange }) {
 }
 
 function ERow({ label, children, fullWidth }) {
+  const { theme } = useTheme();
   return (
-    <div style={{ display:fullWidth?"block":"grid", gridTemplateColumns:fullWidth?undefined:"180px 1fr", gap:12, padding:"10px 0", borderBottom:"1px solid #F9FAFB", alignItems:"start" }}>
-      <span style={{ fontSize:12, fontWeight:600, color:"#9CA3AF", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:fullWidth?6:0, paddingTop:fullWidth?0:6 }}>{label}</span>
+    <div style={{ display:fullWidth?"block":"grid", gridTemplateColumns:fullWidth?undefined:"180px 1fr", gap:12, padding:"10px 0", borderBottom:`1px solid ${theme.borderSubtle}`, alignItems:"start" }}>
+      <span style={{ fontSize:12, fontWeight:600, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:fullWidth?6:0, paddingTop:fullWidth?0:6 }}>{label}</span>
       {children}
     </div>
   );
@@ -257,6 +268,7 @@ const SEV_COLORS = { Low:"#10B981", Medium:"#F59E0B", High:"#F97316", Blocker:"#
 
 function EditRBCard({ rb, index, onChange, onRemove }) {
   const [open, setOpen] = useState(true);
+  const { theme } = useTheme();
   const sc = SEV_COLORS[rb.severity] || "#9CA3AF";
   return (
     <div style={{ border:"1.5px solid #FED7AA", borderRadius:12, marginBottom:10, overflow:"hidden" }}>
@@ -271,14 +283,14 @@ function EditRBCard({ rb, index, onChange, onRemove }) {
         </div>
       </button>
       {open && (
-        <div style={{ padding:"18px 16px", background:"#fff" }}>
+        <div style={{ padding:"18px 16px", background:theme.surface }}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
             <div>
-              <span style={{ fontSize:12, fontWeight:600, color:"#9CA3AF", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:6 }}>Roadblock type</span>
+              <span style={{ fontSize:12, fontWeight:600, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:6 }}>Roadblock type</span>
               <ESelect value={rb.type} onChange={v=>onChange({...rb,type:v})} options={ROADBLOCK_TYPE_OPTIONS}/>
             </div>
             <div>
-              <span style={{ fontSize:12, fontWeight:600, color:"#9CA3AF", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:6 }}>Severity</span>
+              <span style={{ fontSize:12, fontWeight:600, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:6 }}>Severity</span>
               <EToggle value={rb.severity} options={["Low","Medium","High","Blocker"]} onChange={v=>onChange({...rb,severity:v})}/>
             </div>
           </div>
@@ -300,6 +312,7 @@ const UC_COLORS = { Low:"#10B981", Medium:"#F59E0B", High:"#F97316", Critical:"#
 
 function EditBuildCard({ build, index, onChange, onRemove }) {
   const [open, setOpen] = useState(true);
+  const { theme } = useTheme();
   const uc = UC_COLORS[build.urgency] || "#9CA3AF";
   return (
     <div style={{ border:"1.5px solid #FED7AA", borderRadius:12, marginBottom:10, overflow:"hidden" }}>
@@ -315,10 +328,10 @@ function EditBuildCard({ build, index, onChange, onRemove }) {
         </div>
       </button>
       {open && (
-        <div style={{ padding:"18px 16px", background:"#fff" }}>
+        <div style={{ padding:"18px 16px", background:theme.surface }}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
             <div>
-              <span style={{ fontSize:12, fontWeight:600, color:"#9CA3AF", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:6 }}>Current tool</span>
+              <span style={{ fontSize:12, fontWeight:600, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:6 }}>Current tool</span>
               <ESelect value={build.tool} onChange={v=>onChange({...build,tool:v})} options={CURRENT_TOOLS_USED}/>
             </div>
             <div>
@@ -356,6 +369,7 @@ const COMM_COLORS = { Yes:"#059669", No:"#DC2626", Partially:"#D97706" };
 
 function EditScopeCreepCard({ item, index, onChange, onRemove }) {
   const [open, setOpen] = useState(true);
+  const { theme } = useTheme();
   const cc = COMM_COLORS[item.communicated] || "#9CA3AF";
   return (
     <div style={{ border:"1.5px solid #FDE68A", borderRadius:12, marginBottom:10, overflow:"hidden" }}>
@@ -371,7 +385,7 @@ function EditScopeCreepCard({ item, index, onChange, onRemove }) {
         </div>
       </button>
       {open && (
-        <div style={{ padding:"18px 16px", background:"#fff" }}>
+        <div style={{ padding:"18px 16px", background:theme.surface }}>
           <ERow label="What was added?" fullWidth>
             <EInput value={item.area} onChange={v=>onChange({...item,area:v})} placeholder="e.g. Added a second pipeline for enterprise clients"/>
           </ERow>
@@ -392,6 +406,7 @@ function EditScopeCreepCard({ item, index, onChange, onRemove }) {
 
 function EditProjectUpdateCard({ item, onChange, onRemove }) {
   const [open, setOpen] = useState(true);
+  const { theme } = useTheme();
   const dateLabel = item.createdAt
     ? (() => { const [y,m,d] = item.createdAt.slice(0,10).split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); })()
     : "New update";
@@ -408,7 +423,7 @@ function EditProjectUpdateCard({ item, onChange, onRemove }) {
         </div>
       </button>
       {open && (
-        <div style={{ padding:"18px 16px", background:"#fff" }}>
+        <div style={{ padding:"18px 16px", background:theme.surface }}>
           <ERow label="Date">
             <input
               type="date"
@@ -483,9 +498,10 @@ function CaseFileEditView({ cf, onSave, onCancel, isSaving, apiError }) {
 
   const { audit, intake, build, delta, reasoning, outcome, projectUpdates } = data;
 
+  const { theme } = useTheme();
   const SaveBar = () => (
     <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:28 }}>
-      <button onClick={onCancel} style={{ padding:"11px 24px", background:"#fff", border:"1.5px solid #E5E7EB", borderRadius:10, color:"#374151", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer" }}>Cancel</button>
+      <button onClick={onCancel} style={{ padding:"11px 24px", background:theme.surface, border:`1.5px solid ${theme.borderInput}`, borderRadius:10, color:theme.textSec, fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer" }}>Cancel</button>
       <button onClick={()=>onSave(data,enteredBy,caseName)} disabled={isSaving} style={{ padding:"11px 28px", background:isSaving?"#6EE7B7":"#059669", border:"none", borderRadius:10, color:"#fff", fontSize:13, fontWeight:700, fontFamily:F, cursor:isSaving?"not-allowed":"pointer", boxShadow:"0 2px 10px rgba(5,150,105,0.35)" }}>
         {isSaving?"Saving…":"Save changes ✓"}
       </button>
@@ -504,7 +520,7 @@ function CaseFileEditView({ cf, onSave, onCancel, isSaving, apiError }) {
           <p style={{ margin:0, fontSize:13, color:"#6B7280", fontFamily:F }}>Logged by <strong style={{ color:"#374151" }}>{enteredBy||"—"}</strong></p>
         </div>
         <div style={{ display:"flex", gap:8, paddingTop:28 }}>
-          <button onClick={onCancel} style={{ padding:"9px 18px", background:"#fff", border:"1.5px solid #E5E7EB", borderRadius:9, color:"#374151", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer" }}>Cancel</button>
+          <button onClick={onCancel} style={{ padding:"9px 18px", background:theme.surface, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, color:theme.textSec, fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer" }}>Cancel</button>
           <button onClick={()=>onSave(data,enteredBy,caseName)} disabled={isSaving} style={{ padding:"9px 18px", background:"#059669", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontWeight:700, fontFamily:F, cursor:isSaving?"not-allowed":"pointer" }}>
             {isSaving?"Saving…":"Save changes"}
           </button>
@@ -824,11 +840,11 @@ function CaseFileEditView({ cf, onSave, onCancel, isSaving, apiError }) {
       <div style={{ width:480, flexShrink:0, position:"sticky", top:24, paddingTop:28, paddingBottom:24, maxHeight:"calc(100vh - 48px)", overflowY:"auto" }}>
 
         {/* Project Updates */}
-        <div style={{ background:"#fff", border:"1px solid #F0F0F0", borderRadius:14, padding:"16px 16px 12px", marginBottom:16, boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
+        <div style={{ background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:14, padding:"16px 16px 12px", marginBottom:16, boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <div>
-              <p style={{ margin:0, fontSize:13, fontWeight:700, color:"#111827", fontFamily:F }}>Project Updates</p>
-              <p style={{ margin:"2px 0 0", fontSize:11, color:"#9CA3AF", fontFamily:F }}>Timestamped notes & attachments</p>
+              <p style={{ margin:0, fontSize:13, fontWeight:700, color:theme.text, fontFamily:F }}>Project Updates</p>
+              <p style={{ margin:"2px 0 0", fontSize:11, color:theme.textFaint, fontFamily:F }}>Timestamped notes & attachments</p>
             </div>
             <button type="button" onClick={addPu} style={{ fontSize:12, fontWeight:600, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontFamily:F, flexShrink:0 }}>+ Add</button>
           </div>
@@ -843,11 +859,11 @@ function CaseFileEditView({ cf, onSave, onCancel, isSaving, apiError }) {
         </div>
 
         {/* Scope Creep */}
-        <div style={{ background:"#fff", border:"1px solid #F0F0F0", borderRadius:14, padding:"16px 16px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
+        <div style={{ background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:14, padding:"16px 16px 12px", boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <div>
-              <p style={{ margin:0, fontSize:13, fontWeight:700, color:"#111827", fontFamily:F }}>Scope Creep</p>
-              <p style={{ margin:"2px 0 0", fontSize:11, color:"#9CA3AF", fontFamily:F }}>Unplanned additions to the build</p>
+              <p style={{ margin:0, fontSize:13, fontWeight:700, color:theme.text, fontFamily:F }}>Scope Creep</p>
+              <p style={{ margin:"2px 0 0", fontSize:11, color:theme.textFaint, fontFamily:F }}>Unplanned additions to the build</p>
             </div>
             <button type="button" onClick={addSc} style={{ fontSize:12, fontWeight:600, color:"#D97706", background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontFamily:F, flexShrink:0 }}>+ Add</button>
           </div>
@@ -868,6 +884,7 @@ function CaseFileEditView({ cf, onSave, onCancel, isSaving, apiError }) {
 }
 
 function ShareModal({ cf, onClose }) {
+  const { theme } = useTheme();
   const shareMutation = useShareCaseFile(cf.id);
   const [copied, setCopied] = useState(false);
 
@@ -893,18 +910,18 @@ function ShareModal({ cf, onClose }) {
       zIndex: 1000, padding: 16,
     }} onClick={onClose}>
       <div style={{
-        background: "#fff", borderRadius: 16, padding: "28px 32px",
-        maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+        background: theme.surface, borderRadius: 16, padding: "28px 32px",
+        maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontFamily: "'Fraunces', serif" }}>Share client brief</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#9CA3AF", lineHeight: 1 }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: theme.textFaint, lineHeight: 1 }}>×</button>
         </div>
-        <p style={{ margin: "0 0 20px", fontSize: 13, color: "#6B7280", fontFamily: F, lineHeight: 1.6 }}>
+        <p style={{ margin: "0 0 20px", fontSize: 13, color: theme.textMuted, fontFamily: F, lineHeight: 1.6 }}>
           Generate a read-only link you can send to your client for sign-off. The link shows the workspace blueprint without any internal notes or account details.
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <span style={{ fontSize: 13, fontFamily: F, color: "#374151", fontWeight: 600 }}>Sharing</span>
+          <span style={{ fontSize: 13, fontFamily: F, color: theme.textSec, fontWeight: 600 }}>Sharing</span>
           <button
             onClick={handleToggle}
             disabled={shareMutation.isPending}
@@ -931,9 +948,9 @@ function ShareModal({ cf, onClose }) {
               readOnly
               value={shareUrl}
               style={{
-                flex: 1, fontFamily: F, fontSize: 12, color: "#374151",
-                border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "9px 12px",
-                background: "#F9FAFB", outline: "none",
+                flex: 1, fontFamily: F, fontSize: 12, color: theme.textSec,
+                border: `1.5px solid ${theme.borderInput}`, borderRadius: 8, padding: "9px 12px",
+                background: theme.inputBgDisabled, outline: "none",
               }}
             />
             <button
@@ -951,8 +968,8 @@ function ShareModal({ cf, onClose }) {
           </div>
         )}
         {!cf.share_enabled && (
-          <div style={{ padding: "12px 14px", background: "#F9FAFB", borderRadius: 8, border: "1px solid #E5E7EB" }}>
-            <p style={{ margin: 0, fontSize: 13, color: "#9CA3AF", fontFamily: F }}>
+          <div style={{ padding: "12px 14px", background: theme.surfaceAlt, borderRadius: 8, border: `1px solid ${theme.borderInput}` }}>
+            <p style={{ margin: 0, fontSize: 13, color: theme.textFaint, fontFamily: F }}>
               Enable sharing above to generate a link.
             </p>
           </div>
@@ -966,6 +983,7 @@ export default function CaseFileDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme } = useTheme();
   const justCreated = location.state?.justCreated;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -1002,7 +1020,7 @@ export default function CaseFileDetailPage() {
 
   if (isLoading) {
     return (
-      <div style={{ padding: 60, textAlign: "center", color: "#9CA3AF", fontFamily: F }}>
+      <div style={{ padding: 60, textAlign: "center", color: theme.textFaint, fontFamily: F }}>
         Loading case file…
       </div>
     );
@@ -1012,7 +1030,7 @@ export default function CaseFileDetailPage() {
     return (
       <div style={{ padding: 60, textAlign: "center" }}>
         <p style={{ color: "#EF4444", fontFamily: F, marginBottom: 16 }}>Failed to load case file.</p>
-        <Link to="/case-files" style={{ color: BLUE, fontFamily: F }}>← Back to case files</Link>
+        <Link to="/case-files" style={{ color: theme.blue, fontFamily: F }}>← Back to case files</Link>
       </div>
     );
   }
@@ -1071,7 +1089,7 @@ export default function CaseFileDetailPage() {
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
           <div style={{ flex: "1 1 0", minWidth: 0 }}>
-            <Link to="/case-files" className="fp-no-print" style={{ fontSize: 13, color: "#9CA3AF", fontFamily: F, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
+            <Link to="/case-files" className="fp-no-print" style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
               ← Case files
             </Link>
             <h1 style={{ margin: "0 0 6px", fontSize: 24, fontFamily: "'Fraunces', serif", wordBreak: "break-word" }}>
@@ -1080,8 +1098,8 @@ export default function CaseFileDetailPage() {
             {cf.name && cf.workflow_type && (
               <p style={{ margin: "0 0 6px", fontSize: 14, color: "#6B7280", fontFamily: F }}>{cf.workflow_type}</p>
             )}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, color: "#6B7280", fontFamily: F }}>
-              <span>Logged by <strong style={{ color: "#374151" }}>{cf.logged_by_name || "—"}</strong></span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, color: theme.textMuted, fontFamily: F }}>
+              <span>Logged by <strong style={{ color: theme.textSec }}>{cf.logged_by_name || "—"}</strong></span>
               <span>·</span>
               <span>{formatDate(cf.created_at)}</span>
               {cf.satisfaction_score && (
@@ -1106,22 +1124,22 @@ export default function CaseFileDetailPage() {
               document.title = `${name}_${date}_Flowpath`;
               window.onafterprint = () => { document.title = prev; window.onafterprint = null; };
               window.print();
-            }} style={{ padding: "9px 16px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 9, color: "#374151", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}>
+            }} style={{ padding: "9px 16px", background: theme.surface, border: `1.5px solid ${theme.borderInput}`, borderRadius: 9, color: theme.textSec, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}>
               Export PDF
             </button>
             <button
               onClick={() => setShowShare(true)}
-              style={{ padding: "9px 16px", background: "#fff", border: `1.5px solid ${cf.share_enabled ? BLUE : "#E5E7EB"}`, borderRadius: 9, color: cf.share_enabled ? BLUE : "#374151", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}
+              style={{ padding: "9px 16px", background: theme.surface, border: `1.5px solid ${cf.share_enabled ? theme.blue : theme.borderInput}`, borderRadius: 9, color: cf.share_enabled ? theme.blue : theme.textSec, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}
             >
               {cf.share_enabled ? "🔗 Shared" : "Share"}
             </button>
-            <button onClick={() => setIsEditing(true)} style={{ padding: "9px 16px", background: BLUE, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <button onClick={() => setIsEditing(true)} style={{ padding: "9px 16px", background: theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}>
               Edit
             </button>
             <button
               onClick={handleDelete}
               disabled={deleteMutation.isPending}
-              style={{ padding: "9px 16px", background: "#fff", border: "1.5px solid #FECACA", borderRadius: 9, color: "#EF4444", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}
+              style={{ padding: "9px 16px", background: theme.surface, border: "1.5px solid #FECACA", borderRadius: 9, color: "#EF4444", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}
             >
               {deleteMutation.isPending ? "Deleting…" : "Delete"}
             </button>
@@ -1132,10 +1150,10 @@ export default function CaseFileDetailPage() {
       {/* Meta chips */}
       <div className="fp-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
         {cf.industries?.map(i => (
-          <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EFF6FF", border: "1px solid #BFDBFE", color: BLUE, fontFamily: F, fontWeight: 500 }}>{i}</span>
+          <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, color: theme.blue, fontFamily: F, fontWeight: 500 }}>{i}</span>
         ))}
         {cf.tools?.slice(0, 6).map(t => (
-          <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F3F4F6", border: "1px solid #E5E7EB", color: "#6B7280", fontFamily: F }}>{t}</span>
+          <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: theme.surfaceAlt, border: `1px solid ${theme.borderInput}`, color: theme.textMuted, fontFamily: F }}>{t}</span>
         ))}
         {cf.process_frameworks?.slice(0, 4).map(f => (
           <span key={f} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#7C3AED", fontFamily: F }}>{f}</span>

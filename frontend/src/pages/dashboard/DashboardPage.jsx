@@ -5,10 +5,10 @@ import {
 } from "recharts";
 import { useCaseFiles, useCaseFileStats } from "../../hooks/useCaseFiles";
 import { useAuth } from "../../hooks/useAuth";
+import { useTheme } from "../../hooks/useTheme";
 import { formatDate, satisfactionLabel } from "../../utils/transforms";
 
 const F = "'Plus Jakarta Sans', sans-serif";
-const BLUE = "#2563EB";
 const GREEN = "#059669";
 const ORANGE = "#EA580C";
 const AMBER = "#D97706";
@@ -31,13 +31,13 @@ function labelFromKey(key = "") {
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
-function Card({ children, style = {} }) {
+function Card({ children, style = {}, theme }) {
   return (
     <div style={{
-      background: "#fff",
-      border: "1px solid #F0F0F0",
+      background: theme.surface,
+      border: `1px solid ${theme.border}`,
       borderRadius: 12,
-      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
       ...style,
     }}>
       {children}
@@ -45,74 +45,73 @@ function Card({ children, style = {} }) {
   );
 }
 
-function CardHeader({ title, sub }) {
+function CardHeader({ title, sub, theme }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#374151", fontFamily: F }}>{title}</p>
-      {sub && <p style={{ margin: "3px 0 0", fontSize: 11, color: "#9CA3AF", fontFamily: F }}>{sub}</p>}
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme.textSec, fontFamily: F }}>{title}</p>
+      {sub && <p style={{ margin: "3px 0 0", fontSize: 11, color: theme.textFaint, fontFamily: F }}>{sub}</p>}
     </div>
   );
 }
 
-function Skeleton() {
+function Skeleton({ theme }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
       {[80, 65, 90, 50, 72].map((w, i) => (
-        <div key={i} style={{ height: 14, background: "#F3F4F6", borderRadius: 6, width: `${w}%` }} />
+        <div key={i} style={{ height: 14, background: theme.skeleton, borderRadius: 6, width: `${w}%` }} />
       ))}
     </div>
   );
 }
 
-function Empty({ text }) {
+function Empty({ text, theme }) {
   return (
     <div style={{ padding: "28px 0", textAlign: "center" }}>
-      <p style={{ margin: 0, fontSize: 12, color: "#D1D5DB", fontFamily: F }}>{text}</p>
+      <p style={{ margin: 0, fontSize: 12, color: theme.borderInput, fontFamily: F }}>{text}</p>
     </div>
   );
 }
 
 // ── Custom tooltip ────────────────────────────────────────────────────────────
 
-function ChartTooltip({ active, payload, label, unit = "" }) {
+function ChartTooltip({ active, payload, label, unit = "", theme }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: "#1F2937", color: "#F9FAFB", borderRadius: 8,
+      background: theme.tooltipBg, color: theme.tooltipText, borderRadius: 8,
       padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
     }}>
       <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{label}</p>
-      <p style={{ margin: 0, color: "#D1D5DB" }}>{payload[0].value}{unit}</p>
+      <p style={{ margin: 0, color: theme.tooltipSub }}>{payload[0].value}{unit}</p>
     </div>
   );
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, sub, color = BLUE }) {
+function StatCard({ label, value, sub, color, theme }) {
   return (
-    <Card style={{ padding: "20px 22px" }}>
-      <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</p>
-      <p style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, color, fontFamily: "'Fraunces', serif", letterSpacing: "-0.02em" }}>{value}</p>
-      {sub && <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF", fontFamily: F }}>{sub}</p>}
+    <Card style={{ padding: "20px 22px" }} theme={theme}>
+      <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</p>
+      <p style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, color: color || theme.blue, fontFamily: "'Fraunces', serif", letterSpacing: "-0.02em" }}>{value}</p>
+      {sub && <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>{sub}</p>}
     </Card>
   );
 }
 
-function SatisfactionDot({ score }) {
+function SatisfactionDot({ score, theme }) {
   const colors = { 1: "#EF4444", 2: "#F97316", 3: "#F59E0B", 4: "#10B981", 5: "#059669" };
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-      <span style={{ width: 8, height: 8, borderRadius: "50%", background: colors[score] || "#D1D5DB", display: "inline-block" }} />
-      <span style={{ fontSize: 12, color: "#6B7280", fontFamily: F }}>{satisfactionLabel(score)}</span>
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: colors[score] || theme.skeleton, display: "inline-block" }} />
+      <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>{satisfactionLabel(score)}</span>
     </span>
   );
 }
 
 // ── Horizontal bar chart wrapper ──────────────────────────────────────────────
-// Generic component: data = [{name, value, ...}], barColor or colorFn
 
-function HorizBarChart({ data, barColor, unit = "", height = 220, tickWidth = 130 }) {
+function HorizBarChart({ data, barColor, unit = "", height = 220, tickWidth = 130, theme }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart
@@ -123,7 +122,7 @@ function HorizBarChart({ data, barColor, unit = "", height = 220, tickWidth = 13
       >
         <XAxis
           type="number"
-          tick={{ fontSize: 11, fill: "#9CA3AF", fontFamily: F }}
+          tick={{ fontSize: 11, fill: theme.textFaint, fontFamily: F }}
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
@@ -132,11 +131,11 @@ function HorizBarChart({ data, barColor, unit = "", height = 220, tickWidth = 13
           type="category"
           dataKey="name"
           width={tickWidth}
-          tick={{ fontSize: 11, fill: "#6B7280", fontFamily: F }}
+          tick={{ fontSize: 11, fill: theme.textMuted, fontFamily: F }}
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip content={<ChartTooltip unit={unit} />} cursor={{ fill: "#F9FAFB" }} />
+        <Tooltip content={<ChartTooltip unit={unit} theme={theme} />} cursor={{ fill: theme.chartCursor }} />
         <Bar dataKey="value" radius={[0, 6, 6, 0]} fill={barColor} />
       </BarChart>
     </ResponsiveContainer>
@@ -145,10 +144,9 @@ function HorizBarChart({ data, barColor, unit = "", height = 220, tickWidth = 13
 
 // ── Roadblock types stacked bar chart ────────────────────────────────────────
 
-function RoadblockTypesChart({ types = [], loading }) {
+function RoadblockTypesChart({ types = [], loading, theme }) {
   const rows = types.slice(0, 7);
 
-  // Collect top 7 tools by total count across all types; bucket the rest as "Other"
   const toolTotals = {};
   rows.forEach((rb) => rb.tools?.forEach(({ tool, count }) => {
     toolTotals[tool] = (toolTotals[tool] || 0) + count;
@@ -158,7 +156,6 @@ function RoadblockTypesChart({ types = [], loading }) {
     .slice(0, 7)
     .map(([tool]) => tool);
 
-  // Shape each row into { name, Tool1: n, Tool2: n, ..., Other: n }
   const data = rows.map((rb) => {
     const row = { name: labelFromKey(rb.type) };
     let other = 0;
@@ -175,9 +172,9 @@ function RoadblockTypesChart({ types = [], loading }) {
   const tickWidth = 148;
 
   return (
-    <Card style={{ padding: "20px 22px" }}>
-      <CardHeader title="Top Roadblock Types" sub="Stacked by tools affected" />
-      {loading ? <Skeleton /> : data.length === 0 ? <Empty text="No roadblocks logged yet" /> : (
+    <Card style={{ padding: "20px 22px" }} theme={theme}>
+      <CardHeader title="Top Roadblock Types" sub="Stacked by tools affected" theme={theme} />
+      {loading ? <Skeleton theme={theme} /> : data.length === 0 ? <Empty text="No roadblocks logged yet" theme={theme} /> : (
         <ResponsiveContainer width="100%" height={Math.max(220, rows.length * 42 + 40)}>
           <BarChart
             data={data}
@@ -188,7 +185,7 @@ function RoadblockTypesChart({ types = [], loading }) {
             <XAxis
               type="number"
               allowDecimals={false}
-              tick={{ fontSize: 11, fill: "#9CA3AF", fontFamily: F }}
+              tick={{ fontSize: 11, fill: theme.textFaint, fontFamily: F }}
               axisLine={false}
               tickLine={false}
             />
@@ -196,7 +193,7 @@ function RoadblockTypesChart({ types = [], loading }) {
               type="category"
               dataKey="name"
               width={tickWidth}
-              tick={{ fontSize: 11, fill: "#6B7280", fontFamily: F }}
+              tick={{ fontSize: 11, fill: theme.textMuted, fontFamily: F }}
               axisLine={false}
               tickLine={false}
             />
@@ -204,10 +201,10 @@ function RoadblockTypesChart({ types = [], loading }) {
               content={({ active, payload, label }) => {
                 if (!active || !payload?.length) return null;
                 return (
-                  <div style={{ background: "#1F2937", color: "#F9FAFB", borderRadius: 8, padding: "10px 14px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                  <div style={{ background: theme.tooltipBg, color: theme.tooltipText, borderRadius: 8, padding: "10px 14px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
                     <p style={{ margin: "0 0 6px", fontWeight: 700 }}>{label}</p>
                     {[...payload].reverse().map((p) => (
-                      <p key={p.dataKey} style={{ margin: "2px 0", color: "#D1D5DB" }}>
+                      <p key={p.dataKey} style={{ margin: "2px 0", color: theme.tooltipSub }}>
                         <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: p.fill, marginRight: 6 }} />
                         {p.dataKey}: {p.value}
                       </p>
@@ -215,12 +212,12 @@ function RoadblockTypesChart({ types = [], loading }) {
                   </div>
                 );
               }}
-              cursor={{ fill: "#F9FAFB" }}
+              cursor={{ fill: theme.chartCursor }}
             />
             <Legend
               iconType="circle"
               iconSize={8}
-              formatter={(value) => <span style={{ fontSize: 11, color: "#6B7280", fontFamily: F }}>{value}</span>}
+              formatter={(value) => <span style={{ fontSize: 11, color: theme.textMuted, fontFamily: F }}>{value}</span>}
             />
             {allKeys.map((tool, i) => (
               <Bar
@@ -240,14 +237,14 @@ function RoadblockTypesChart({ types = [], loading }) {
 
 // ── Scope creep chart ─────────────────────────────────────────────────────────
 
-function ScopeCreepChart({ tools = [], loading }) {
+function ScopeCreepChart({ tools = [], loading, theme }) {
   const data = tools.map((t) => ({ name: t.tool, value: t.count }));
 
   return (
-    <Card style={{ padding: "20px 22px" }}>
-      <CardHeader title="Scope Creep by Tool" sub="Tools most often present in diverged builds" />
-      {loading ? <Skeleton /> : data.length === 0 ? <Empty text="No diverged builds recorded" /> : (
-        <HorizBarChart data={data} barColor={AMBER} unit=" cases" height={Math.max(180, data.length * 36)} tickWidth={110} />
+    <Card style={{ padding: "20px 22px" }} theme={theme}>
+      <CardHeader title="Scope Creep by Tool" sub="Tools most often present in diverged builds" theme={theme} />
+      {loading ? <Skeleton theme={theme} /> : data.length === 0 ? <Empty text="No diverged builds recorded" theme={theme} /> : (
+        <HorizBarChart data={data} barColor={AMBER} unit=" cases" height={Math.max(180, data.length * 36)} tickWidth={110} theme={theme} />
       )}
     </Card>
   );
@@ -255,21 +252,21 @@ function ScopeCreepChart({ tools = [], loading }) {
 
 // ── Satisfaction charts ───────────────────────────────────────────────────────
 
-function SatTooltip({ active, payload, label }) {
+function SatTooltip({ active, payload, label, theme }) {
   if (!active || !payload?.length) return null;
   const score = payload[0].value;
   return (
     <div style={{
-      background: "#1F2937", color: "#F9FAFB", borderRadius: 8,
+      background: theme.tooltipBg, color: theme.tooltipText, borderRadius: 8,
       padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
     }}>
       <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{label}</p>
-      <p style={{ margin: 0, color: "#D1D5DB" }}>{score} / 5 · {payload[0].payload.count} file{payload[0].payload.count !== 1 ? "s" : ""}</p>
+      <p style={{ margin: 0, color: theme.tooltipSub }}>{score} / 5 · {payload[0].payload.count} file{payload[0].payload.count !== 1 ? "s" : ""}</p>
     </div>
   );
 }
 
-function SatBarChart({ data, height = 200, tickWidth = 130 }) {
+function SatBarChart({ data, height = 200, tickWidth = 130, theme }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart
@@ -282,7 +279,7 @@ function SatBarChart({ data, height = 200, tickWidth = 130 }) {
           type="number"
           domain={[0, 5]}
           ticks={[1, 2, 3, 4, 5]}
-          tick={{ fontSize: 11, fill: "#9CA3AF", fontFamily: F }}
+          tick={{ fontSize: 11, fill: theme.textFaint, fontFamily: F }}
           axisLine={false}
           tickLine={false}
         />
@@ -290,13 +287,13 @@ function SatBarChart({ data, height = 200, tickWidth = 130 }) {
           type="category"
           dataKey="name"
           width={tickWidth}
-          tick={{ fontSize: 11, fill: "#6B7280", fontFamily: F }}
+          tick={{ fontSize: 11, fill: theme.textMuted, fontFamily: F }}
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip content={<SatTooltip />} cursor={{ fill: "#F9FAFB" }} />
-        <Bar dataKey="value" radius={[0, 6, 6, 0]} fill={BLUE}>
-          <LabelList dataKey="value" position="right" style={{ fontSize: 11, fill: "#6B7280", fontFamily: F }} formatter={(v) => `${v}/5`} />
+        <Tooltip content={<SatTooltip theme={theme} />} cursor={{ fill: theme.chartCursor }} />
+        <Bar dataKey="value" radius={[0, 6, 6, 0]} fill={theme.blue}>
+          <LabelList dataKey="value" position="right" style={{ fontSize: 11, fill: theme.textMuted, fontFamily: F }} formatter={(v) => `${v}/5`} />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -305,13 +302,12 @@ function SatBarChart({ data, height = 200, tickWidth = 130 }) {
 
 const PIE_COLORS = ["#2563EB", "#059669", "#D97706", "#EA580C", "#7C3AED", "#0891B2", "#DB2777", "#65A30D"];
 
-function IndustryPieChart({ data, loading }) {
-  if (loading) return <Skeleton />;
-  if (!data?.length) return <Empty text="No data yet" />;
+function IndustryPieChart({ data, loading, theme }) {
+  if (loading) return <Skeleton theme={theme} />;
+  if (!data?.length) return <Empty text="No data yet" theme={theme} />;
 
   const total = data.reduce((s, r) => s + r.count, 0);
 
-  // Keep top 7 by count, bucket the rest into "Other"
   const sorted = [...data].sort((a, b) => b.count - a.count);
   const top = sorted.slice(0, 7);
   const otherCount = sorted.slice(7).reduce((s, r) => s + r.count, 0);
@@ -323,7 +319,6 @@ function IndustryPieChart({ data, loading }) {
 
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-      {/* Donut with center label */}
       <div style={{ width: 170, height: 200, flexShrink: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -340,8 +335,8 @@ function IndustryPieChart({ data, loading }) {
               <Label
                 content={({ viewBox: { cx, cy } }) => (
                   <>
-                    <text x={cx} y={cy - 5} textAnchor="middle" fill="#111827" fontSize={22} fontWeight={700} fontFamily={F}>{total}</text>
-                    <text x={cx} y={cy + 13} textAnchor="middle" fill="#9CA3AF" fontSize={10} fontFamily={F}>total files</text>
+                    <text x={cx} y={cy - 5} textAnchor="middle" fill={theme.text} fontSize={22} fontWeight={700} fontFamily={F}>{total}</text>
+                    <text x={cx} y={cy + 13} textAnchor="middle" fill={theme.textFaint} fontSize={10} fontFamily={F}>total files</text>
                   </>
                 )}
               />
@@ -355,9 +350,9 @@ function IndustryPieChart({ data, loading }) {
                 const d = payload[0].payload;
                 const pct = Math.round((d.value / total) * 100);
                 return (
-                  <div style={{ background: "#1F2937", color: "#F9FAFB", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                  <div style={{ background: theme.tooltipBg, color: theme.tooltipText, borderRadius: 8, padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
                     <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{d.name}</p>
-                    <p style={{ margin: 0, color: "#D1D5DB" }}>
+                    <p style={{ margin: 0, color: theme.tooltipSub }}>
                       {d.value} file{d.value !== 1 ? "s" : ""} · {pct}%
                       {d.avg_sat ? ` · avg ${d.avg_sat}/5` : ""}
                     </p>
@@ -369,17 +364,16 @@ function IndustryPieChart({ data, loading }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Side legend */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
         {pieData.map((item, i) => {
           const pct = Math.round((item.value / total) * 100);
           return (
             <div key={item.name} style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 11, color: "#374151", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ flex: 1, fontSize: 11, color: theme.textSec, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {item.name}
               </span>
-              <span style={{ fontSize: 11, color: "#9CA3AF", fontFamily: F, whiteSpace: "nowrap" }}>{pct}%</span>
+              <span style={{ fontSize: 11, color: theme.textFaint, fontFamily: F, whiteSpace: "nowrap" }}>{pct}%</span>
             </div>
           );
         })}
@@ -388,25 +382,25 @@ function IndustryPieChart({ data, loading }) {
   );
 }
 
-function SatisfactionPanel({ byWorkflow = [], byIndustry = [], loading }) {
+function SatisfactionPanel({ byWorkflow = [], byIndustry = [], loading, theme }) {
   const wfData = byWorkflow.map((r) => ({ name: r.workflow_type, value: r.avg_sat, count: r.count }));
 
   const colStyle = { flex: 1, minWidth: 0 };
-  const labelStyle = { margin: "0 0 14px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" };
+  const labelStyle = { margin: "0 0 14px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" };
 
   return (
-    <Card style={{ padding: "20px 22px" }}>
-      <CardHeader title="Satisfaction Breakdown" sub="Average score (1–5) by workflow type · case file distribution by industry" />
+    <Card style={{ padding: "20px 22px" }} theme={theme}>
+      <CardHeader title="Satisfaction Breakdown" sub="Average score (1–5) by workflow type · case file distribution by industry" theme={theme} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" }}>
         <div style={colStyle}>
           <p style={labelStyle}>By Workflow Type</p>
-          {loading ? <Skeleton /> : wfData.length === 0 ? <Empty text="No data yet" /> : (
-            <SatBarChart data={wfData} height={Math.max(160, wfData.length * 36)} tickWidth={130} />
+          {loading ? <Skeleton theme={theme} /> : wfData.length === 0 ? <Empty text="No data yet" theme={theme} /> : (
+            <SatBarChart data={wfData} height={Math.max(160, wfData.length * 36)} tickWidth={130} theme={theme} />
           )}
         </div>
         <div style={colStyle}>
           <p style={labelStyle}>By Industry</p>
-          <IndustryPieChart data={byIndustry} loading={loading} />
+          <IndustryPieChart data={byIndustry} loading={loading} theme={theme} />
         </div>
       </div>
     </Card>
@@ -417,6 +411,7 @@ function SatisfactionPanel({ byWorkflow = [], byIndustry = [], loading }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const { data: stats, isLoading: statsLoading } = useCaseFileStats();
   const { data: recentData, isLoading: listLoading } = useCaseFiles({ page: 1 });
 
@@ -430,42 +425,23 @@ export default function DashboardPage() {
         <h1 style={{ margin: "0 0 6px", fontSize: 26, fontFamily: "'Fraunces', serif" }}>
           Good {getTimeOfDay()}, {user?.first_name || "there"}
         </h1>
-        <p style={{ margin: 0, fontSize: 14, color: "#6B7280", fontFamily: F }}>
+        <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F }}>
           Here's what the knowledge base looks like today.
         </p>
       </div>
 
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 28 }}>
-        <StatCard
-          label="Total case files"
-          value={statsLoading ? "—" : stats?.total_case_files ?? 0}
-          sub="builds documented"
-        />
-        <StatCard
-          label="Avg satisfaction"
-          value={statsLoading ? "—" : stats?.avg_satisfaction ? `${stats.avg_satisfaction}/5` : "—"}
-          sub="across all outcomes"
-          color={GREEN}
-        />
-        <StatCard
-          label="Roadblocks logged"
-          value={statsLoading ? "—" : stats?.total_roadblocks ?? 0}
-          sub="known failure patterns"
-          color={ORANGE}
-        />
-        <StatCard
-          label="Avg hours lost"
-          value={statsLoading ? "—" : stats?.avg_roadblock_hours ? `${stats.avg_roadblock_hours}h` : "—"}
-          sub="per roadblock"
-          color={AMBER}
-        />
+        <StatCard label="Total case files" value={statsLoading ? "—" : stats?.total_case_files ?? 0} sub="builds documented" theme={theme} />
+        <StatCard label="Avg satisfaction" value={statsLoading ? "—" : stats?.avg_satisfaction ? `${stats.avg_satisfaction}/5` : "—"} sub="across all outcomes" color={GREEN} theme={theme} />
+        <StatCard label="Roadblocks logged" value={statsLoading ? "—" : stats?.total_roadblocks ?? 0} sub="known failure patterns" color={ORANGE} theme={theme} />
+        <StatCard label="Avg hours lost" value={statsLoading ? "—" : stats?.avg_roadblock_hours ? `${stats.avg_roadblock_hours}h` : "—"} sub="per roadblock" color={AMBER} theme={theme} />
       </div>
 
       {/* Roadblock types + Scope creep */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <RoadblockTypesChart types={stats?.roadblock_types} loading={statsLoading} />
-        <ScopeCreepChart tools={stats?.scope_creep_tools} loading={statsLoading} />
+        <RoadblockTypesChart types={stats?.roadblock_types} loading={statsLoading} theme={theme} />
+        <ScopeCreepChart tools={stats?.scope_creep_tools} loading={statsLoading} theme={theme} />
       </div>
 
       {/* Satisfaction breakdown */}
@@ -474,17 +450,18 @@ export default function DashboardPage() {
           byWorkflow={stats?.sat_by_workflow}
           byIndustry={stats?.sat_by_industry}
           loading={statsLoading}
+          theme={theme}
         />
       </div>
 
       {/* Top tools */}
       {stats?.top_tools?.length > 0 && (
-        <Card style={{ padding: "20px 22px", marginBottom: 28 }}>
-          <CardHeader title="Most common tools" />
+        <Card style={{ padding: "20px 22px", marginBottom: 28 }} theme={theme}>
+          <CardHeader title="Most common tools" theme={theme} />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {stats.top_tools.map(({ tool, count }) => (
-              <span key={tool} style={{ padding: "5px 12px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 20, fontSize: 12, color: BLUE, fontFamily: F, fontWeight: 600 }}>
-                {tool} <span style={{ fontWeight: 400, color: "#93C5FD" }}>×{count}</span>
+              <span key={tool} style={{ padding: "5px 12px", background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 20, fontSize: 12, color: theme.blue, fontFamily: F, fontWeight: 600 }}>
+                {tool} <span style={{ fontWeight: 400, color: theme.blueSubtle }}>×{count}</span>
               </span>
             ))}
           </div>
@@ -493,18 +470,18 @@ export default function DashboardPage() {
 
       {/* Recent case files */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#111827", fontFamily: F }}>Recent case files</p>
-        <Link to="/case-files" style={{ fontSize: 13, color: BLUE, fontFamily: F, fontWeight: 600 }}>View all →</Link>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: theme.text, fontFamily: F }}>Recent case files</p>
+        <Link to="/case-files" style={{ fontSize: 13, color: theme.blue, fontFamily: F, fontWeight: 600 }}>View all →</Link>
       </div>
 
       {listLoading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF", fontFamily: F }}>Loading…</div>
+        <div style={{ padding: 40, textAlign: "center", color: theme.textFaint, fontFamily: F }}>Loading…</div>
       ) : recent.length === 0 ? (
-        <Card style={{ padding: "40px 20px", textAlign: "center" }}>
-          <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: "#374151", fontFamily: F }}>No case files yet</p>
-          <p style={{ margin: "0 0 20px", fontSize: 13, color: "#9CA3AF", fontFamily: F }}>Start documenting workflow builds to train the system.</p>
+        <Card style={{ padding: "40px 20px", textAlign: "center" }} theme={theme}>
+          <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: theme.textSec, fontFamily: F }}>No case files yet</p>
+          <p style={{ margin: "0 0 20px", fontSize: 13, color: theme.textFaint, fontFamily: F }}>Start documenting workflow builds to train the system.</p>
           <Link to="/case-files/new">
-            <button style={{ padding: "10px 22px", background: BLUE, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
+            <button style={{ padding: "10px 22px", background: theme.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
               Log first build
             </button>
           </Link>
@@ -515,8 +492,8 @@ export default function DashboardPage() {
             <Link key={cf.id} to={`/case-files/${cf.id}`} style={{ textDecoration: "none" }}>
               <div
                 style={{
-                  background: "#fff",
-                  border: "1px solid #F0F0F0",
+                  background: theme.surface,
+                  border: `1px solid ${theme.border}`,
                   borderRadius: 12,
                   padding: "16px 20px",
                   display: "flex",
@@ -526,14 +503,14 @@ export default function DashboardPage() {
                   transition: "border-color 0.15s, box-shadow 0.15s",
                   gap: 16,
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#BFDBFE"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(37,99,235,0.08)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#F0F0F0"; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = theme.blueBorder; e.currentTarget.style.boxShadow = `0 2px 8px rgba(37,99,235,0.08)`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 600, color: "#111827", fontFamily: F }}>
+                  <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 600, color: theme.text, fontFamily: F }}>
                     {cf.name} - {cf.workflow_type || "Untitled workflow"}
                   </p>
-                  <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF", fontFamily: F }}>
+                  <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>
                     {cf.industries?.slice(0, 2).join(", ") || "No industry"}
                     {" · "}
                     {cf.logged_by_name}
@@ -547,8 +524,8 @@ export default function DashboardPage() {
                       {cf.roadblock_count} roadblock{cf.roadblock_count !== 1 ? "s" : ""}
                     </span>
                   )}
-                  {cf.satisfaction_score && <SatisfactionDot score={cf.satisfaction_score} />}
-                  <span style={{ color: "#D1D5DB", fontSize: 16 }}>›</span>
+                  {cf.satisfaction_score && <SatisfactionDot score={cf.satisfaction_score} theme={theme} />}
+                  <span style={{ color: theme.borderInput, fontSize: 16 }}>›</span>
                 </div>
               </div>
             </Link>
