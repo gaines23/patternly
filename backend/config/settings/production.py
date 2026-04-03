@@ -9,6 +9,10 @@ from .base import *  # noqa
 
 DEBUG = False
 
+# ── Database connection pooling ───────────────────────────────────────────────
+# Keep connections alive for 60s to avoid reconnect overhead on every request.
+DATABASES["default"]["CONN_MAX_AGE"] = 60  # noqa
+
 # Enforce HTTPS
 SECURE_SSL_REDIRECT = True
 SECURE_HSTS_SECONDS = 31536000

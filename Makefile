@@ -2,11 +2,14 @@
 # Usage: make <command>
 
 .PHONY: help up down build logs shell db-shell migrate migrations superuser \
-        test test-cov lint format reset seed
+        test test-cov lint format reset seed \
+        prod-up prod-down prod-build prod-logs prod-migrate prod-shell
 
-COMPOSE = docker compose
-API     = $(COMPOSE) exec api
-FE      = $(COMPOSE) exec frontend
+COMPOSE      = docker compose
+COMPOSE_PROD = docker compose -f docker-compose.prod.yml --env-file .env.prod
+API          = $(COMPOSE) exec api
+API_PROD     = $(COMPOSE_PROD) exec api
+FE           = $(COMPOSE) exec frontend
 
 # ── Default ───────────────────────────────────────────────────────────────────
 help:
@@ -35,6 +38,13 @@ help:
 	@echo "    make lint        Run flake8"
 	@echo "    make format      Run black + isort"
 	@echo "    make seed        Load seed data (if fixtures exist)"
+	@echo ""
+	@echo "  Production (requires .env.prod)"
+	@echo "    make prod-build  Build production images"
+	@echo "    make prod-up     Start production stack"
+	@echo "    make prod-down   Stop production stack"
+	@echo "    make prod-logs   Stream production logs"
+	@echo "    make prod-shell  Django shell in running prod api container"
 	@echo ""
 
 # ── Stack ─────────────────────────────────────────────────────────────────────
@@ -123,3 +133,19 @@ embed-rebuild:
 
 embed-dry:
 	$(API) python manage.py build_embeddings --dry-run
+
+# ── Production ────────────────────────────────────────────────────────────────
+prod-build:
+	$(COMPOSE_PROD) build
+
+prod-up:
+	$(COMPOSE_PROD) up -d
+
+prod-down:
+	$(COMPOSE_PROD) down
+
+prod-logs:
+	$(COMPOSE_PROD) logs -f
+
+prod-shell:
+	$(API_PROD) python manage.py shell
