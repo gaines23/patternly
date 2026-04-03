@@ -145,6 +145,7 @@ class PublicCaseFileSerializer(serializers.ModelSerializer):
             "id", "name", "logged_by_name",
             "industries", "tools", "process_frameworks", "workflow_type", "team_size",
             "satisfaction_score", "roadblock_count", "built_outcome",
+            "status", "closed_at",
             "created_at", "updated_at",
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
@@ -166,6 +167,7 @@ class CaseFileListSerializer(serializers.ModelSerializer):
             "id", "name", "logged_by_id", "logged_by_name", "industries", "workflow_type",
             "team_size", "tools", "process_frameworks",
             "satisfaction_score", "roadblock_count", "built_outcome",
+            "status", "closed_at",
             "created_at", "updated_at",
         ]
 
@@ -189,7 +191,7 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = CaseFile
         fields = [
-            "name", "logged_by_name",
+            "name", "logged_by_name", "status",
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
         ]

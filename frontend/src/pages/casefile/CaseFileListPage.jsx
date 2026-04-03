@@ -88,12 +88,12 @@ export default function CaseFileListPage() {
           {/* Table header */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "1fr 160px 120px 100px 80px",
+            gridTemplateColumns: "1fr 160px 120px 80px 100px 80px",
             gap: 12,
             padding: "8px 16px",
             marginBottom: 4,
           }}>
-            {["Workflow", "Industry", "Logged by", "Date", ""].map((h, i) => (
+            {["Workflow", "Industry", "Logged by", "Status", "Date", ""].map((h, i) => (
               <span key={i} style={{ fontSize: 11, fontWeight: 700, color: theme.textFaint, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: F }}>
                 {h}
               </span>
@@ -103,7 +103,7 @@ export default function CaseFileListPage() {
           {[...caseFiles].sort((a, b) => (a.name || a.workflow_type || "").localeCompare(b.name || b.workflow_type || "")).map((cf) => (
             <div key={cf.id} style={{
               display: "grid",
-              gridTemplateColumns: "1fr 160px 120px 100px 80px",
+              gridTemplateColumns: "1fr 160px 120px 80px 100px 80px",
               gap: 12,
               alignItems: "center",
               background: theme.surface,
@@ -124,7 +124,7 @@ export default function CaseFileListPage() {
                 {cf.workflow_type && (
                   <p style={{ margin: "0 0 4px", fontSize: 12, color: theme.textMuted, fontFamily: F }}>{cf.workflow_type}</p>
                 )}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
                   {cf.tools?.slice(0, 3).map((t) => (
                     <span key={t} style={{ fontSize: 11, color: theme.blue, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 10, padding: "1px 7px", fontFamily: F }}>
                       {t}
@@ -146,6 +146,19 @@ export default function CaseFileListPage() {
               {/* Logged by */}
               <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
                 {cf.logged_by_name}
+              </span>
+
+              {/* Status */}
+              <span style={{
+                alignSelf: "center", width: "fit-content",
+                fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 10,
+                background: cf.status === "closed" ? "#ECFDF5" : "#EFF6FF",
+                border: `1px solid ${cf.status === "closed" ? "#6EE7B7" : "#BFDBFE"}`,
+                color: cf.status === "closed" ? "#065F46" : "#1D4ED8",
+                fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em",
+                whiteSpace: "nowrap", textAlign: "center",
+              }}>
+                {cf.status === "closed" ? "Closed" : "Open"}
               </span>
 
               {/* Date */}

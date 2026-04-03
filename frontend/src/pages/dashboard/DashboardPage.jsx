@@ -525,6 +525,16 @@ export default function DashboardPage() {
                     </span>
                   )}
                   {cf.satisfaction_score && <SatisfactionDot score={cf.satisfaction_score} theme={theme} />}
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 10,
+                    background: cf.status === "closed" ? "#ECFDF5" : "#EFF6FF",
+                    border: `1px solid ${cf.status === "closed" ? "#6EE7B7" : "#BFDBFE"}`,
+                    color: cf.status === "closed" ? "#065F46" : "#1D4ED8",
+                    fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {cf.status === "closed" ? "Closed" : "Open"}
+                  </span>
                   <span style={{ color: theme.borderInput, fontSize: 16 }}>›</span>
                 </div>
               </div>

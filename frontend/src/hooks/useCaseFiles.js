@@ -23,6 +23,7 @@ export function useCaseFiles(filters = {}) {
       if (filters.workflow_type) params.set("workflow_type", filters.workflow_type);
       if (filters.min_satisfaction) params.set("min_satisfaction", filters.min_satisfaction);
       if (filters.search) params.set("search", filters.search);
+      if (filters.status) params.set("status", filters.status);
       if (filters.page) params.set("page", filters.page);
       const { data } = await api.get(`/v1/briefs/?${params}`);
       return data;
@@ -83,6 +84,23 @@ export function useDeleteCaseFile() {
     },
     onSuccess: (id) => {
       queryClient.removeQueries({ queryKey: caseFileKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: caseFileKeys.lists() });
+    },
+  });
+}
+
+// ── Toggle project status (open ↔ closed) ────────────────────────────────────
+export function useToggleCaseFileStatus(id) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/v1/briefs/${id}/status/`);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(caseFileKeys.detail(id), (old) =>
+        old ? { ...old, status: data.status, closed_at: data.closed_at } : old
+      );
       queryClient.invalidateQueries({ queryKey: caseFileKeys.lists() });
     },
   });

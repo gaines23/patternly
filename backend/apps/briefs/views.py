@@ -1,9 +1,10 @@
+from django.utils import timezone
 from rest_framework import generics, status, filters
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
-from .models import CaseFile, Roadblock
+from .models import CaseFile, Roadblock, ProjectStatus
 from .serializers import (
     CaseFileDetailSerializer,
     CaseFileListSerializer,
@@ -46,6 +47,10 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(workflow_type__icontains=workflow_type)
         if min_satisfaction:
             qs = qs.filter(satisfaction_score__gte=int(min_satisfaction))
+
+        project_status = self.request.query_params.get("status")
+        if project_status in (ProjectStatus.OPEN, ProjectStatus.CLOSED):
+            qs = qs.filter(status=project_status)
 
         return qs
 
@@ -108,6 +113,34 @@ def toggle_share(request, pk):
     return Response({
         "share_enabled": case_file.share_enabled,
         "share_token": str(case_file.share_token),
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_status(request, pk):
+    """
+    POST /api/v1/briefs/<id>/status/
+    Toggles project status between open and closed.
+    Sets closed_at when closing; clears it when reopening.
+    """
+    try:
+        case_file = CaseFile.objects.get(pk=pk, logged_by=request.user)
+    except CaseFile.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if case_file.status == ProjectStatus.OPEN:
+        case_file.status = ProjectStatus.CLOSED
+        case_file.closed_at = timezone.now()
+    else:
+        case_file.status = ProjectStatus.OPEN
+        case_file.closed_at = None
+
+    case_file.save(update_fields=["status", "closed_at"])
+
+    return Response({
+        "status": case_file.status,
+        "closed_at": case_file.closed_at,
     })
 
 

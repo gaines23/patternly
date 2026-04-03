@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import publicApi from "../../api/publicClient";
@@ -79,6 +80,27 @@ function TagList({ items, color = BLUE }) {
           color, fontFamily: F, fontWeight: 500,
         }}>{item}</span>
       ))}
+    </div>
+  );
+}
+
+function CollapsibleCard({ title, badge, children }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div style={{ border: "1px solid #BAE6FD", borderRadius: 12, marginBottom: 14, background: "#0284C710" }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", cursor: "pointer", userSelect: "none" }}
+      >
+        {badge}
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: "#111827", fontFamily: F }}>{title}</span>
+        <span style={{ fontSize: 11, color: "#0284C7", opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "0 16px 14px" }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -296,13 +318,78 @@ export default function SharedBriefPage() {
               </div>
             )}
             <Row label="Build notes" value={build.build_notes} fullWidth />
-            {build.workflows?.map((wf, i) => (
-              <div key={i} style={{ border: "1px solid #BAE6FD", borderRadius: 10, padding: "14px 16px", marginBottom: 10, background: "#F0F9FF", marginTop: i === 0 ? 12 : 0 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>Workflow {i + 1}</span>
-                {wf.name && <span style={{ fontSize: 13, color: "#374151", fontFamily: F, fontWeight: 600, marginLeft: 8 }}>{wf.name}</span>}
-                {wf.description && <p style={{ margin: "8px 0 0", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6 }}>{wf.description}</p>}
+            {build.workflows?.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                {build.workflows.map((wf, wi) => (
+                  <CollapsibleCard
+                    key={wi}
+                    title={wf.name || `Workflow ${wi + 1}`}
+                    badge={<span style={{ width: 24, height: 24, borderRadius: 6, background: "#0284C7", color: "#fff", fontSize: 12, fontWeight: 700, fontFamily: F, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{wi + 1}</span>}
+                  >
+                    {wf.notes && <p style={{ margin: "0 0 12px", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6, fontStyle: "italic" }}>{wf.notes}</p>}
+                    {wf.lists?.map((l, li) => (
+                      <div key={li} style={{ border: "1px solid #BAE6FD", borderLeft: "3px solid #0284C7", borderRadius: 9, padding: "12px 14px", marginBottom: 8, background: "#fff" }}>
+                        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#0284C7", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          List {li + 1}{l.name ? ` — ${l.name}` : ""}
+                        </p>
+                        <Row label="Status flow" value={l.statuses} />
+                        {l.custom_fields && (
+                          <div style={{ padding: "8px 0", borderBottom: "1px solid #F9FAFB" }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 5 }}>Custom fields</span>
+                            <pre style={{ margin: 0, fontSize: 12, color: "#374151", fontFamily: "monospace", background: "#F3F4F6", padding: "8px 10px", borderRadius: 7, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{l.custom_fields}</pre>
+                          </div>
+                        )}
+                        {Array.isArray(l.automations) && l.automations.length > 0 && (
+                          <div style={{ padding: "8px 0" }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Automations</span>
+                            {l.automations.map((auto, ai) => (
+                              <div key={ai} style={{ border: "1px solid #BAE6FD", borderLeft: "3px solid #0284C780", borderRadius: 8, padding: "12px 14px", marginBottom: 8, background: "#F0F9FF" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                  <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#0284C7", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Automation {ai + 1}</p>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: (auto.platform || "clickup") === "clickup" ? "#0284C7" : "#7C3AED", background: (auto.platform || "clickup") === "clickup" ? "#EFF6FF" : "#F5F3FF", border: `1px solid ${(auto.platform || "clickup") === "clickup" ? "#BAE6FD" : "#DDD6FE"}`, borderRadius: 6, padding: "2px 8px", fontFamily: F }}>
+                                    {(auto.platform || "clickup") === "clickup" ? "ClickUp" : (auto.third_party_platform || "3rd Party")}
+                                  </span>
+                                </div>
+                                {auto.triggers?.length > 0 && (
+                                  <div style={{ marginBottom: 8 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em" }}>Triggers</span>
+                                    {auto.triggers.map((t, ti) => t.type && (
+                                      <div key={ti} style={{ display: "flex", gap: 8, alignItems: "baseline", marginTop: 4 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: "#0284C7", fontFamily: F, background: "#EFF6FF", border: "1px solid #BAE6FD", borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" }}>{t.type}</span>
+                                        {t.detail && <span style={{ fontSize: 12, color: "#374151", fontFamily: F }}>{t.detail}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {(auto.platform || "clickup") === "clickup" && auto.actions?.length > 0 && (
+                                  <div style={{ marginBottom: auto.instructions ? 8 : 0 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em" }}>Actions</span>
+                                    {auto.actions.map((a, ai2) => a.type && (
+                                      <div key={ai2} style={{ display: "flex", gap: 8, alignItems: "baseline", marginTop: 4 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", fontFamily: F, background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" }}>{a.type}</span>
+                                        {a.detail && <span style={{ fontSize: 12, color: "#374151", fontFamily: F }}>{a.detail}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {auto.instructions && (
+                                  <div style={{ marginTop: 8 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                      {(auto.platform || "clickup") === "clickup" ? "Instructions" : "Actions / Instructions"}
+                                    </span>
+                                    <pre style={{ margin: "4px 0 0", fontSize: 12, fontFamily: "monospace", background: "#1E1E2E", color: "#E2E8F0", padding: "10px 12px", borderRadius: 7, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{auto.instructions}</pre>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </CollapsibleCard>
+                ))}
               </div>
-            ))}
+            )}
           </Section>
         )}
 

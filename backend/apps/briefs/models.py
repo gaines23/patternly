@@ -37,6 +37,11 @@ class BuildStatus(models.TextChoices):
     NO = "no", "No"
 
 
+class ProjectStatus(models.TextChoices):
+    OPEN = "open", "Open"
+    CLOSED = "closed", "Closed"
+
+
 # ── Layer 0: CaseFile (top-level container) ───────────────────────────────────
 
 class CaseFile(models.Model):
@@ -70,6 +75,12 @@ class CaseFile(models.Model):
     built_outcome = models.CharField(
         max_length=20, choices=BuildStatus.choices, blank=True
     )
+
+    # Project lifecycle status
+    status = models.CharField(
+        max_length=10, choices=ProjectStatus.choices, default=ProjectStatus.OPEN
+    )
+    closed_at = models.DateTimeField(null=True, blank=True)
 
     # Shareable client brief
     share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
