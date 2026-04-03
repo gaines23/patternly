@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Label,
 } from "recharts";
 import { useCaseFiles, useCaseFileStats } from "../../hooks/useCaseFiles";
 import { useAuth } from "../../hooks/useAuth";
@@ -262,50 +262,88 @@ function SatBarChart({ data, height = 200, tickWidth = 130 }) {
   );
 }
 
-const PIE_COLORS = ["#2563EB", "#059669", "#D97706", "#EA580C", "#7C3AED", "#0891B2", "#DB2777", "#65A30D", "#DC2626", "#9333EA"];
+const PIE_COLORS = ["#2563EB", "#059669", "#D97706", "#EA580C", "#7C3AED", "#0891B2", "#DB2777", "#65A30D"];
 
 function IndustryPieChart({ data, loading }) {
   if (loading) return <Skeleton />;
   if (!data?.length) return <Empty text="No data yet" />;
 
-  const pieData = data.map((r) => ({ name: r.industry, value: r.count, avg_sat: r.avg_sat }));
+  const total = data.reduce((s, r) => s + r.count, 0);
+
+  // Keep top 7 by count, bucket the rest into "Other"
+  const sorted = [...data].sort((a, b) => b.count - a.count);
+  const top = sorted.slice(0, 7);
+  const otherCount = sorted.slice(7).reduce((s, r) => s + r.count, 0);
+
+  const pieData = [
+    ...top.map((r) => ({ name: r.industry, value: r.count, avg_sat: r.avg_sat })),
+    ...(otherCount > 0 ? [{ name: "Other", value: otherCount, avg_sat: null }] : []),
+  ];
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <PieChart>
-        <Pie
-          data={pieData}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          innerRadius={55}
-          outerRadius={90}
-          paddingAngle={3}
-        >
-          {pieData.map((_, i) => (
-            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null;
-            const d = payload[0].payload;
-            return (
-              <div style={{ background: "#1F2937", color: "#F9FAFB", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
-                <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{d.name}</p>
-                <p style={{ margin: 0, color: "#D1D5DB" }}>{d.value} file{d.value !== 1 ? "s" : ""} · avg {d.avg_sat}/5</p>
-              </div>
-            );
-          }}
-        />
-        <Legend
-          iconType="circle"
-          iconSize={8}
-          formatter={(value) => <span style={{ fontSize: 11, color: "#6B7280", fontFamily: F }}>{value}</span>}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      {/* Donut with center label */}
+      <div style={{ width: 170, height: 200, flexShrink: 0 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={pieData}
+              dataKey="value"
+              cx="50%"
+              cy="50%"
+              innerRadius={52}
+              outerRadius={78}
+              paddingAngle={2}
+              strokeWidth={0}
+            >
+              <Label
+                content={({ viewBox: { cx, cy } }) => (
+                  <>
+                    <text x={cx} y={cy - 5} textAnchor="middle" fill="#111827" fontSize={22} fontWeight={700} fontFamily={F}>{total}</text>
+                    <text x={cx} y={cy + 13} textAnchor="middle" fill="#9CA3AF" fontSize={10} fontFamily={F}>total files</text>
+                  </>
+                )}
+              />
+              {pieData.map((_, i) => (
+                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d = payload[0].payload;
+                const pct = Math.round((d.value / total) * 100);
+                return (
+                  <div style={{ background: "#1F2937", color: "#F9FAFB", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                    <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{d.name}</p>
+                    <p style={{ margin: 0, color: "#D1D5DB" }}>
+                      {d.value} file{d.value !== 1 ? "s" : ""} · {pct}%
+                      {d.avg_sat ? ` · avg ${d.avg_sat}/5` : ""}
+                    </p>
+                  </div>
+                );
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Side legend */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
+        {pieData.map((item, i) => {
+          const pct = Math.round((item.value / total) * 100);
+          return (
+            <div key={item.name} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 11, color: "#374151", fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {item.name}
+              </span>
+              <span style={{ fontSize: 11, color: "#9CA3AF", fontFamily: F, whiteSpace: "nowrap" }}>{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
