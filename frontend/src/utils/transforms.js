@@ -54,12 +54,14 @@ export function formStateToCaseFilePayload(formData, loggedByName = "", name = "
     // Layer 3 – Build
     build: {
       build_notes: build.buildNotes,
+      spaces: (build.spaces || []).filter(s => s.trim()).join(", "),
       workflows: (build.workflows || []).map(wf => ({
         name: wf.name,
         notes: wf.notes,
         pipeline: (wf.pipeline || []).filter(p => p.trim()),
         lists: (wf.lists || []).map(l => ({
           name: l.name,
+          space: l.space || "",
           statuses: l.statuses,
           custom_fields: l.customFields,
           automations: (l.automations || []).map(a => ({
@@ -194,12 +196,14 @@ export function caseFileToFormState(caseFile) {
     },
     build: {
       buildNotes: build?.build_notes || "",
+      spaces: (build?.spaces || "").split(",").map(s => s.trim()).filter(Boolean),
       workflows: (build?.workflows || []).map(wf => ({
         name: wf.name || "",
         notes: wf.notes || "",
         pipeline: (wf.pipeline || []).map(p => p || ""),
         lists: (wf.lists || []).map(l => ({
           name: l.name || "",
+          space: l.space || "",
           statuses: l.statuses || "",
           customFields: l.custom_fields || "",
           automations: (l.automations || []).map(a => ({
