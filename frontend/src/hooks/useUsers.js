@@ -33,3 +33,12 @@ export function useChangePassword() {
     },
   });
 }
+
+export function useCreateInvite() {
+  return useMutation({
+    mutationFn: async ({ email = "" } = {}) => {
+      const { data } = await api.post("/v1/users/invites/", { email });
+      return data;
+    },
+  });
+}

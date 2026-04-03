@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
-import { useUpdateMe, useChangePassword } from "../../hooks/useUsers";
+import { useUpdateMe, useChangePassword, useCreateInvite } from "../../hooks/useUsers";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
@@ -73,6 +73,27 @@ export default function SettingsPage() {
   const { mode, toggle, theme } = useTheme();
   const updateMe = useUpdateMe();
   const changePassword = useChangePassword();
+  const createInvite = useCreateInvite();
+
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  const handleCreateInvite = async () => {
+    try {
+      const data = await createInvite.mutateAsync({});
+      const link = `${window.location.origin}/register?token=${data.token}`;
+      setInviteLink(link);
+      setInviteCopied(false);
+    } catch {
+      // error handled via createInvite.isError
+    }
+  };
+
+  const handleCopyInvite = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 2000);
+  };
 
   // Profile form
   const [profile, setProfile] = useState({
@@ -245,6 +266,44 @@ export default function SettingsPage() {
             </button>
           </div>
         </form>
+      </Card>
+
+      {/* Invite */}
+      <Card title="Invite a user" sub="Generate a one-time invite link. It expires after 2 days." theme={theme}>
+        <div style={{ paddingTop: 4 }}>
+          <button
+            onClick={handleCreateInvite}
+            disabled={createInvite.isPending}
+            style={{ padding: "9px 22px", background: createInvite.isPending ? theme.blueSubtle : theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: createInvite.isPending ? "not-allowed" : "pointer" }}
+          >
+            {createInvite.isPending ? "Generating…" : "Generate invite link"}
+          </button>
+
+          {createInvite.isError && (
+            <Alert type="error" message="Failed to generate invite link. Please try again." />
+          )}
+
+          {inviteLink && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  readOnly
+                  value={inviteLink}
+                  style={{ flex: 1, padding: "9px 13px", border: `1.5px solid ${theme.borderInput}`, borderRadius: 9, fontFamily: F, fontSize: 13, color: theme.textMuted, background: theme.inputBg, outline: "none", boxSizing: "border-box" }}
+                />
+                <button
+                  onClick={handleCopyInvite}
+                  style={{ padding: "9px 16px", background: inviteCopied ? "#ECFDF5" : theme.blueLight, border: `1px solid ${inviteCopied ? "#6EE7B7" : theme.blueBorder}`, borderRadius: 9, color: inviteCopied ? "#059669" : theme.blue, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s" }}
+                >
+                  {inviteCopied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <p style={{ margin: "6px 0 0", fontSize: 11, color: theme.textFaint, fontFamily: F }}>
+                This link is single-use and expires in 2 days. Share it directly with the person you&apos;re inviting.
+              </p>
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Account info */}

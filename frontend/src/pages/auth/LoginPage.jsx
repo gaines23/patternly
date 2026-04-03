@@ -169,12 +169,12 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p style={{ marginTop: 20, textAlign: "center", fontSize: 13, color: theme.textMuted, fontFamily: F }}>
+          {/* <p style={{ marginTop: 20, textAlign: "center", fontSize: 13, color: theme.textMuted, fontFamily: F }}>
             No account?{" "}
             <Link to="/register" style={{ color: theme.blue, fontWeight: 600 }}>
               Create one
             </Link>
-          </p>
+          </p> */}
         </div>
       </div>
     </div>

@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
+import publicApi from "../../api/publicClient";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
@@ -9,6 +10,10 @@ export default function RegisterPage() {
   const { register } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("token");
+
+  const [tokenState, setTokenState] = useState("checking"); // checking | valid | invalid
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -18,12 +23,27 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!inviteToken) {
+      setTokenState("invalid");
+      return;
+    }
+    publicApi.get(`/v1/users/invites/${inviteToken}/`)
+      .then((res) => {
+        setTokenState("valid");
+        if (res.data.email) {
+          setForm((f) => ({ ...f, email: res.data.email }));
+        }
+      })
+      .catch(() => setTokenState("invalid"));
+  }, [inviteToken]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await register(form);
+      await register({ ...form, invite_token: inviteToken });
       navigate("/dashboard", { replace: true });
     } catch (err) {
       const data = err.response?.data;
@@ -56,6 +76,42 @@ export default function RegisterPage() {
   const focusStyle = (e) => { e.target.style.borderColor = theme.blue; e.target.style.boxShadow = `0 0 0 3px ${theme.blueLight}`; };
   const blurStyle = (e) => { e.target.style.borderColor = theme.borderInput; e.target.style.boxShadow = "none"; };
 
+  if (tokenState === "checking") {
+    return (
+      <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: theme.textMuted, fontFamily: F, fontSize: 14 }}>Verifying invite…</p>
+      </div>
+    );
+  }
+
+  if (tokenState === "invalid") {
+    return (
+      <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
+          <div style={{ marginBottom: 24 }}>
+            <Link to="/login" style={{ textDecoration: "none" }}>
+              <span style={{ fontSize: 20, fontWeight: 800, color: theme.text, fontFamily: F, letterSpacing: "-0.04em" }}>flow</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: theme.blue, fontFamily: F, letterSpacing: "-0.04em" }}>path</span>
+            </Link>
+          </div>
+          <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 14, padding: "32px 28px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+            <p style={{ fontSize: 32, margin: "0 0 12px" }}>🔒</p>
+            <h1 style={{ margin: "0 0 8px", fontSize: 20, fontFamily: "'Fraunces', serif", color: theme.text }}>Invite required</h1>
+            <p style={{ margin: "0 0 24px", fontSize: 13, color: theme.textMuted, fontFamily: F, lineHeight: 1.6 }}>
+              Account creation requires a valid invite link. Please ask an existing user to send you one.
+            </p>
+            <Link
+              to="/login"
+              style={{ display: "inline-block", padding: "10px 24px", background: theme.blue, borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, textDecoration: "none" }}
+            >
+              Back to sign in
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
@@ -70,7 +126,7 @@ export default function RegisterPage() {
         <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 14, padding: "32px 28px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
           <h1 style={{ margin: "0 0 6px", fontSize: 22, fontFamily: "'Fraunces', serif", color: theme.text }}>Create account</h1>
           <p style={{ margin: "0 0 24px", fontSize: 13, color: theme.textMuted, fontFamily: F }}>
-            Start logging workflow builds and training the system.
+            You&apos;ve been invited. Finish setting up your account below.
           </p>
 
           {error && (
