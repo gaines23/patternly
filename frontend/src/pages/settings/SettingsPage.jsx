@@ -19,7 +19,7 @@ function Card({ title, sub, children, theme }) {
 
 function InputRow({ label, children, theme }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 16, alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${theme.borderSubtle}` }}>
+    <div className="fp-settings-input-row" style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 16, alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${theme.borderSubtle}` }}>
       <label style={{ fontSize: 13, fontWeight: 600, color: theme.textSec, fontFamily: F }}>{label}</label>
       {children}
     </div>
@@ -146,7 +146,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div style={{ padding: "32px 32px 80px", maxWidth: 680 }}>
+    <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 680 }}>
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ margin: "0 0 6px", fontSize: 26, fontFamily: "'Fraunces', serif" }}>Settings</h1>
         <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F }}>Manage your account and preferences.</p>

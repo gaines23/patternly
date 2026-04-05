@@ -172,7 +172,7 @@ export default function GeneratePage() {
   };
 
   return (
-    <div style={{ padding: "32px 32px 80px", maxWidth: 900 }}>
+    <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 900 }}>
 
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
@@ -185,7 +185,7 @@ export default function GeneratePage() {
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: currentBrief ? "1fr 1fr" : "1fr", gap: 24 }}>
+      <div className={currentBrief ? "fp-two-col" : ""} style={{ display: "grid", gridTemplateColumns: currentBrief ? "1fr 1fr" : "1fr", gap: 24 }}>
 
         {/* Left: Input */}
         <div>

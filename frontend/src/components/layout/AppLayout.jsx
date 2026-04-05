@@ -174,8 +174,10 @@ export default function AppLayout({ children }) {
       )}
 
       {/* Main content */}
-      <main className="fp-main" style={{ marginLeft: 220, flex: 1, minHeight: "100vh" }}>
-        {children}
+      <main className="fp-main" style={{ marginLeft: 220, flex: 1, minHeight: "100vh", overflowX: "hidden" }}>
+        <div key={location.pathname} className="fp-page-enter">
+          {children}
+        </div>
       </main>
 
       <style>{`

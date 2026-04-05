@@ -111,3 +111,50 @@ input, textarea, select {
   outline: 2px solid var(--focus-outline);
   outline-offset: 2px;
 }
+
+/* ── Mobile layout fixes ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Tighten horizontal padding on all page wrappers */
+  .fp-page-wrap {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Stack 2-column grids vertically */
+  .fp-two-col {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Case file list: collapse table to workflow + actions only */
+  .fp-cf-header { display: none !important; }
+  .fp-cf-row {
+    grid-template-columns: 1fr auto !important;
+    gap: 8px !important;
+  }
+  .fp-cf-col-industry,
+  .fp-cf-col-logged-by,
+  .fp-cf-col-status,
+  .fp-cf-col-date { display: none !important; }
+
+  /* Settings: stack label above input */
+  .fp-settings-input-row {
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+  }
+}
+
+/* ── Page transition ─────────────────────────────────────────────────────── */
+@keyframes fp-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fp-page-enter {
+  animation: fp-page-in 0.3s ease-out both;
+}
