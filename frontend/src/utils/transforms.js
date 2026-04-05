@@ -287,6 +287,112 @@ export function caseFileToFormState(caseFile) {
 }
 
 /**
+ * Maps a GeneratedBrief (from AI output) into CaseFileForm's initialData shape.
+ * Pre-fills Intake, Build, and Reasoning layers from parsed_scenario + recommendation.
+ * Audit, Delta, and Outcome are left empty for the user to fill manually.
+ */
+export function briefToFormState(brief) {
+  const scenario = brief.parsed_scenario || {};
+  const rec = brief.recommendation || {};
+
+  // Parse comma/newline-separated space names into workflow objects
+  const spaceNames = (rec.spaces || "")
+    .split(/,|\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const workflows = spaceNames.map((spaceName, i) => ({
+    name: spaceName,
+    // Put the lists description in the first workflow's notes
+    notes: i === 0 ? rec.lists || "" : "",
+    pipeline: [],
+    lists: i === 0
+      ? [{
+          name: "Main",
+          space: spaceName,
+          statuses: rec.statuses || "",
+          customFields: rec.custom_fields || "",
+          automations: [],
+        }]
+      : [],
+  }));
+
+  if (workflows.length === 0) {
+    workflows.push({
+      name: "",
+      notes: rec.lists || "",
+      pipeline: [],
+      lists: [{
+        name: "Main",
+        space: "",
+        statuses: rec.statuses || "",
+        customFields: rec.custom_fields || "",
+        automations: [],
+      }],
+    });
+  }
+
+  // Combine build_notes + automations text into the build notes field
+  const buildNoteParts = [
+    rec.build_notes,
+    rec.automations ? `Automations:\n${rec.automations}` : "",
+  ].filter(Boolean).join("\n\n");
+
+  return {
+    audit: {
+      hasExisting: null,
+      overallAssessment: "",
+      triedToFix: null,
+      previousFixes: "",
+      builds: [],
+      patternSummary: "",
+    },
+    intake: {
+      rawPrompt: scenario.raw_prompt || "",
+      industries: scenario.industry ? [scenario.industry] : [],
+      teamSize: scenario.team_size || "",
+      workflowType: scenario.workflow_type || "",
+      processFrameworks: scenario.process_frameworks || [],
+      tools: scenario.tools || [],
+      painPoints: scenario.pain_points || [],
+      priorAttempts: "",
+    },
+    build: {
+      buildNotes: buildNoteParts,
+      workflows,
+    },
+    delta: {
+      userIntent: "",
+      successCriteria: "",
+      actualBuild: "",
+      diverged: null,
+      divergenceReason: "",
+      compromises: "",
+      roadblocks: [],
+    },
+    reasoning: {
+      whyStructure: rec.reasoning || "",
+      alternatives: "",
+      whyRejected: "",
+      assumptions: "",
+      whenOpposite: "",
+      lessons: "",
+      complexity: rec.estimated_complexity || 3,
+    },
+    outcome: {
+      built: null,
+      blockReason: "",
+      changes: "",
+      whatWorked: "",
+      whatFailed: "",
+      satisfaction: 3,
+      recommend: null,
+      revisitWhen: "",
+    },
+  };
+}
+
+/**
  * Format a date string for display.
  */
 export function formatDate(dateStr) {

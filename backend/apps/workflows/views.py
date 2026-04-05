@@ -87,6 +87,33 @@ class GeneratedBriefDetailView(generics.RetrieveAPIView):
 
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
+def brief_convert(request, pk):
+    """
+    PATCH /api/v1/workflows/briefs/<id>/convert/
+
+    Mark a generated brief as converted to a case file and record the link.
+
+    Body:
+        { "case_file_id": "<uuid>" }
+    """
+    try:
+        brief = GeneratedBrief.objects.get(pk=pk)
+    except GeneratedBrief.DoesNotExist:
+        return Response({"error": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    case_file_id = request.data.get("case_file_id")
+    if not case_file_id:
+        return Response({"error": "case_file_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    brief.converted_to_case_file = True
+    brief.case_file_id = case_file_id
+    brief.save(update_fields=["converted_to_case_file", "case_file_id"])
+
+    return Response(GeneratedBriefSerializer(brief).data)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
 def brief_feedback(request, pk):
     """
     PATCH /api/v1/workflows/briefs/<id>/feedback/

@@ -43,6 +43,22 @@ export function useGeneratedBrief(id) {
   });
 }
 
+export function useMarkBriefConverted() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ briefId, caseFileId }) => {
+      const { data } = await api.patch(`/v1/workflows/briefs/${briefId}/convert/`, {
+        case_file_id: caseFileId,
+      });
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(briefKeys.detail(data.id), data);
+      queryClient.invalidateQueries({ queryKey: briefKeys.lists() });
+    },
+  });
+}
+
 export function useBriefFeedback(id) {
   const queryClient = useQueryClient();
   return useMutation({
