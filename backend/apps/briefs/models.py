@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
 
 
 # ── Choices ───────────────────────────────────────────────────────────────────
@@ -89,6 +90,13 @@ class CaseFile(models.Model):
     class Meta:
         db_table = "case_files"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["satisfaction_score"]),
+            models.Index(fields=["workflow_type"]),
+            models.Index(fields=["team_size"]),
+            GinIndex(fields=["industries"]),
+            GinIndex(fields=["tools"]),
+        ]
 
     def __str__(self):
         return f"CaseFile {self.id} — {self.workflow_type or 'Unknown'} ({self.created_at.date()})"
@@ -201,6 +209,10 @@ class Roadblock(models.Model):
     class Meta:
         db_table = "roadblocks"
         ordering = ["order"]
+        indexes = [
+            models.Index(fields=["severity"]),
+            models.Index(fields=["flag_for_future"]),
+        ]
 
 
 # ── Project Updates ───────────────────────────────────────────────────────────
