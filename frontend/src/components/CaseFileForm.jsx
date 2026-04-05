@@ -632,13 +632,15 @@ function StepAudit({ data, set, w, caseName, setCaseName }) {
   );
 }
 
-function StepIntake({ data, set, w }) {
+function StepIntake({ data, set, w, hideRawPrompt }) {
   return (
     <div>
-      <Card accent="#7C3AED">
-        <CardTitle sub="Paste exactly as the user described — don't clean it up">Raw scenario prompt</CardTitle>
-        <TI rows={4} value={data.rawPrompt} onChange={v=>set({...data,rawPrompt:v})} placeholder="e.g. We're a 6-person marketing agency managing 12 clients. We use Slack and HubSpot but nothing talks to each other…"/>
-      </Card>
+      {!hideRawPrompt && (
+        <Card accent="#7C3AED">
+          <CardTitle sub="Paste exactly as the user described — don't clean it up">Raw scenario prompt</CardTitle>
+          <TI rows={4} value={data.rawPrompt} onChange={v=>set({...data,rawPrompt:v})} placeholder="e.g. We're a 6-person marketing agency managing 12 clients. We use Slack and HubSpot but nothing talks to each other…"/>
+        </Card>
+      )}
       <Card>
         <CardTitle>Team basics</CardTitle>
         <Grid2 w={w}>
@@ -1015,7 +1017,7 @@ function MobileStepDrawer({ step, setStep, cs, open, onClose }) {
 }
 
 // ── Main CaseFileForm ─────────────────────────────────────────────────────────
-export default function CaseFileForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel }) {
+export default function CaseFileForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel, hideRawPrompt }) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState(initialData || DEFAULT_STATE);
   const [enteredBy, setEnteredBy] = useState(initialEnteredBy || "");
@@ -1106,7 +1108,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
         )}
 
         {step===0 && <StepAudit   data={data.audit}     set={v=>setSD("audit",v)}     w={w} caseName={caseName} setCaseName={setCaseName}/>}
-        {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w}/>}
+        {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w} hideRawPrompt={hideRawPrompt}/>}
         {step===2 && <StepBuild   data={data.build}     set={v=>setSD("build",v)}     w={w}/>}
         {step===3 && <StepDelta   data={data.delta}     set={v=>setSD("delta",v)}     w={w}/>}
         {step===4 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}

@@ -104,6 +104,7 @@ export default function NewCaseFilePage() {
         initialEnteredBy={user?.full_name || user?.email || ""}
         initialData={initialData}
         initialName={initialName}
+        hideRawPrompt={!!briefId}
       />
     </div>
   );
