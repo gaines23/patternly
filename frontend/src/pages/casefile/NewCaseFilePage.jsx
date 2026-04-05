@@ -60,6 +60,13 @@ export default function NewCaseFilePage() {
 
   const initialData = sourceBrief ? briefToFormState(sourceBrief) : undefined;
 
+  const initialName = sourceBrief
+    ? [
+        sourceBrief.parsed_scenario?.client_name,
+        sourceBrief.parsed_scenario?.workflow_type,
+      ].filter(Boolean).join(" — ")
+    : "";
+
   return (
     <div>
       {briefId && sourceBrief && (
@@ -96,6 +103,7 @@ export default function NewCaseFilePage() {
         isSaving={createMutation.isPending}
         initialEnteredBy={user?.full_name || user?.email || ""}
         initialData={initialData}
+        initialName={initialName}
       />
     </div>
   );

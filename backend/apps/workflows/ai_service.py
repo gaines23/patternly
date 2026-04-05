@@ -45,6 +45,7 @@ class AIServiceError(Exception):
 @dataclass
 class ParsedScenario:
     """Structured output from the prompt parser."""
+    client_name: str = ""
     industry: str = ""
     team_size: str = ""
     workflow_type: str = ""
@@ -89,6 +90,7 @@ Extract the following fields from the user's text. If a field cannot be determin
 
 Return ONLY valid JSON, no markdown fences, no explanation. Schema:
 {
+  "client_name": "string — the company or client name if mentioned, otherwise empty string",
   "industry": "string — e.g. 'Marketing Agency', 'SaaS / Software Product'",
   "team_size": "string — e.g. '6', '10-20', 'small'",
   "workflow_type": "string — e.g. 'Client Project Management', 'Sprint Planning'",
@@ -127,6 +129,15 @@ Return ONLY valid JSON. Schema:
 }"""
 
 
+def _strip_json_fences(text: str) -> str:
+    """Strip markdown code fences that Claude sometimes wraps JSON in."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]  # drop opening fence line
+        text = text.rsplit("```", 1)[0]  # drop closing fence
+    return text.strip()
+
+
 # ── Core service ──────────────────────────────────────────────────────────────
 
 class FlowpathAIService:
@@ -145,7 +156,7 @@ class FlowpathAIService:
                 "ANTHROPIC_API_KEY is not set. Add it to your .env file."
             )
         self.client = anthropic.Anthropic(api_key=api_key)
-        self.model = "claude-sonnet-4-5"
+        self.model = "claude-sonnet-4-6"
 
     # ── Step 1: Parse prompt ──────────────────────────────────────────────────
 
@@ -162,10 +173,11 @@ class FlowpathAIService:
                 system=PARSE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": raw_prompt}],
             )
-            raw = message.content[0].text.strip()
+            raw = _strip_json_fences(message.content[0].text)
             data = json.loads(raw)
             return ParsedScenario(
                 raw_prompt=raw_prompt,
+                client_name=data.get("client_name", ""),
                 industry=data.get("industry", ""),
                 team_size=data.get("team_size", ""),
                 workflow_type=data.get("workflow_type", ""),
@@ -293,11 +305,11 @@ class FlowpathAIService:
         try:
             message = self.client.messages.create(
                 model=self.model,
-                max_tokens=2000,
+                max_tokens=6000,
                 system=RECOMMEND_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_message}],
             )
-            raw = message.content[0].text.strip()
+            raw = _strip_json_fences(message.content[0].text)
             data = json.loads(raw)
         except json.JSONDecodeError as e:
             logger.error("AI recommendation JSON parse error: %s", e)
