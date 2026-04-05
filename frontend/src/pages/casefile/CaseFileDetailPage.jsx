@@ -1162,6 +1162,7 @@ export default function CaseFileDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [showShare, setShowShare] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 900);
   useEffect(() => {
@@ -1336,33 +1337,46 @@ export default function CaseFileDetailPage() {
             >
               {cf.status === "closed" ? "Reopen" : "Mark closed"}
             </button>
-            <button onClick={() => {
-              const name = (cf.name || cf.workflow_type || "Case_File").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
-              const date = new Date().toISOString().slice(0, 10);
-              const prev = document.title;
-              document.title = `${name}_${date}_Flowpath`;
-              flushSync(() => setIsPrinting(true));
-              window.onafterprint = () => { document.title = prev; window.onafterprint = null; setIsPrinting(false); };
-              window.print();
-            }} style={{ padding: "9px 16px", background: theme.surface, border: `1.5px solid ${theme.borderInput}`, borderRadius: 9, color: theme.textSec, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}>
-              Export PDF
-            </button>
-            <button
-              onClick={() => setShowShare(true)}
-              style={{ padding: "9px 16px", background: theme.surface, border: `1.5px solid ${cf.share_enabled ? theme.blue : theme.borderInput}`, borderRadius: 9, color: cf.share_enabled ? theme.blue : theme.textSec, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}
-            >
-              {cf.share_enabled ? "🔗 Shared" : "Share"}
-            </button>
-            <button onClick={() => setIsEditing(true)} style={{ padding: "9px 16px", background: theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}>
-              Edit
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={deleteMutation.isPending}
-              style={{ padding: "9px 16px", background: theme.surface, border: "1.5px solid #FECACA", borderRadius: 9, color: "#EF4444", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap" }}
-            >
-              {deleteMutation.isPending ? "Deleting…" : "Delete"}
-            </button>
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setShowOptions(o => !o)}
+                style={{ padding: "9px 16px", background: theme.surface, border: `1.5px solid ${theme.borderInput}`, borderRadius: 9, color: theme.textSec, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}
+              >
+                Options <span style={{ fontSize: 10, opacity: 0.6 }}>▼</span>
+              </button>
+              {showOptions && (
+                <>
+                  <div onClick={() => setShowOptions(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+                  <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 100, background: theme.surface, border: `1px solid ${theme.borderInput}`, borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", minWidth: 170, overflow: "hidden" }}>
+                    <button onClick={() => { setShowOptions(false); setIsEditing(true); }} style={{ width: "100%", padding: "11px 16px", background: "none", border: "none", borderBottom: `1px solid ${theme.borderSubtle}`, color: theme.text, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", textAlign: "left" }}>
+                      Edit
+                    </button>
+                    <button onClick={() => { setShowOptions(false); setShowShare(true); }} style={{ width: "100%", padding: "11px 16px", background: "none", border: "none", borderBottom: `1px solid ${theme.borderSubtle}`, color: cf.share_enabled ? theme.blue : theme.text, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", textAlign: "left" }}>
+                      {cf.share_enabled ? "🔗 Share link" : "Share link"}
+                    </button>
+                    <button onClick={() => {
+                      setShowOptions(false);
+                      const name = (cf.name || cf.workflow_type || "Case_File").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
+                      const date = new Date().toISOString().slice(0, 10);
+                      const prev = document.title;
+                      document.title = `${name}_${date}_Flowpath`;
+                      flushSync(() => setIsPrinting(true));
+                      window.onafterprint = () => { document.title = prev; window.onafterprint = null; setIsPrinting(false); };
+                      window.print();
+                    }} style={{ width: "100%", padding: "11px 16px", background: "none", border: "none", borderBottom: `1px solid ${theme.borderSubtle}`, color: theme.text, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", textAlign: "left" }}>
+                      Export PDF
+                    </button>
+                    <button
+                      onClick={() => { setShowOptions(false); handleDelete(); }}
+                      disabled={deleteMutation.isPending}
+                      style={{ width: "100%", padding: "11px 16px", background: "none", border: "none", color: "#EF4444", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: "pointer", textAlign: "left" }}
+                    >
+                      {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
