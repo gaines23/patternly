@@ -30,7 +30,7 @@ export default function CaseFileListPage() {
   const satColors = { 1: "#EF4444", 2: "#F97316", 3: "#F59E0B", 4: "#10B981", 5: "#059669" };
 
   return (
-    <div style={{ padding: "32px 32px 80px", maxWidth: 1000 }}>
+    <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 1000 }}>
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
@@ -86,7 +86,7 @@ export default function CaseFileListPage() {
       ) : (
         <div>
           {/* Table header */}
-          <div style={{
+          <div className="fp-cf-header" style={{
             display: "grid",
             gridTemplateColumns: "1fr 160px 120px 80px 100px 80px",
             gap: 12,
@@ -101,7 +101,7 @@ export default function CaseFileListPage() {
           </div>
 
           {[...caseFiles].sort((a, b) => (a.name || a.workflow_type || "").localeCompare(b.name || b.workflow_type || "")).map((cf) => (
-            <div key={cf.id} style={{
+            <div key={cf.id} className="fp-cf-row" style={{
               display: "grid",
               gridTemplateColumns: "1fr 160px 120px 80px 100px 80px",
               gap: 12,
@@ -139,17 +139,17 @@ export default function CaseFileListPage() {
               </div>
 
               {/* Industry */}
-              <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
+              <span className="fp-cf-col-industry" style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
                 {cf.industries?.[0] || "—"}
               </span>
 
               {/* Logged by */}
-              <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
+              <span className="fp-cf-col-logged-by" style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
                 {cf.logged_by_name}
               </span>
 
               {/* Status */}
-              <span style={{
+              <span className="fp-cf-col-status" style={{
                 alignSelf: "center", width: "fit-content",
                 fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 10,
                 background: cf.status === "closed" ? "#ECFDF5" : "#EFF6FF",
@@ -162,7 +162,7 @@ export default function CaseFileListPage() {
               </span>
 
               {/* Date */}
-              <span style={{ fontSize: 12, color: theme.textFaint, fontFamily: F }}>
+              <span className="fp-cf-col-date" style={{ fontSize: 12, color: theme.textFaint, fontFamily: F }}>
                 {formatDate(cf.created_at)}
               </span>
 
