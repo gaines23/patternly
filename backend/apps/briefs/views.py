@@ -215,54 +215,19 @@ def stats(request):
     GET /api/v1/briefs/stats/
     Dashboard stats — totals, satisfaction, roadblock analytics, scope creep signals.
     """
+    from django.db import connection
     from django.db.models import Avg, Count
 
-    data = CaseFile.objects.aggregate(
+    totals = CaseFile.objects.aggregate(
         total=Count("id"),
         avg_satisfaction=Avg("satisfaction_score"),
         total_roadblocks=Count("delta__roadblocks"),
     )
 
-    # Top tools (existing — last 100 case files)
-    top_tools_qs = (
-        CaseFile.objects.values_list("tools", flat=True)
-        .exclude(tools=[])
-        .order_by("-created_at")[:100]
-    )
-    tool_freq = {}
-    for tool_list in top_tools_qs:
-        for tool in tool_list:
-            tool_freq[tool] = tool_freq.get(tool, 0) + 1
-    top_5_tools = sorted(tool_freq.items(), key=lambda x: x[1], reverse=True)[:5]
-
-    # 1. Average time cost of roadblocks (hours)
     time_cost_agg = Roadblock.objects.filter(
         time_cost_hours__isnull=False
     ).aggregate(avg=Avg("time_cost_hours"))
 
-    # 2. Most common roadblock types — count + top affected tool per type
-    roadblocks_qs = Roadblock.objects.exclude(type="").values("type", "tools_affected")
-    type_tool_counts = {}  # {rb_type: {tool: count}}
-    for rb in roadblocks_qs:
-        rb_type = rb["type"]
-        if rb_type not in type_tool_counts:
-            type_tool_counts[rb_type] = {}
-        for tool in (rb["tools_affected"] or []):
-            type_tool_counts[rb_type][tool] = type_tool_counts[rb_type].get(tool, 0) + 1
-
-    roadblock_types = []
-    for rb_type, tool_counts in type_tool_counts.items():
-        roadblock_types.append({
-            "type": rb_type,
-            "count": sum(tool_counts.values()),
-            "tools": [
-                {"tool": t, "count": c}
-                for t, c in sorted(tool_counts.items(), key=lambda x: x[1], reverse=True)
-            ],
-        })
-    roadblock_types.sort(key=lambda x: x["count"], reverse=True)
-
-    # 3. Satisfaction by workflow type (SQL aggregation)
     sat_by_workflow = list(
         CaseFile.objects.exclude(workflow_type="")
         .exclude(satisfaction_score__isnull=True)
@@ -271,42 +236,80 @@ def stats(request):
         .order_by("-avg_sat")[:10]
     )
 
-    # 4. Satisfaction by industry (Python aggregation — JSONField)
-    industry_scores = {}
-    for cf in CaseFile.objects.exclude(industries=[]).exclude(
-        satisfaction_score__isnull=True
-    ).values("industries", "satisfaction_score"):
-        for ind in (cf["industries"] or []):
-            if ind not in industry_scores:
-                industry_scores[ind] = []
-            industry_scores[ind].append(cf["satisfaction_score"])
+    with connection.cursor() as cursor:
+        # Top tools — unnest the tools JSON array at the DB level
+        cursor.execute("""
+            SELECT tool, COUNT(*) AS cnt
+            FROM case_files,
+                 jsonb_array_elements_text(tools) AS tool
+            WHERE jsonb_array_length(tools) > 0
+            GROUP BY tool
+            ORDER BY cnt DESC
+            LIMIT 5
+        """)
+        top_5_tools = cursor.fetchall()
 
-    sat_by_industry = sorted(
+        # Roadblock types with per-type tool breakdown — one DB round-trip
+        cursor.execute("""
+            SELECT rb.type, tool, COUNT(*) AS cnt
+            FROM roadblocks rb
+            CROSS JOIN LATERAL jsonb_array_elements_text(rb.tools_affected) AS tool
+            WHERE rb.type != ''
+            GROUP BY rb.type, tool
+            ORDER BY rb.type, cnt DESC
+        """)
+        rb_tool_rows = cursor.fetchall()
+
+        # Satisfaction by industry — unnest industries JSON array at the DB level
+        cursor.execute("""
+            SELECT industry,
+                   ROUND(AVG(satisfaction_score)::numeric, 2) AS avg_sat,
+                   COUNT(*) AS cnt
+            FROM case_files,
+                 jsonb_array_elements_text(industries) AS industry
+            WHERE satisfaction_score IS NOT NULL
+              AND jsonb_array_length(industries) > 0
+            GROUP BY industry
+            ORDER BY avg_sat DESC
+            LIMIT 10
+        """)
+        sat_by_industry_rows = cursor.fetchall()
+
+        # Tools most associated with scope-creep / diverged cases
+        cursor.execute("""
+            SELECT tool, COUNT(*) AS cnt
+            FROM case_files cf
+            JOIN delta_layers dl ON dl.case_file_id = cf.id
+            CROSS JOIN LATERAL jsonb_array_elements_text(cf.tools) AS tool
+            WHERE dl.diverged = true
+              AND jsonb_array_length(cf.tools) > 0
+            GROUP BY tool
+            ORDER BY cnt DESC
+            LIMIT 8
+        """)
+        scope_creep_rows = cursor.fetchall()
+
+    # Reshape roadblock rows (rb_type, tool, cnt) into nested structure
+    rb_type_map = {}
+    for rb_type, tool, cnt in rb_tool_rows:
+        if rb_type not in rb_type_map:
+            rb_type_map[rb_type] = {"total": 0, "tools": []}
+        rb_type_map[rb_type]["tools"].append({"tool": tool, "count": cnt})
+        rb_type_map[rb_type]["total"] += cnt
+
+    roadblock_types = sorted(
         [
-            {"industry": ind, "avg_sat": round(sum(s) / len(s), 2), "count": len(s)}
-            for ind, s in industry_scores.items()
+            {"type": rb_type, "count": entry["total"], "tools": entry["tools"]}
+            for rb_type, entry in rb_type_map.items()
         ],
-        key=lambda x: x["avg_sat"],
+        key=lambda x: x["count"],
         reverse=True,
-    )[:10]
-
-    # 5. Tools that appear most in scope-creep / diverged cases
-    scope_creep_tool_freq = {}
-    for tool_list in CaseFile.objects.filter(
-        delta__diverged=True
-    ).values_list("tools", flat=True):
-        for tool in (tool_list or []):
-            scope_creep_tool_freq[tool] = scope_creep_tool_freq.get(tool, 0) + 1
-
-    scope_creep_tools = [
-        {"tool": t, "count": c}
-        for t, c in sorted(scope_creep_tool_freq.items(), key=lambda x: x[1], reverse=True)[:8]
-    ]
+    )
 
     return Response({
-        "total_case_files": data["total"],
-        "avg_satisfaction": round(data["avg_satisfaction"] or 0, 2),
-        "total_roadblocks": data["total_roadblocks"],
+        "total_case_files": totals["total"],
+        "avg_satisfaction": round(totals["avg_satisfaction"] or 0, 2),
+        "total_roadblocks": totals["total_roadblocks"],
         "avg_roadblock_hours": round(time_cost_agg["avg"] or 0, 1),
         "top_tools": [{"tool": t, "count": c} for t, c in top_5_tools],
         "roadblock_types": roadblock_types,
@@ -318,6 +321,9 @@ def stats(request):
             }
             for r in sat_by_workflow
         ],
-        "sat_by_industry": sat_by_industry,
-        "scope_creep_tools": scope_creep_tools,
+        "sat_by_industry": [
+            {"industry": row[0], "avg_sat": float(row[1]), "count": row[2]}
+            for row in sat_by_industry_rows
+        ],
+        "scope_creep_tools": [{"tool": row[0], "count": row[1]} for row in scope_creep_rows],
     })

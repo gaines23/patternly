@@ -7,36 +7,53 @@ from .models import (
 )
 
 
+class NestedLayerMixin:
+    """
+    Handles create/update for layer serializers that own a single ordered
+    child relation (e.g. AuditLayer → builds, DeltaLayer → roadblocks).
+
+    Subclasses must set:
+        child_field  – name of the nested field (str), e.g. "builds"
+        child_model  – the child model class, e.g. CurrentBuild
+        child_fk     – the FK kwarg name on the child model, e.g. "audit"
+    """
+    child_field: str = None
+    child_model = None
+    child_fk: str = None
+
+    def create(self, validated_data):
+        children_data = validated_data.pop(self.child_field, [])
+        instance = super().create(validated_data)
+        for i, child in enumerate(children_data):
+            self.child_model.objects.create(**{self.child_fk: instance}, order=i, **child)
+        return instance
+
+    def update(self, instance, validated_data):
+        children_data = validated_data.pop(self.child_field, None)
+        instance = super().update(instance, validated_data)
+        if children_data is not None:
+            getattr(instance, self.child_field).all().delete()
+            for i, child in enumerate(children_data):
+                self.child_model.objects.create(**{self.child_fk: instance}, order=i, **child)
+        return instance
+
+
 class CurrentBuildSerializer(serializers.ModelSerializer):
     class Meta:
         model = CurrentBuild
         exclude = ["audit", "order"]
 
 
-class AuditLayerSerializer(serializers.ModelSerializer):
+class AuditLayerSerializer(NestedLayerMixin, serializers.ModelSerializer):
+    child_field = "builds"
+    child_model = CurrentBuild
+    child_fk = "audit"
+
     builds = CurrentBuildSerializer(many=True, required=False)
 
     class Meta:
         model = AuditLayer
         exclude = ["case_file"]
-
-    def create(self, validated_data):
-        builds_data = validated_data.pop("builds", [])
-        audit = AuditLayer.objects.create(**validated_data)
-        for i, b in enumerate(builds_data):
-            CurrentBuild.objects.create(audit=audit, order=i, **b)
-        return audit
-
-    def update(self, instance, validated_data):
-        builds_data = validated_data.pop("builds", None)
-        for attr, val in validated_data.items():
-            setattr(instance, attr, val)
-        instance.save()
-        if builds_data is not None:
-            instance.builds.all().delete()
-            for i, b in enumerate(builds_data):
-                CurrentBuild.objects.create(audit=instance, order=i, **b)
-        return instance
 
 
 class IntakeLayerSerializer(serializers.ModelSerializer):
@@ -57,30 +74,16 @@ class RoadblockSerializer(serializers.ModelSerializer):
         exclude = ["delta", "order"]
 
 
-class DeltaLayerSerializer(serializers.ModelSerializer):
+class DeltaLayerSerializer(NestedLayerMixin, serializers.ModelSerializer):
+    child_field = "roadblocks"
+    child_model = Roadblock
+    child_fk = "delta"
+
     roadblocks = RoadblockSerializer(many=True, required=False)
 
     class Meta:
         model = DeltaLayer
         exclude = ["case_file"]
-
-    def create(self, validated_data):
-        roadblocks_data = validated_data.pop("roadblocks", [])
-        delta = DeltaLayer.objects.create(**validated_data)
-        for i, r in enumerate(roadblocks_data):
-            Roadblock.objects.create(delta=delta, order=i, **r)
-        return delta
-
-    def update(self, instance, validated_data):
-        roadblocks_data = validated_data.pop("roadblocks", None)
-        for attr, val in validated_data.items():
-            setattr(instance, attr, val)
-        instance.save()
-        if roadblocks_data is not None:
-            instance.roadblocks.all().delete()
-            for i, r in enumerate(roadblocks_data):
-                Roadblock.objects.create(delta=instance, order=i, **r)
-        return instance
 
 
 class ProjectUpdateSerializer(serializers.ModelSerializer):
@@ -128,19 +131,10 @@ class CaseFileDetailSerializer(serializers.ModelSerializer):
         return obj.logged_by.email if obj.logged_by else None
 
 
-class PublicCaseFileSerializer(serializers.ModelSerializer):
+class PublicCaseFileSerializer(CaseFileDetailSerializer):
     """Read-only serializer for unauthenticated client share links."""
-    audit = AuditLayerSerializer(read_only=True)
-    intake = IntakeLayerSerializer(read_only=True)
-    build = BuildLayerSerializer(read_only=True)
-    delta = DeltaLayerSerializer(read_only=True)
-    reasoning = ReasoningLayerSerializer(read_only=True)
-    outcome = OutcomeLayerSerializer(read_only=True)
-    project_updates = ProjectUpdateSerializer(many=True, read_only=True)
-    logged_by_name = serializers.SerializerMethodField()
 
-    class Meta:
-        model = CaseFile
+    class Meta(CaseFileDetailSerializer.Meta):
         fields = [
             "id", "name", "logged_by_name",
             "industries", "tools", "process_frameworks", "workflow_type", "team_size",
@@ -150,11 +144,6 @@ class PublicCaseFileSerializer(serializers.ModelSerializer):
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
         ]
-
-    def get_logged_by_name(self, obj):
-        if obj.logged_by:
-            return obj.logged_by.full_name
-        return obj.logged_by_name or "Unknown"
 
 
 class CaseFileListSerializer(serializers.ModelSerializer):
