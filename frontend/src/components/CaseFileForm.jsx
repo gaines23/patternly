@@ -825,28 +825,21 @@ function assembleGuidedPrompt(g1, g2, g3) {
   return parts.join("\n\n");
 }
 
-function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set(), auditData, setAudit }) {
-  const ai = (field) => aiSuggestedFields.has(field);
+const AI_FILLABLE_FIELDS = new Set(["teamSize", "workflowType", "industries", "processFrameworks", "tools", "painPoints"]);
+
+function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set() }) {
+  // On the new form (guided flow), badge = "AI can fill this"; after parsing or on edit/brief form, badge = "AI filled this"
+  const ai = (field) => aiSuggestedFields.has(field) || (!hideRawPrompt && AI_FILLABLE_FIELDS.has(field));
   const hasAiFields = aiSuggestedFields.size > 0;
 
   return (
     <div>
+      {!hasAiFields && !hideRawPrompt && (
+        <Banner emoji="✦" title="AI can pre-fill these fields" body="Go back to Current State, fill out the guided form, and click 'Let AI parse this' to auto-fill the highlighted fields below." color="#7C3AED"/>
+      )}
       {hasAiFields && (
         <Banner emoji="✦" title="AI pre-filled these fields" body="Review each suggestion below — correct anything that looks off before saving." color="#7C3AED"/>
       )}
-      {/* Existing setup question — moved here from Current State step */}
-      {!hideRawPrompt && (<>
-        <Card>
-          <CardTitle>Does this client have an existing setup?</CardTitle>
-          <TogGroup options={["Yes, they have something","No — starting from scratch"]} value={auditData?.hasExisting} onChange={v=>setAudit({...auditData,hasExisting:v})} color={BLUE}/>
-        </Card>
-        {auditData?.hasExisting==="No — starting from scratch" && (
-          <div style={{ padding:24, textAlign:"center", background:"#ECFDF5", border:"1px solid #6EE7B7", borderRadius:12, marginBottom:14 }}>
-            <span style={{ fontSize:28 }}>🌱</span>
-            <p style={{ margin:"8px 0 0", fontSize:14, color:"#065F46", fontFamily:F, fontWeight:600 }}>Greenfield build — fill in the scenario details below.</p>
-          </div>
-        )}
-      </>)}
       <Card>
         <CardTitle>Team basics</CardTitle>
         <Grid2 w={w}>
@@ -1388,6 +1381,7 @@ function MobileStepDrawer({ step, setStep, cs, open, onClose }) {
 
 // ── Main CaseFileForm ─────────────────────────────────────────────────────────
 export default function CaseFileForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel, hideRawPrompt, suggestedAutomations }) {
+  const shouldHidePrompt = hideRawPrompt || isEditing;
   const [step, setStep] = useState(0);
   const [data, setData] = useState(initialData || DEFAULT_STATE);
   const [enteredBy, setEnteredBy] = useState(initialEnteredBy || "");
@@ -1400,7 +1394,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
 
   // Compute which intake fields were pre-filled by AI (brief flow only)
   const [aiSuggestedFields, setAiSuggestedFields] = useState(() => {
-    if (hideRawPrompt && initialData?.intake) {
+    if (shouldHidePrompt && initialData?.intake) {
       const fields = new Set();
       const i = initialData.intake;
       if (i.industries?.length) fields.add("industries");
@@ -1509,14 +1503,14 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
             <>
               {step===0 && <StepAudit   data={data.audit}     set={v=>setSD("audit",v)}     w={w} caseName={caseName} setCaseName={setCaseName}
                               intakeData={data.intake} setIntake={v=>setSD("intake",v)}
-                              hideRawPrompt={hideRawPrompt} onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
+                              hideRawPrompt={shouldHidePrompt} onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
                               {...(isEditing && {
                                 projectUpdates: data.projectUpdates||[],
                                 onProjectUpdatesChange: v=>setSD("projectUpdates",v),
                                 scopeCreep: data.delta?.scopeCreep||[],
                                 onScopeCreepChange: v=>setData(d=>({...d,delta:{...d.delta,scopeCreep:v}})),
                               })}/>}
-              {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w} hideRawPrompt={hideRawPrompt} aiSuggestedFields={aiSuggestedFields} auditData={data.audit} setAudit={v=>setSD("audit",v)}/>}
+              {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
               {step===2 && <StepBuild   data={data.build}     set={v=>setSD("build",v)}     w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} setAudit={v=>setSD("audit",v)} isEditing={isEditing}/>}
               {step===3 && <StepDelta   data={data.delta}     set={v=>setSD("delta",v)}     w={w}/>}
               {step===4 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
