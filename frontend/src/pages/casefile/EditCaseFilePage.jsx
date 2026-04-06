@@ -6,8 +6,6 @@ import { useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useBriefByCaseFile } from "../../hooks/useWorkflows";
 
-const F = "'Plus Jakarta Sans', sans-serif";
-
 export default function EditCaseFilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -32,15 +30,15 @@ export default function EditCaseFilePage() {
 
   if (isLoading) {
     return (
-      <div style={{ padding: 60, textAlign: "center", color: theme.textFaint, fontFamily: F }}>
-        Loading…
+      <div style={{ padding: 48, textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", color: theme.textMuted, fontSize: 14 }}>
+        Loading case file...
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div style={{ padding: 60, textAlign: "center", color: "#EF4444", fontFamily: F }}>
+      <div style={{ padding: 48, textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#EF4444", fontSize: 14 }}>
         Failed to load case file.
       </div>
     );
@@ -51,11 +49,29 @@ export default function EditCaseFilePage() {
 
   return (
     <div>
+      <div style={{
+        margin: "24px 32px 0",
+        padding: "12px 16px",
+        background: theme.surfaceAlt,
+        border: `1px solid ${theme.border}`,
+        borderRadius: 10,
+        fontSize: 13,
+        color: theme.textMuted,
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}>
+        Editing existing case file. The scenario prompt is hidden — update the audit, build, and outcome layers as needed.
+      </div>
       {apiError && (
         <div style={{
-          margin: "0 32px", marginTop: 24, padding: "14px 18px",
-          background: theme.surface, border: "1px solid #FECACA", borderRadius: 10,
-          fontSize: 13, color: "#DC2626", fontFamily: F, whiteSpace: "pre-wrap",
+          margin: "16px 32px 0",
+          padding: "14px 18px",
+          background: theme.surface,
+          border: "1px solid #FECACA",
+          borderRadius: 10,
+          fontSize: 13,
+          color: "#DC2626",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          whiteSpace: "pre-wrap",
         }}>
           <strong>Save failed:</strong> {apiError}
         </div>
@@ -67,6 +83,7 @@ export default function EditCaseFilePage() {
         onSubmit={handleSubmit}
         isSaving={updateMutation.isPending}
         isEditing
+        hideRawPrompt
         onCancel={() => navigate(`/case-files/${id}`)}
         suggestedAutomations={suggestedAutomations}
       />
