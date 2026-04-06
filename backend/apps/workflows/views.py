@@ -63,6 +63,58 @@ def generate_brief(request):
         )
 
 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def parse_prompt(request):
+    """
+    POST /api/v1/workflows/parse/
+
+    Lightweight parse-only endpoint. Runs parse_scenario and returns
+    structured fields without persisting anything or running the full
+    recommendation pipeline.
+
+    Body:
+        { "raw_prompt": "We're a 6-person agency using Slack and HubSpot..." }
+
+    Returns:
+        { "industry": "", "team_size": "", "workflow_type": "",
+          "tools": [], "pain_points": [], "process_frameworks": [] }
+    """
+    raw_prompt = (request.data.get("raw_prompt") or "").strip()
+    if not raw_prompt:
+        return Response({"error": "raw_prompt is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        service = FlowpathAIService()
+        scenario = service.parse_scenario(raw_prompt)
+        return Response({
+            "industry": scenario.industry,
+            "team_size": scenario.team_size,
+            "workflow_type": scenario.workflow_type,
+            "tools": scenario.tools,
+            "pain_points": scenario.pain_points,
+            "process_frameworks": scenario.process_frameworks,
+        })
+    except ConfigurationError as e:
+        logger.error("AI service not configured: %s", e)
+        return Response(
+            {"error": "AI service is not configured."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except AIServiceError as e:
+        logger.error("AI service error: %s", e)
+        return Response(
+            {"error": f"Parse failed: {str(e)}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    except Exception as e:
+        logger.exception("Unexpected error in parse_prompt: %s", e)
+        return Response(
+            {"error": "An unexpected error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 class GeneratedBriefListView(generics.ListAPIView):
     """
     GET /api/v1/workflows/briefs/

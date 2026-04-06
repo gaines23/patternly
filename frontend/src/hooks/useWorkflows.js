@@ -7,6 +7,17 @@ export const briefKeys = {
   detail: (id) => [...briefKeys.all, "detail", id],
 };
 
+export function useParsePrompt() {
+  return useMutation({
+    mutationFn: async (rawPrompt) => {
+      const { data } = await api.post("/v1/workflows/parse/", {
+        raw_prompt: rawPrompt,
+      });
+      return data;
+    },
+  });
+}
+
 export function useGenerateBrief() {
   const queryClient = useQueryClient();
   return useMutation({

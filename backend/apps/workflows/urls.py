@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path("generate/", views.generate_brief, name="workflow_generate"),
+    path("parse/", views.parse_prompt, name="workflow_parse"),
     path("briefs/", views.GeneratedBriefListView.as_view(), name="generated_brief_list"),
     path("briefs/<uuid:pk>/", views.GeneratedBriefDetailView.as_view(), name="generated_brief_detail"),
     path("briefs/<uuid:pk>/convert/", views.brief_convert, name="generated_brief_convert"),

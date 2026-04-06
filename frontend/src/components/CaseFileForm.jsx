@@ -10,6 +10,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../hooks/useTheme";
+import { useParsePrompt } from "../hooks/useWorkflows";
 
 // ── All data constants (same as workflow-intake.jsx) ──────────────────────────
 const INDUSTRY_MAP = {
@@ -179,20 +180,28 @@ function useWidth() {
   return w;
 }
 
-function Lbl({ children, hint }) {
+function AiBadge() {
+  return (
+    <span style={{ fontSize:10, fontWeight:700, fontFamily:F, color:"#7C3AED", background:"#7C3AED18", border:"1px solid #7C3AED30", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>
+      AI
+    </span>
+  );
+}
+
+function Lbl({ children, hint, aiBadge }) {
   const { theme } = useTheme();
   return (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
-      <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{children}</span>
+      <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{children}{aiBadge && <AiBadge/>}</span>
       {hint && <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F }}>{hint}</span>}
     </div>
   );
 }
 
-function Field({ label, hint, children, style }) {
+function Field({ label, hint, children, style, aiBadge }) {
   return (
     <div style={{ marginBottom:16, ...style }}>
-      {label && <Lbl hint={hint}>{label}</Lbl>}
+      {label && <Lbl hint={hint} aiBadge={aiBadge}>{label}</Lbl>}
       {children}
     </div>
   );
@@ -761,35 +770,53 @@ function StepAudit({ data, set, w, caseName, setCaseName, projectUpdates, onProj
   );
 }
 
-function StepIntake({ data, set, w, hideRawPrompt }) {
+function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set(), onAiParse, isParsing, parseError }) {
+  const { theme } = useTheme();
+  const ai = (field) => aiSuggestedFields.has(field);
+  const hasAiFields = aiSuggestedFields.size > 0;
+  const canParse = !hideRawPrompt && data.rawPrompt.trim().length > 20 && !!onAiParse;
+
   return (
     <div>
+      {hasAiFields && (
+        <Banner emoji="✦" title="AI pre-filled these fields" body="Review each suggestion below — correct anything that looks off before saving." color="#7C3AED"/>
+      )}
       {!hideRawPrompt && (
         <Card accent="#7C3AED">
           <CardTitle sub="Paste exactly as the user described — don't clean it up">Raw scenario prompt</CardTitle>
           <TI rows={4} value={data.rawPrompt} onChange={v=>set({...data,rawPrompt:v})} placeholder="e.g. We're a 6-person marketing agency managing 12 clients. We use Slack and HubSpot but nothing talks to each other…"/>
+          {canParse && (
+            <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:10 }}>
+              <button type="button" onClick={onAiParse} disabled={isParsing}
+                style={{ padding:"9px 16px", borderRadius:8, fontSize:13, fontWeight:700, fontFamily:F, cursor:isParsing?"not-allowed":"pointer", background:"#7C3AED", color:"#fff", border:"none", opacity:isParsing?0.7:1, transition:"opacity 0.15s" }}>
+                {isParsing ? "Parsing…" : "✦ Let AI parse this"}
+              </button>
+              <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F }}>Auto-fills industry, tools, and pain points</span>
+            </div>
+          )}
+          {parseError && <p style={{ margin:"8px 0 0", fontSize:12, color:"#DC2626", fontFamily:F }}>{parseError}</p>}
         </Card>
       )}
       <Card>
         <CardTitle>Team basics</CardTitle>
         <Grid2 w={w}>
-          <Field label="Team size"><TI value={data.teamSize} onChange={v=>set({...data,teamSize:v})} placeholder="e.g. 6"/></Field>
-          <Field label="Primary workflow type"><SelDesc value={data.workflowType} onChange={v=>set({...data,workflowType:v})} options={WORKFLOW_TYPES}/></Field>
+          <Field label="Team size" aiBadge={ai("teamSize")}><TI value={data.teamSize} onChange={v=>set({...data,teamSize:v})} placeholder="e.g. 6"/></Field>
+          <Field label="Primary workflow type" aiBadge={ai("workflowType")}><SelDesc value={data.workflowType} onChange={v=>set({...data,workflowType:v})} options={WORKFLOW_TYPES}/></Field>
         </Grid2>
       </Card>
       <Card>
-        <CardTitle sub="Expand a category — multiple allowed">Industry</CardTitle>
+        <CardTitle sub="Expand a category — multiple allowed">Industry{ai("industries") && <AiBadge/>}</CardTitle>
         <IndustryPicker selected={data.industries} onChange={v=>set({...data,industries:v})}/>
       </Card>
       <Card>
-        <CardTitle sub="Select every framework they reference or need support with">Process frameworks</CardTitle>
+        <CardTitle sub="Select every framework they reference or need support with">Process frameworks{ai("processFrameworks") && <AiBadge/>}</CardTitle>
         <FrameworkPicker selected={data.processFrameworks} onChange={v=>set({...data,processFrameworks:v})}/>
       </Card>
       <Card>
         <CardTitle>Tools & pain points</CardTitle>
-        <Field label="Tools currently in use" hint="select all"><ChipGroup options={TOOLS} selected={data.tools} onChange={v=>set({...data,tools:v})} color={BLUE}/></Field>
+        <Field label="Tools currently in use" hint="select all" aiBadge={ai("tools")}><ChipGroup options={TOOLS} selected={data.tools} onChange={v=>set({...data,tools:v})} color={BLUE}/></Field>
         <HR label="pain points"/>
-        <Field label="Core pain points"><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#7C3AED"/></Field>
+        <Field label="Core pain points" aiBadge={ai("painPoints")}><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#7C3AED"/></Field>
         <HR/>
         <Field label="What have they already tried that didn't work?" hint="optional"><TI rows={2} value={data.priorAttempts} onChange={v=>set({...data,priorAttempts:v})} placeholder="Previous tools, failed automations…"/></Field>
       </Card>
@@ -1240,8 +1267,47 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
   const [enteredBy, setEnteredBy] = useState(initialEnteredBy || "");
   const [caseName, setCaseName] = useState(initialName || "");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [parseError, setParseError] = useState(null);
   const w = useWidth();
   const { theme } = useTheme();
+  const parsePromutMutation = useParsePrompt();
+
+  // Compute which intake fields were pre-filled by AI (brief flow only)
+  const [aiSuggestedFields, setAiSuggestedFields] = useState(() => {
+    if (hideRawPrompt && initialData?.intake) {
+      const fields = new Set();
+      const i = initialData.intake;
+      if (i.industries?.length) fields.add("industries");
+      if (i.teamSize) fields.add("teamSize");
+      if (i.workflowType) fields.add("workflowType");
+      if (i.tools?.length) fields.add("tools");
+      if (i.painPoints?.length) fields.add("painPoints");
+      if (i.processFrameworks?.length) fields.add("processFrameworks");
+      return fields;
+    }
+    return new Set();
+  });
+
+  const handleAiParse = async () => {
+    const prompt = data.intake.rawPrompt.trim();
+    if (!prompt) return;
+    setParseError(null);
+    try {
+      const parsed = await parsePromutMutation.mutateAsync(prompt);
+      const newFields = new Set();
+      const newIntake = { ...data.intake };
+      if (parsed.industry) { newIntake.industries = [parsed.industry]; newFields.add("industries"); }
+      if (parsed.team_size) { newIntake.teamSize = parsed.team_size; newFields.add("teamSize"); }
+      if (parsed.workflow_type) { newIntake.workflowType = parsed.workflow_type; newFields.add("workflowType"); }
+      if (parsed.tools?.length) { newIntake.tools = parsed.tools; newFields.add("tools"); }
+      if (parsed.pain_points?.length) { newIntake.painPoints = parsed.pain_points; newFields.add("painPoints"); }
+      if (parsed.process_frameworks?.length) { newIntake.processFrameworks = parsed.process_frameworks; newFields.add("processFrameworks"); }
+      setData(d => ({ ...d, intake: newIntake }));
+      setAiSuggestedFields(newFields);
+    } catch {
+      setParseError("Couldn't parse the prompt — check your connection and try again.");
+    }
+  };
 
   const isMobile = w < 640;
   const cs = STEPS[step];
@@ -1322,7 +1388,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
                                 scopeCreep: data.delta?.scopeCreep||[],
                                 onScopeCreepChange: v=>setData(d=>({...d,delta:{...d.delta,scopeCreep:v}})),
                               })}/>}
-              {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w} hideRawPrompt={hideRawPrompt}/>}
+              {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w} hideRawPrompt={hideRawPrompt} aiSuggestedFields={aiSuggestedFields} onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}/>}
               {step===2 && <StepBuild   data={data.build}     set={v=>setSD("build",v)}     w={w} suggestedAutomations={suggestedAutomations}/>}
               {step===3 && <StepDelta   data={data.delta}     set={v=>setSD("delta",v)}     w={w}/>}
               {step===4 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
