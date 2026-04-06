@@ -67,6 +67,7 @@ export default function EditCaseFilePage() {
         onSubmit={handleSubmit}
         isSaving={updateMutation.isPending}
         isEditing
+        hideRawPrompt
         onCancel={() => navigate(`/case-files/${id}`)}
         suggestedAutomations={suggestedAutomations}
       />

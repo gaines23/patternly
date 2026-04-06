@@ -553,7 +553,7 @@ function BuildCard({ item, index, onChange, onRemove, w, defaultOpen = true }) {
     <div style={{ border:"1.5px solid #FED7AA", borderRadius:12, marginBottom:10, overflow:"hidden" }}>
       <button onClick={()=>setOpen(o=>!o)} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", background:"#FFFBF5", border:"none", cursor:"pointer", borderBottom:open?"1px solid #FED7AA":"none", minHeight:52 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:13, fontWeight:700, color:"#EA580C", fontFamily:F }}>Build {index+1}</span>
+          <span style={{ fontSize:13, fontWeight:700, color:"#EA580C", fontFamily:F }}>Previous Build {index+1}</span>
           {item.tool && <span style={{ fontSize:12, color:theme.textSec, fontFamily:F, fontWeight:500 }}>{item.tool}</span>}
           <span style={{ fontSize:11, fontWeight:700, color:UC[item.urgency]||"#9CA3AF", background:(UC[item.urgency]||"#9CA3AF")+"18", borderRadius:10, padding:"2px 8px", fontFamily:F }}>{item.urgency}</span>
         </div>
@@ -878,7 +878,7 @@ const emptyTrigger = () => ({ type:"", detail:"" });
 const emptyAction = () => ({ type:"", detail:"" });
 const emptyAutomation = () => ({ platform:"clickup", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", use_agent:false });
 const emptyList = () => ({ name:"", statuses:"", customFields:"", automations:[] });
-const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()] });
+const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()], status:"Mapping", replaces:"", learnings:{ rating:"", whatWorked:"", whatToAvoid:"" } });
 
 function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp, onMoveDown, isFirst, isLast, color, pipelinePhases, suggestedAutomations }) {
   const { theme } = useTheme();
@@ -1108,29 +1108,44 @@ function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color,
   );
 }
 
-function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomations }) {
+const LIFECYCLE_STAGES = ["Mapping","In Review","Client Approved","Live","Archived"];
+const LIFECYCLE_COLORS = { "Mapping":"#D97706","In Review":"#7C3AED","Client Approved":"#0284C7","Live":"#059669","Archived":"#6B7280" };
+
+function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomations, previousBuilds }) {
   const { theme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const color = "#0284C7";
+  const status = wf.status || "Mapping";
+  const sc = LIFECYCLE_COLORS[status] || "#D97706";
+  const showLearnings = status === "Client Approved" || status === "Live" || status === "Archived";
   const updList = (i,v) => onChange({ ...wf, lists: wf.lists.map((l,idx)=>idx===i?v:l) });
   const addList = () => onChange({ ...wf, lists: [...wf.lists, emptyList()] });
   const remList = i => onChange({ ...wf, lists: wf.lists.filter((_,idx)=>idx!==i) });
   return (
     <Card accent={color} style={{ marginBottom:16 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom: collapsed ? 0 : 14 }}>
-        <button type="button" onClick={()=>setCollapsed(c=>!c)} style={{ display:"flex", alignItems:"center", gap:10, background:"none", border:"none", cursor:"pointer", padding:0, flex:1, textAlign:"left" }}>
+      <div style={{ display:"flex", alignItems:"center", marginBottom: collapsed ? 0 : 14, gap:8 }}>
+        <button type="button" onClick={()=>setCollapsed(c=>!c)} style={{ display:"flex", alignItems:"center", gap:8, background:"none", border:"none", cursor:"pointer", padding:0, flex:1, minWidth:0, textAlign:"left" }}>
           <span style={{ width:24, height:24, borderRadius:6, background:color, color:"#fff", fontSize:12, fontWeight:700, fontFamily:F, display:"inline-flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{wfIdx+1}</span>
-          <span style={{ fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{wf.name||`Workflow ${wfIdx+1}`}</span>
-          <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F, marginLeft:4 }}>
-            {collapsed ? `${wf.lists.length} list${wf.lists.length!==1?"s":""}` : ""}
-          </span>
-          <span style={{ fontSize:12, color:theme.textMuted, marginLeft:"auto", paddingRight:8, transition:"transform 0.2s", display:"inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
+          <span style={{ fontSize:14, fontWeight:700, color:theme.text, fontFamily:F, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{wf.name||`Workflow ${wfIdx+1}`}</span>
+          <span style={{ fontSize:16, color:theme.textMuted, transition:"transform 0.2s", display:"inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", flexShrink:0 }}>▾</span>
         </button>
-        <button type="button" onClick={onRemove} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F, flexShrink:0 }}>Remove workflow</button>
+        <select value={status}
+          onChange={e => { if (e.target.value === "__remove__") { onRemove(); } else { onChange({...wf, status: e.target.value}); } }}
+          onClick={e => e.stopPropagation()}
+          style={{ fontFamily:F, fontSize:11, fontWeight:700, color:sc, border:`1.5px solid ${sc}40`, borderRadius:8, padding:"5px 24px 5px 9px", outline:"none", background:`${sc}0D`, cursor:"pointer", appearance:"none", backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%239CA3AF' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center", flexShrink:0 }}>
+          {LIFECYCLE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          <option disabled style={{ color:"#9CA3AF" }}>──────────</option>
+          <option value="__remove__" style={{ color:"#EF4444" }}>Remove workflow</option>
+        </select>
       </div>
       {!collapsed && (
         <>
           <Field label="Workflow name"><TI value={wf.name} onChange={v=>onChange({...wf,name:v})} placeholder="e.g. Sales Space Pipeline, Workspace Workflow"/></Field>
+          {previousBuilds && previousBuilds.length > 0 && (
+            <Field label="Replaces" hint="optional">
+              <Sel value={wf.replaces||""} onChange={v=>onChange({...wf,replaces:v})} options={["— None —", ...previousBuilds.map(b=>b.tool).filter(Boolean)]}/>
+            </Field>
+          )}
           <Field label="Notes" hint="optional"><TI rows={2} value={wf.notes} onChange={v=>onChange({...wf,notes:v})} placeholder="Edge cases, dependencies, context…"/></Field>
           <HR label={`pipeline phases (${(wf.pipeline||[]).length})`}/>
           <div style={{ marginBottom:8 }}>
@@ -1153,6 +1168,25 @@ function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomati
           <button type="button" onClick={addList} style={{ width:"100%", padding:"9px 0", background:"transparent", border:`1.5px dashed ${color}50`, borderRadius:9, color, fontSize:12, fontWeight:600, fontFamily:F, cursor:"pointer", marginTop:4 }}>
             + Add list to this workflow
           </button>
+
+          {/* ── Build Learnings (unlocks at Client Approved / Live / Archived) ── */}
+          {showLearnings && (
+            <>
+              <HR label="build learnings"/>
+              <div style={{ background:"#F0FDF4", border:"1px solid #BBF7D0", borderRadius:10, padding:"14px 16px", marginTop:4 }}>
+                <p style={{ margin:"0 0 12px", fontSize:12, fontWeight:700, color:"#065F46", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.05em" }}>Build learnings <span style={{ fontSize:11, fontWeight:400, textTransform:"none", letterSpacing:0, color:"#6B7280" }}>— used to train future recommendations</span></p>
+                <Field label="Overall rating">
+                  <TogGroup options={["Good build","Mixed","Bad build"]} value={wf.learnings?.rating} onChange={v=>onChange({...wf,learnings:{...(wf.learnings||{}),rating:v}})} color="#059669"/>
+                </Field>
+                <Field label="What worked well?">
+                  <TI rows={2} value={wf.learnings?.whatWorked} onChange={v=>onChange({...wf,learnings:{...(wf.learnings||{}),whatWorked:v}})} placeholder="What about this build was effective or reusable?"/>
+                </Field>
+                <Field label="What would you avoid next time?">
+                  <TI rows={2} value={wf.learnings?.whatToAvoid} onChange={v=>onChange({...wf,learnings:{...(wf.learnings||{}),whatToAvoid:v}})} placeholder="Mistakes, misalignments, things that needed rework…"/>
+                </Field>
+              </div>
+            </>
+          )}
         </>
       )}
     </Card>
@@ -1174,7 +1208,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, is
 
   return (
     <div>
-      <Banner emoji="🏗️" title="Document what's broken, then map what you're building." body="Log the existing setups being replaced first, then add each new workflow space by space." color="#0284C7"/>
+      <Banner emoji="🏗️" title="Document what was in place, then map what you're building." body="Log the client's previous setups first, then add each new mapped workflow space by space." color="#0284C7"/>
 
       {/* ── Does this client have an existing setup? ───────────────────────── */}
       <Card>
@@ -1190,16 +1224,16 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, is
 
       {/* ── Audit builds (existing broken setups) ──────────────────────────── */}
       {hasExisting && (<>
-        <HR label="existing builds — what's broken"/>
+        <HR label="previous builds — what was in place"/>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
           <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Builds to audit <span style={{ color:theme.textFaint, fontWeight:400 }}>({builds.length})</span></p>
-            <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>One entry per broken tool or workflow area</p>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Previous Builds <span style={{ color:theme.textFaint, fontWeight:400 }}>({builds.length})</span></p>
+            <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>What the client had before — broken setups, legacy tools, or workflows being replaced</p>
           </div>
-          <button onClick={addBuild} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #EA580C", borderRadius:10, color:"#EA580C", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Build</button>
+          <button onClick={addBuild} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #EA580C", borderRadius:10, color:"#EA580C", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Previous Build</button>
         </div>
         {builds.length === 0
-          ? <div style={{ padding:32, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12, marginBottom:14 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>Click "Add Build" to document what's broken.</p></div>
+          ? <div style={{ padding:32, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12, marginBottom:14 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>Click "Add Previous Build" to document what was in place.</p></div>
           : builds.map((b,i) => <BuildCard key={i} item={b} index={i} onChange={v=>updBuild(i,v)} onRemove={()=>remBuild(i)} w={w} defaultOpen={!isEditing}/>)
         }
         {builds.length > 0 && (
@@ -1210,8 +1244,8 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, is
         )}
       </>)}
 
-      {/* ── New build workflows ─────────────────────────────────────────────── */}
-      <HR label="new build"/>
+      {/* ── Mapped workflows ────────────────────────────────────────────────── */}
+      <HR label="mapped workflows — what you're building"/>
       {workflows.length === 0 ? (
         <div style={{ padding:"40px 24px", textAlign:"center", background:theme.surface, border:"1.5px dashed #BFDBFE", borderRadius:14, marginBottom:14 }}>
           <p style={{ margin:"0 0 16px", fontSize:14, color:theme.textMuted, fontFamily:F }}>No workflows yet. Add one to start mapping the build.</p>
@@ -1219,7 +1253,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, is
         </div>
       ) : (<>
         {workflows.map((wf,i) => (
-          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations}/>
+          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds}/>
         ))}
         <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #BFDBFE", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
           + Add another workflow
