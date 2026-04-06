@@ -156,12 +156,13 @@ const STEP_DESC = [
 ];
 
 const DEFAULT_STATE = {
-  audit:     {hasExisting:null,overallAssessment:"",triedToFix:null,previousFixes:"",builds:[],patternSummary:""},
-  intake:    {rawPrompt:"",industries:[],teamSize:"",workflowType:"",processFrameworks:[],tools:[],painPoints:[],priorAttempts:""},
-  build:     {buildNotes:"",workflows:[]},
-  delta:     {userIntent:"",successCriteria:"",actualBuild:"",diverged:null,divergenceReason:"",compromises:"",roadblocks:[]},
-  reasoning: {whyStructure:"",alternatives:"",whyRejected:"",assumptions:"",whenOpposite:"",lessons:"",complexity:3},
-  outcome:   {built:null,blockReason:"",changes:"",whatWorked:"",whatFailed:"",satisfaction:3,recommend:null,revisitWhen:""},
+  audit:         {hasExisting:null,overallAssessment:"",triedToFix:null,previousFixes:"",builds:[],patternSummary:""},
+  intake:        {rawPrompt:"",industries:[],teamSize:"",workflowType:"",processFrameworks:[],tools:[],painPoints:[],priorAttempts:""},
+  build:         {buildNotes:"",workflows:[]},
+  delta:         {userIntent:"",successCriteria:"",actualBuild:"",diverged:null,divergenceReason:"",compromises:"",scopeCreep:[],roadblocks:[]},
+  reasoning:     {whyStructure:"",alternatives:"",whyRejected:"",assumptions:"",whenOpposite:"",lessons:"",complexity:3},
+  outcome:       {built:null,blockReason:"",changes:"",whatWorked:"",whatFailed:"",satisfaction:3,recommend:null,revisitWhen:""},
+  projectUpdates:[],
 };
 
 //  ── Primitive UI components (self-contained, no external deps) ────────────────
@@ -580,11 +581,91 @@ function BuildCard({ item, index, onChange, onRemove, w }) {
 
 // ── Step screens ──────────────────────────────────────────────────────────────
 
-function StepAudit({ data, set, w, caseName, setCaseName }) {
+const COMM_COLORS = { Yes:"#059669", Partially:"#D97706", No:"#EF4444" };
+
+function AuditScopeCreepCard({ item, index, onChange, onRemove }) {
+  const { theme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const cc = COMM_COLORS[item.communicated] || "#9CA3AF";
+  return (
+    <div style={{ border:"1.5px solid #FDE68A", borderRadius:10, marginBottom:8, overflow:"hidden" }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"#D9770610", border:"none", cursor:"pointer", borderBottom: open ? "1px solid #FDE68A" : "none" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:12, fontWeight:700, color:"#D97706", fontFamily:F }}>Item {index+1}</span>
+          {item.area && <span style={{ fontSize:12, color:theme.textSec, fontFamily:F }}>{item.area}</span>}
+          {item.communicated && <span style={{ fontSize:10, fontWeight:700, color:cc, background:`${cc}18`, borderRadius:8, padding:"2px 7px", fontFamily:F }}>{item.communicated}</span>}
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button type="button" onClick={e=>{e.stopPropagation();onRemove();}} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F }}>Remove</button>
+          <span style={{ fontSize:11, color:theme.textFaint }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding:"14px 16px", background:theme.surface }}>
+          <Field label="What was added?"><TI value={item.area} onChange={v=>onChange({...item,area:v})} placeholder="e.g. Added a second pipeline for enterprise clients"/></Field>
+          <Field label="Why was it added?"><TI rows={2} value={item.reason} onChange={v=>onChange({...item,reason:v})} placeholder="Client requested it, discovered dependency…"/></Field>
+          <Field label="Impact on timeline / complexity"><TI rows={2} value={item.impact} onChange={v=>onChange({...item,impact:v})} placeholder="Added 2 days, introduced 3 new automations…"/></Field>
+          <Field label="Communicated & approved?"><TogGroup options={["Yes","Partially","No"]} value={item.communicated} onChange={v=>onChange({...item,communicated:v})} color="#D97706"/></Field>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AuditProjectUpdateCard({ item, onChange, onRemove }) {
+  const { theme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const dateLabel = item.createdAt
+    ? (() => { const [y,m,d] = item.createdAt.slice(0,10).split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); })()
+    : "New update";
+  return (
+    <div style={{ border:"1.5px solid #BAE6FD", borderRadius:10, marginBottom:8, overflow:"hidden" }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"#0284C710", border:"none", cursor:"pointer", borderBottom: open ? "1px solid #BAE6FD" : "none" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:12, fontWeight:700, color:"#0284C7", fontFamily:F }}>{dateLabel}</span>
+          {(item.attachments||[]).length > 0 && <span style={{ fontSize:10, fontWeight:700, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"2px 7px", fontFamily:F }}>📎 {item.attachments.length}</span>}
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button type="button" onClick={e=>{e.stopPropagation();onRemove();}} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F }}>Remove</button>
+          <span style={{ fontSize:11, color:theme.textFaint }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding:"14px 16px", background:theme.surface }}>
+          <Field label="Date">
+            <input type="date" value={item.createdAt ? item.createdAt.slice(0,10) : ""}
+              onChange={e=>onChange({...item, createdAt: e.target.value || ""})}
+              style={{ fontFamily:F, fontSize:13, color:theme.text, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg }}/>
+          </Field>
+          <Field label="Update"><TI rows={4} value={item.content} onChange={v=>onChange({...item,content:v})} placeholder="Describe what changed, what was decided, any relevant progress notes…"/></Field>
+          <div style={{ marginTop:4 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <span style={{ fontSize:11, fontWeight:700, color:"#6B7280", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Attachments <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(links)</span></span>
+              <button type="button" onClick={()=>onChange({...item,attachments:[...(item.attachments||[]),{name:"",url:""}]})} style={{ fontSize:12, color:"#0284C7", background:"none", border:"1px dashed #BAE6FD", borderRadius:6, padding:"4px 10px", cursor:"pointer", fontFamily:F }}>+ Add link</button>
+            </div>
+            {(item.attachments||[]).map((att,ai)=>(
+              <div key={ai} style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
+                <div style={{ flex:"0 0 130px" }}><TI value={att.name} onChange={v=>onChange({...item,attachments:(item.attachments||[]).map((a,idx)=>idx===ai?{...a,name:v}:a)})} placeholder="Label…"/></div>
+                <div style={{ flex:1 }}><TI value={att.url} onChange={v=>onChange({...item,attachments:(item.attachments||[]).map((a,idx)=>idx===ai?{...a,url:v}:a)})} placeholder="https://…"/></div>
+                <button type="button" onClick={()=>onChange({...item,attachments:(item.attachments||[]).filter((_,idx)=>idx!==ai)})} style={{ fontSize:18, color:"#EF4444", background:"none", border:"none", cursor:"pointer", padding:"4px", lineHeight:1 }}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StepAudit({ data, set, w, caseName, setCaseName, projectUpdates, onProjectUpdatesChange, scopeCreep, onScopeCreepChange }) {
   const { theme } = useTheme();
   const add=()=>set({...data,builds:[...data.builds,emptyBuild()]});
   const upd=(i,v)=>set({...data,builds:data.builds.map((b,idx)=>idx===i?v:b)});
   const rem=(i)=>set({...data,builds:data.builds.filter((_,idx)=>idx!==i)});
+  const pu = projectUpdates || [];
+  const sc = scopeCreep || [];
   return (
     <div>
       <Banner emoji="🔍" title="Before we recommend anything, let's understand what already exists." body="Documenting the current state — and exactly why it's failing — is the most important input for an accurate recommendation." color="#EA580C"/>
@@ -592,6 +673,54 @@ function StepAudit({ data, set, w, caseName, setCaseName }) {
         <CardTitle sub="Give this project file a short, memorable name">Project name</CardTitle>
         <TI value={caseName} onChange={setCaseName} placeholder="e.g. Company/Client Name"/>
       </Card>
+
+      {/* Project Updates — edit only */}
+      {onProjectUpdatesChange && (
+        <Card>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom: pu.length > 0 ? 12 : 0 }}>
+            <div>
+              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Project Updates</p>
+              <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Timestamped notes & attachments</p>
+            </div>
+            <button type="button" onClick={() => onProjectUpdatesChange([...pu, {content:"",attachments:[],createdAt:new Date().toISOString()}])}
+              style={{ fontSize:12, fontWeight:600, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontFamily:F, flexShrink:0 }}>
+              + Add
+            </button>
+          </div>
+          {pu.length === 0
+            ? <p style={{ margin:0, fontSize:12, color:theme.textFaint, fontFamily:F }}>No updates yet — click Add to log progress notes.</p>
+            : pu.map((item, i) => (
+                <AuditProjectUpdateCard key={i} item={item}
+                  onChange={v => { const next=[...pu]; next[i]=v; onProjectUpdatesChange(next); }}
+                  onRemove={() => onProjectUpdatesChange(pu.filter((_,idx)=>idx!==i))}/>
+              ))
+          }
+        </Card>
+      )}
+
+      {/* Scope Creep — edit only */}
+      {onScopeCreepChange && (
+        <Card>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom: sc.length > 0 ? 12 : 0 }}>
+            <div>
+              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Scope Creep</p>
+              <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Unplanned additions to the build</p>
+            </div>
+            <button type="button" onClick={() => onScopeCreepChange([...sc, {area:"",reason:"",impact:"",communicated:null}])}
+              style={{ fontSize:12, fontWeight:600, color:"#D97706", background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontFamily:F, flexShrink:0 }}>
+              + Add
+            </button>
+          </div>
+          {sc.length === 0
+            ? <p style={{ margin:0, fontSize:12, color:theme.textFaint, fontFamily:F }}>No scope creep logged yet.</p>
+            : sc.map((item, i) => (
+                <AuditScopeCreepCard key={i} item={item} index={i}
+                  onChange={v => { const next=[...sc]; next[i]=v; onScopeCreepChange(next); }}
+                  onRemove={() => onScopeCreepChange(sc.filter((_,idx)=>idx!==i))}/>
+              ))
+          }
+        </Card>
+      )}
       <Card>
         <CardTitle>Does this client have an existing setup?</CardTitle>
         <TogGroup options={["Yes, they have something","No — starting from scratch"]} value={data.hasExisting} onChange={v=>set({...data,hasExisting:v})} color={BLUE}/>
@@ -1136,18 +1265,6 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
               <p style={{ margin:0, fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{isEditing ? "Edit project file" : "New case file"}</p>
               <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{STEP_TITLES[step]}</p>
             </div>
-            {isMobile ? (
-              <button onClick={()=>setDrawerOpen(true)} style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 12px", background:`${cs.color}10`, border:`1px solid ${cs.color}40`, borderRadius:8, cursor:"pointer" }}>
-                <span style={{ fontSize:11, fontWeight:700, color:cs.color, fontFamily:F }}>{step+1}/{STEPS.length}</span>
-                <span style={{ fontSize:10, color:cs.color }}>▼</span>
-              </button>
-            ) : (
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <label style={{ fontSize:12, color:theme.textFaint, fontFamily:F, fontWeight:500 }}>Logged by</label>
-                <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
-                  style={{ width:160, fontFamily:F, fontSize:13, color:theme.textSec, background:theme.surfaceAlt, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"8px 12px", outline:"none" }}/>
-              </div>
-            )}
           </div>
 
           {/* Step tabs (desktop + tablet) */}
@@ -1198,7 +1315,13 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
             )}
 
             <>
-              {step===0 && <StepAudit   data={data.audit}     set={v=>setSD("audit",v)}     w={w} caseName={caseName} setCaseName={setCaseName}/>}
+              {step===0 && <StepAudit   data={data.audit}     set={v=>setSD("audit",v)}     w={w} caseName={caseName} setCaseName={setCaseName}
+                              {...(isEditing && {
+                                projectUpdates: data.projectUpdates||[],
+                                onProjectUpdatesChange: v=>setSD("projectUpdates",v),
+                                scopeCreep: data.delta?.scopeCreep||[],
+                                onScopeCreepChange: v=>setData(d=>({...d,delta:{...d.delta,scopeCreep:v}})),
+                              })}/>}
               {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w} hideRawPrompt={hideRawPrompt}/>}
               {step===2 && <StepBuild   data={data.build}     set={v=>setSD("build",v)}     w={w} suggestedAutomations={suggestedAutomations}/>}
               {step===3 && <StepDelta   data={data.delta}     set={v=>setSD("delta",v)}     w={w}/>}

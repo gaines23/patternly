@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useCaseFile, useUpdateCaseFile } from "../../hooks/useCaseFiles";
-import { formStateToCaseFilePayload, caseFileToFormState } from "../../utils/transforms";
+import { formStateToCaseFilePayload, caseFileToFormState, briefToSuggestedAutomations } from "../../utils/transforms";
 import CaseFileForm from "../../components/CaseFileForm";
 import { useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
+import { useBriefByCaseFile } from "../../hooks/useWorkflows";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
@@ -13,6 +14,7 @@ export default function EditCaseFilePage() {
   const { theme } = useTheme();
   const { data: caseFile, isLoading, isError } = useCaseFile(id);
   const updateMutation = useUpdateCaseFile(id);
+  const { data: linkedBrief } = useBriefByCaseFile(id);
   const [apiError, setApiError] = useState(null);
 
   const handleSubmit = async (formData, enteredBy, caseName) => {
@@ -45,6 +47,7 @@ export default function EditCaseFilePage() {
   }
 
   const initialData = caseFileToFormState(caseFile);
+  const suggestedAutomations = linkedBrief ? briefToSuggestedAutomations(linkedBrief) : [];
 
   return (
     <div>
@@ -65,6 +68,7 @@ export default function EditCaseFilePage() {
         isSaving={updateMutation.isPending}
         isEditing
         onCancel={() => navigate(`/case-files/${id}`)}
+        suggestedAutomations={suggestedAutomations}
       />
     </div>
   );

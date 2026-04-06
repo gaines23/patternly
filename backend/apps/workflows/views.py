@@ -72,7 +72,11 @@ class GeneratedBriefListView(generics.ListAPIView):
     serializer_class = GeneratedBriefSerializer
 
     def get_queryset(self):
-        return GeneratedBrief.objects.all().order_by("-created_at")
+        qs = GeneratedBrief.objects.all().order_by("-created_at")
+        case_file_id = self.request.query_params.get("case_file_id")
+        if case_file_id:
+            qs = qs.filter(case_file_id=case_file_id)
+        return qs
 
 
 class GeneratedBriefDetailView(generics.RetrieveAPIView):

@@ -43,6 +43,17 @@ export function useGeneratedBrief(id) {
   });
 }
 
+export function useBriefByCaseFile(caseFileId) {
+  return useQuery({
+    queryKey: [...briefKeys.all, "byCaseFile", caseFileId],
+    queryFn: async () => {
+      const { data } = await api.get(`/v1/workflows/briefs/?case_file_id=${caseFileId}`);
+      return data[0] || null;
+    },
+    enabled: !!caseFileId,
+  });
+}
+
 export function useMarkBriefConverted() {
   const queryClient = useQueryClient();
   return useMutation({
