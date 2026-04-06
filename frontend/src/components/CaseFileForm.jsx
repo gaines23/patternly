@@ -137,23 +137,17 @@ export const CLICKUP_ACTIONS = [
   "Apply Template","Archive Task","Send Webhook",
 ];
 
-const STEPS = [
-  {id:"audit",     label:"Current State",    short:"Audit",     color:"#EA580C"},
-  {id:"intake",    label:"Scenario",          short:"Scenario",  color:"#7C3AED"},
-  {id:"build",     label:"Build",             short:"Build",     color:"#0284C7"},
-  {id:"delta",     label:"Intent vs Reality", short:"Delta",     color:"#DC2626"},
-  {id:"reasoning", label:"Reasoning",         short:"Reasoning", color:"#059669"},
-  {id:"outcome",   label:"Outcome",           short:"Outcome",   color:"#4F46E5"},
+const PHASES = [
+  {id:"situation", label:"The Situation", short:"Situation", color:"#7C3AED"},
+  {id:"build",     label:"The Build",     short:"Build",     color:"#0284C7"},
+  {id:"outcome",   label:"The Outcome",   short:"Outcome",   color:"#059669"},
 ];
 
-const STEP_TITLES = ["Current State Audit","Scenario Intake","Build Documentation","Intent vs Reality","Decision Reasoning","Outcome Capture"];
-const STEP_DESC = [
-  "Document what the user already has — and exactly why it's failing.",
-  "Capture the raw scenario and what the user is trying to solve.",
-  "Document what was actually built in ClickUp, field by field.",
-  "Log the gap between what was wanted and what was delivered.",
-  "Record the reasoning behind every major decision.",
-  "Capture the post-build result and long-term usage signal.",
+
+const PHASE_DESC = [
+  "What's broken and who the client is.",
+  "Document everything that was built.",
+  "How intent, decisions, and results aligned.",
 ];
 
 const DEFAULT_STATE = {
@@ -182,7 +176,7 @@ function useWidth() {
 
 function AiBadge() {
   return (
-    <span style={{ fontSize:10, fontWeight:700, fontFamily:F, color:"#7C3AED", background:"#7C3AED18", border:"1px solid #7C3AED30", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>
+    <span style={{ fontSize:10, fontWeight:700, fontFamily:F, color:"#60A5FA", background:"#60A5FA18", border:"1px solid #60A5FA30", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>
       AI
     </span>
   );
@@ -319,7 +313,7 @@ function TogGroup({ options, value, onChange, color=BLUE }) {
 function Card({ children, accent, style }) {
   const { theme } = useTheme();
   return (
-    <div style={{ background:theme.surface, border:accent?`1.5px solid ${accent}28`:`1px solid ${theme.border}`, borderRadius:14, padding:"20px 18px", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.04)", borderLeft:accent?`4px solid ${accent}`:undefined, ...style }}>
+    <div style={{ background:theme.surface, border:accent?`1px solid ${accent}20`:`1px solid ${theme.border}`, borderRadius:12, padding:"18px 18px", marginBottom:12, borderLeft:accent?`3px solid ${accent}`:undefined, ...style }}>
       {children}
     </div>
   );
@@ -338,7 +332,7 @@ function CardTitle({ children, sub }) {
 function Banner({ emoji, title, body, color }) {
   const { theme } = useTheme();
   return (
-    <div style={{ display:"flex", gap:12, padding:"14px 16px", background:color+"0D", border:`1px solid ${color}30`, borderRadius:12, marginBottom:18 }}>
+    <div style={{ display:"flex", gap:12, padding:"12px 14px", background:color+"08", borderLeft:`3px solid ${color}`, borderRadius:"0 8px 8px 0", marginBottom:16 }}>
       <span style={{ fontSize:20, flexShrink:0, lineHeight:1.4 }}>{emoji}</span>
       <div>
         <p style={{ margin:"0 0 3px", fontSize:12, fontWeight:700, color, fontFamily:F }}>{title}</p>
@@ -693,15 +687,15 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
 
   return (
     <div>
-      <Banner emoji="🔍" title="Before we recommend anything, let's understand what already exists." body="Documenting the current state — and exactly why it's failing — is the most important input for an accurate recommendation." color="#EA580C"/>
-      <Card accent="#EA580C">
+      <Banner emoji="🔍" title="Before we recommend anything, let's understand what already exists." body="Documenting the current state — and exactly why it's failing — is the most important input for an accurate recommendation." color="#7C3AED"/>
+      <Card accent="#7C3AED">
         <CardTitle sub="Give this project file a short, memorable name">Project name</CardTitle>
         <TI value={caseName} onChange={setCaseName} placeholder="e.g. Company/Client Name"/>
       </Card>
 
       {/* Guided client conversation — moved here from Scenario step */}
       {!hideRawPrompt && (
-        <Card accent="#7C3AED">
+        <Card accent="#7c3aed">
           {guidedMode ? (<>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
               <div>
@@ -718,7 +712,7 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
               return (
                 <div key={key} style={{ marginBottom:16 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                    <span style={{ width:22, height:22, borderRadius:"50%", background:"#7C3AED18", border:"1.5px solid #7C3AED40", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#7C3AED", fontFamily:F, flexShrink:0 }}>{idx+1}</span>
+                    <span style={{ width:22, height:22, borderRadius:"50%", background:"#7c3aed12", border:"1.5px solid #7C3AED", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#7C3AED", fontFamily:F, flexShrink:0 }}>{idx+1}</span>
                     <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{q}</span>
                   </div>
                   <TI value={val} onChange={v=>updateGuided(key, v)} placeholder={placeholder} rows={idx===1?2:1}/>
@@ -741,7 +735,7 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
                 <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Paste exactly as the client described it — don't clean it up</p>
               </div>
               <button type="button" onClick={switchToGuided}
-                style={{ fontSize:11, color:"#7C3AED", background:"#7C3AED10", border:"1px solid #7C3AED30", borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
+                style={{ fontSize:11, color:"#60A5FA", background:"#60A5FA10", border:"1px solid #60A5FA30", borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
                 Use guided form
               </button>
             </div>
@@ -750,7 +744,7 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
           {canParse && (
             <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
               <button type="button" onClick={onAiParse} disabled={isParsing}
-                style={{ padding:"9px 16px", borderRadius:8, fontSize:13, fontWeight:700, fontFamily:F, cursor:isParsing?"not-allowed":"pointer", background:"#7C3AED", color:"#fff", border:"none", opacity:isParsing?0.7:1, transition:"opacity 0.15s" }}>
+                style={{ padding:"9px 16px", borderRadius:8, fontSize:13, fontWeight:700, fontFamily:F, cursor:isParsing?"not-allowed":"pointer", background:"#60A5FA", color:"#fff", border:"none", opacity:isParsing?0.7:1, transition:"opacity 0.15s" }}>
                 {isParsing ? "Parsing…" : "✦ Let AI parse this"}
               </button>
               <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F }}>Auto-fills industry, tools, and pain points</span>
@@ -827,6 +821,32 @@ function assembleGuidedPrompt(g1, g2, g3) {
 
 const AI_FILLABLE_FIELDS = new Set(["teamSize", "workflowType", "industries", "processFrameworks", "tools", "painPoints"]);
 
+function AiInfoTip({ hasAiFields }) {
+  const [hovered, setHovered] = useState(false);
+  const { theme } = useTheme();
+  const color = "#60A5FA";
+  const tip = hasAiFields
+    ? { title:"AI pre-filled these fields", body:"Review each suggestion below — correct anything that looks off before saving." }
+    : { title:"AI can pre-fill these fields", body:"Go back to Current State, fill out the guided form, and click 'Let AI parse this' to auto-fill the highlighted fields below." };
+  return (
+    <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12, position:"relative" }}>
+      <div style={{ position:"relative", display:"inline-flex" }}
+        onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)}>
+        <button type="button"
+          style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:20, border:`1px solid ${color}40`, background: hovered ? `${color}14` : `${color}08`, color, fontFamily:F, fontSize:11, fontWeight:700, cursor:"default", transition:"background 0.15s" }}>
+          <span style={{ fontSize:12 }}>✦</span> AI {hasAiFields ? "filled" : "available"}
+        </button>
+        {hovered && (
+          <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, width:260, background:theme.surface, border:`1px solid ${color}30`, borderRadius:10, padding:"12px 14px", zIndex:30, boxShadow:"0 4px 16px rgba(0,0,0,0.12)", pointerEvents:"none" }}>
+            <p style={{ margin:"0 0 4px", fontSize:12, fontWeight:700, color, fontFamily:F }}>{tip.title}</p>
+            <p style={{ margin:0, fontSize:12, color:theme.textMuted, fontFamily:F, lineHeight:1.6 }}>{tip.body}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set() }) {
   // On the new form (guided flow), badge = "AI can fill this"; after parsing or on edit/brief form, badge = "AI filled this"
   const ai = (field) => aiSuggestedFields.has(field) || (!hideRawPrompt && AI_FILLABLE_FIELDS.has(field));
@@ -834,12 +854,7 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
 
   return (
     <div>
-      {!hasAiFields && !hideRawPrompt && (
-        <Banner emoji="✦" title="AI can pre-fill these fields" body="Go back to Current State, fill out the guided form, and click 'Let AI parse this' to auto-fill the highlighted fields below." color="#7C3AED"/>
-      )}
-      {hasAiFields && (
-        <Banner emoji="✦" title="AI pre-filled these fields" body="Review each suggestion below — correct anything that looks off before saving." color="#7C3AED"/>
-      )}
+      {(!hideRawPrompt || hasAiFields) && <AiInfoTip hasAiFields={hasAiFields}/>}
       <Card>
         <CardTitle>Team basics</CardTitle>
         <Grid2 w={w}>
@@ -859,7 +874,7 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
         <CardTitle>Tools & pain points</CardTitle>
         <Field label="Tools currently in use" hint="select all" aiBadge={ai("tools")}><ChipGroup options={TOOLS} selected={data.tools} onChange={v=>set({...data,tools:v})} color={BLUE}/></Field>
         <HR label="pain points"/>
-        <Field label="Core pain points" aiBadge={ai("painPoints")}><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#7C3AED"/></Field>
+        <Field label="Core pain points" aiBadge={ai("painPoints")}><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#60A5FA"/></Field>
         <HR/>
         <Field label="What have they already tried that didn't work?" hint="optional"><TI rows={2} value={data.priorAttempts} onChange={v=>set({...data,priorAttempts:v})} placeholder="Previous tools, failed automations…"/></Field>
       </Card>
@@ -1360,8 +1375,8 @@ function MobileStepDrawer({ step, setStep, cs, open, onClose }) {
       <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:40 }}/>
       <div style={{ position:"fixed", bottom:0, left:0, right:0, background:theme.surface, borderRadius:"18px 18px 0 0", zIndex:50, padding:"12px 0 32px" }}>
         <div style={{ width:36, height:4, background:theme.border, borderRadius:4, margin:"0 auto 16px" }}/>
-        <p style={{ margin:"0 0 8px", padding:"0 20px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, letterSpacing:"0.08em", textTransform:"uppercase" }}>Jump to step</p>
-        {STEPS.map((s,i)=>(
+        <p style={{ margin:"0 0 8px", padding:"0 20px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, letterSpacing:"0.08em", textTransform:"uppercase" }}>Jump to phase</p>
+        {PHASES.map((s,i)=>(
           <button key={s.id} onClick={()=>{setStep(i);onClose();}} style={{ width:"100%", display:"flex", alignItems:"center", gap:14, padding:"14px 20px", background:i===step?s.color+"0D":"transparent", border:"none", cursor:"pointer", borderLeft:i===step?`3px solid ${s.color}`:"3px solid transparent" }}>
             <div style={{ width:28, height:28, borderRadius:"50%", background:i<step?"#059669":i===step?s.color:theme.skeleton, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
               {i<step
@@ -1370,13 +1385,96 @@ function MobileStepDrawer({ step, setStep, cs, open, onClose }) {
             </div>
             <div style={{ textAlign:"left" }}>
               <p style={{ margin:0, fontSize:14, fontWeight:i===step?700:500, color:i===step?s.color:theme.textSec, fontFamily:F }}>{s.label}</p>
-              <p style={{ margin:0, fontSize:11, color:theme.textFaint, fontFamily:F }}>{STEP_DESC[i].slice(0,48)}…</p>
+              <p style={{ margin:0, fontSize:11, color:theme.textFaint, fontFamily:F }}>{PHASE_DESC[i]}</p>
             </div>
           </button>
         ))}
       </div>
     </>
   );
+}
+
+// ── Phase accordion section ───────────────────────────────────────────────────
+function PhaseSection({ title, subtitle, color, defaultOpen = false, filled, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const { theme } = useTheme();
+  return (
+    <div style={{ marginBottom: open ? 28 : 4 }}>
+      <button type="button" onClick={()=>setOpen(o=>!o)}
+        style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 14px", background: open ? `${color}12` : theme.surface, borderRadius: open ? "10px 10px 0 0" : 10, border:`1px solid ${open ? color+"40" : theme.border}`, borderBottom: open ? `1.5px solid ${color+"50"}` : `1px solid ${theme.border}`, cursor:"pointer", transition:"background 0.15s, border-color 0.15s" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          {filled
+            ? <span style={{ width:20, height:20, background:"#059669", borderRadius:"50%", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:10, color:"#fff", fontWeight:700, flexShrink:0 }}>✓</span>
+            : <span style={{ width:20, height:20, borderRadius:"50%", border:`2px solid ${open ? color : theme.borderInput}`, background: open ? `${color}15` : "transparent", flexShrink:0, transition:"all 0.2s" }}/>
+          }
+          <div style={{ textAlign:"left" }}>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color: open ? color : theme.text, fontFamily:F, transition:"color 0.15s" }}>{title}</p>
+            {subtitle && <p style={{ margin:"1px 0 0", fontSize:11, color:theme.textFaint, fontFamily:F }}>{subtitle}</p>}
+          </div>
+        </div>
+        <span style={{ fontSize:16, color: open ? color : theme.textMuted, display:"inline-block", transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition:"transform 0.2s, color 0.15s", flexShrink:0 }}>▾</span>
+      </button>
+      {open && <div style={{ padding:"18px 14px 4px", border:`1px solid ${color}40`, borderTop:"none", borderRadius:"0 0 10px 10px" }}>{children}</div>}
+    </div>
+  );
+}
+
+// ── AI Confidence Score ───────────────────────────────────────────────────────
+function computeConfidence(data) {
+  let score = 0;
+
+  // Current State / Audit — 25 pts
+  const assess = (data.audit?.overallAssessment || "").trim();
+  if (assess.length > 30) score += 12;
+  else if (assess.length > 0) score += 5;
+  if (data.audit?.hasExisting !== null && data.audit?.hasExisting !== undefined) score += 5;
+  if (data.audit?.builds?.length > 0) score += 8;
+
+  // Scenario / Intake — 30 pts
+  if (data.intake?.industries?.length > 0) score += 8;
+  if (data.intake?.workflowType) score += 7;
+  if (data.intake?.teamSize) score += 5;
+  if (data.intake?.tools?.length > 0) score += 5;
+  if (data.intake?.painPoints?.length > 0) score += 5;
+
+  // Build — 20 pts
+  const workflows = data.build?.workflows || [];
+  if (workflows.length > 0 && workflows[0].name) score += 10;
+  if (workflows.some(w => w.lists?.some(l => l.statuses || l.customFields))) score += 10;
+
+  // Delta — 10 pts
+  if ((data.delta?.userIntent || "").trim()) score += 5;
+  if ((data.delta?.successCriteria || "").trim()) score += 5;
+
+  // Reasoning — 10 pts
+  if ((data.reasoning?.whyStructure || "").trim()) score += 6;
+  if ((data.reasoning?.lessons || "").trim()) score += 4;
+
+  // Outcome — 5 pts
+  if (data.outcome?.built !== null && data.outcome?.built !== undefined) score += 3;
+  if ((data.outcome?.whatWorked || "").trim()) score += 2;
+
+  const pct = Math.min(100, score);
+
+  // Determine next highest-value action
+  let hint;
+  if (!data.intake?.workflowType || !data.intake?.industries?.length) {
+    hint = `Add scenario details to reach ${Math.min(100, pct + 20)}%`;
+  } else if (assess.length < 30) {
+    hint = `Describe the current setup to reach ${Math.min(100, pct + 12)}%`;
+  } else if (!(workflows.length > 0 && workflows[0].name)) {
+    hint = `Add build documentation to reach ${Math.min(100, pct + 20)}%`;
+  } else if (!data.delta?.userIntent?.trim()) {
+    hint = `Log intent vs reality to reach ${Math.min(100, pct + 10)}%`;
+  } else if (!data.reasoning?.whyStructure?.trim()) {
+    hint = `Add decision reasoning to reach ${Math.min(100, pct + 10)}%`;
+  } else if (data.outcome?.built === null || data.outcome?.built === undefined) {
+    hint = `Capture the outcome to reach ${Math.min(100, pct + 5)}%`;
+  } else {
+    hint = "Case file complete";
+  }
+
+  return { score: pct, hint };
 }
 
 // ── Main CaseFileForm ─────────────────────────────────────────────────────────
@@ -1430,13 +1528,16 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
   };
 
   const isMobile = w < 640;
-  const cs = STEPS[step];
-  const pct = (step / (STEPS.length - 1)) * 100;
+  const cs = PHASES[step];
+  const pct = (step / (PHASES.length - 1)) * 100;
   const px = isMobile ? 16 : 28;
 
   const setSD = (key, val) => setData(d => ({ ...d, [key]: val }));
 
   const handleSave = () => onSubmit(data, enteredBy, caseName);
+
+  const { score: confScore, hint: confHint } = computeConfidence(data);
+  const confColor = confScore >= 80 ? "#059669" : confScore >= 50 ? "#7C3AED" : "#D97706";
 
   return (
     <div style={{ background:theme.bg, minHeight:"100vh" }}>
@@ -1449,14 +1550,24 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", height: isMobile ? 52 : 60 }}>
             <div>
               <p style={{ margin:0, fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{isEditing ? "Edit project file" : "New case file"}</p>
-              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{STEP_TITLES[step]}</p>
+              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{caseName || "Untitled project"}</p>
+            </div>
+            <div style={{ textAlign:"right", flexShrink:0, marginLeft:16 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end", marginBottom:3 }}>
+                <span style={{ fontSize:11, fontFamily:F, color:theme.textFaint }}>🧠</span>
+                <span style={{ fontSize:12, fontWeight:700, fontFamily:F, color:confColor }}>AI Confidence: {confScore}%</span>
+              </div>
+              <div style={{ width: isMobile ? 100 : 140, height:3, background:theme.skeleton, borderRadius:4, marginBottom:3, marginLeft:"auto" }}>
+                <div style={{ height:"100%", width:`${confScore}%`, background:confColor, borderRadius:4, transition:"width 0.4s ease" }}/>
+              </div>
+              {!isMobile && <p style={{ margin:0, fontSize:10, color:theme.textFaint, fontFamily:F, maxWidth:200 }}>{confHint}</p>}
             </div>
           </div>
 
-          {/* Step tabs (desktop + tablet) */}
+          {/* Phase tabs (desktop + tablet) */}
           {!isMobile && (
             <div style={{ display:"flex", gap:0, overflowX:"auto", scrollbarWidth:"none" }}>
-              {STEPS.map((s,i)=>(
+              {PHASES.map((s,i)=>(
                 <button key={s.id} onClick={()=>setStep(i)} style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 16px", background:"transparent", border:"none", cursor:"pointer", flexShrink:0, borderBottom:i===step?`3px solid ${s.color}`:"3px solid transparent", transition:"all 0.2s" }}>
                   {i<step && <span style={{ width:16, height:16, background:"#059669", borderRadius:"50%", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:700 }}>✓</span>}
                   <span style={{ fontSize:12, fontWeight:i===step?700:500, color:i===step?s.color:i<step?theme.textFaint:theme.borderInput, fontFamily:F, whiteSpace:"nowrap" }}>{w < 900 ? s.short : s.label}</span>
@@ -1468,7 +1579,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
           {/* Mobile progress dots */}
           {isMobile && (
             <div style={{ display:"flex", gap:5, padding:"10px 0 11px" }}>
-              {STEPS.map((_,i)=>(
+              {PHASES.map((_,i)=>(
                 <div key={i} onClick={()=>setStep(i)} style={{ flex:i===step?3:1, height:4, borderRadius:4, background:i===step?cs.color:i<step?theme.textFaint:theme.border, cursor:"pointer", transition:"all 0.3s" }}/>
               ))}
             </div>
@@ -1501,20 +1612,39 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
             )}
 
             <>
-              {step===0 && <StepAudit   data={data.audit}     set={v=>setSD("audit",v)}     w={w} caseName={caseName} setCaseName={setCaseName}
-                              intakeData={data.intake} setIntake={v=>setSD("intake",v)}
-                              hideRawPrompt={shouldHidePrompt} onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
-                              {...(isEditing && {
-                                projectUpdates: data.projectUpdates||[],
-                                onProjectUpdatesChange: v=>setSD("projectUpdates",v),
-                                scopeCreep: data.delta?.scopeCreep||[],
-                                onScopeCreepChange: v=>setData(d=>({...d,delta:{...d.delta,scopeCreep:v}})),
-                              })}/>}
-              {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
-              {step===2 && <StepBuild   data={data.build}     set={v=>setSD("build",v)}     w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} setAudit={v=>setSD("audit",v)} isEditing={isEditing}/>}
-              {step===3 && <StepDelta   data={data.delta}     set={v=>setSD("delta",v)}     w={w}/>}
-              {step===4 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
-              {step===5 && <StepOutcome data={data.outcome}   set={v=>setSD("outcome",v)}   w={w}/>}
+              {/* ── Phase 0: The Situation ──────────────────────────────── */}
+              {step===0 && (<>
+                <PhaseSection title="What's in place now?" subtitle="Document the client's current setup and what's breaking" color="#7C3AED" defaultOpen filled={!!(data.audit.overallAssessment || data.audit.builds.length)}>
+                  <StepAudit data={data.audit} set={v=>setSD("audit",v)} w={w} caseName={caseName} setCaseName={setCaseName}
+                    intakeData={data.intake} setIntake={v=>setSD("intake",v)}
+                    hideRawPrompt={shouldHidePrompt} onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
+                    {...(isEditing && {
+                      projectUpdates: data.projectUpdates||[],
+                      onProjectUpdatesChange: v=>setSD("projectUpdates",v),
+                      scopeCreep: data.delta?.scopeCreep||[],
+                      onScopeCreepChange: v=>setData(d=>({...d,delta:{...d.delta,scopeCreep:v}})),
+                    })}/>
+                </PhaseSection>
+                <PhaseSection title="Who's the client?" subtitle="Capture the scenario, industry, team, and tools" color="#7C3AED" filled={!!(data.intake.industries.length || data.intake.workflowType)}>
+                  <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>
+                </PhaseSection>
+              </>)}
+
+              {/* ── Phase 1: The Build ──────────────────────────────────── */}
+              {step===1 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} setAudit={v=>setSD("audit",v)} isEditing={isEditing}/>}
+
+              {/* ── Phase 2: The Outcome ────────────────────────────────── */}
+              {step===2 && (<>
+                <PhaseSection title="Intent vs Reality" subtitle="Log the gap between what was wanted and what was delivered" color="#059668" defaultOpen filled={!!(data.delta.userIntent || data.delta.actualBuild)}>
+                  <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w}/>
+                </PhaseSection>
+                <PhaseSection title="Decision Reasoning" subtitle="Record the reasoning behind every major decision" color="#059668" filled={!!(data.reasoning.whyStructure || data.reasoning.lessons)}>
+                  <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>
+                </PhaseSection>
+                <PhaseSection title="Outcome" subtitle="Capture the post-build result and long-term usage signal" color="#059668" filled={!!(data.outcome.built || data.outcome.whatWorked)}>
+                  <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>
+                </PhaseSection>
+              </>)}
             </>
           </div>
         );
@@ -1537,13 +1667,13 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
 
           {!isMobile && (
             <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-              {STEPS.map((_,i)=>(
+              {PHASES.map((_,i)=>(
                 <div key={i} onClick={()=>setStep(i)} style={{ width:i===step?20:6, height:6, borderRadius:3, background:i===step?cs.color:i<step?"#D1D5DB":"#E5E7EB", cursor:"pointer", transition:"all 0.3s" }}/>
               ))}
             </div>
           )}
 
-          {step < STEPS.length - 1 ? (
+          {step < PHASES.length - 1 ? (
             <button onClick={()=>setStep(s=>s+1)} style={{ padding:`11px ${isMobile?22:28}px`, border:"none", borderRadius:10, background:cs.color, color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, boxShadow:`0 2px 10px ${cs.color}45`, minHeight:44 }}>
               Continue →
             </button>
