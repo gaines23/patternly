@@ -662,7 +662,7 @@ function AuditProjectUpdateCard({ item, onChange, onRemove }) {
   );
 }
 
-function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProjectUpdatesChange, scopeCreep, onScopeCreepChange, intakeData, setIntake, hideRawPrompt, onAiParse, isParsing, parseError }) {
+function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProjectUpdatesChange, scopeCreep, onScopeCreepChange, intakeData, setIntake, deltaData, setDelta, hideRawPrompt, onAiParse, isParsing, parseError }) {
   const { theme } = useTheme();
   const pu = projectUpdates || [];
   const sc = scopeCreep || [];
@@ -681,6 +681,9 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
     const assembled = assembleGuidedPrompt(next.g1, next.g2, next.g3);
     setIntake({ ...intakeData, rawPrompt: assembled });
     set({ ...data, overallAssessment: assembled });
+    if (setDelta && field === "g3") {
+      setDelta({ ...deltaData, successCriteria: value });
+    }
   };
 
   const switchToGuided = () => { setG1(""); setG2(""); setG3(""); setIntake({ ...intakeData, rawPrompt:"" }); setGuidedMode(true); };
@@ -877,7 +880,7 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
 
 const emptyTrigger = () => ({ type:"", detail:"" });
 const emptyAction = () => ({ type:"", detail:"" });
-const emptyAutomation = () => ({ platform:"clickup", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", use_agent:false });
+const emptyAutomation = () => ({ platform:"clickup", automation_mode:"pipeline", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", use_agent:false });
 const emptyList = () => ({ name:"", statuses:"", customFields:"", automations:[] });
 const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()], status:"Mapping", replaces:"", learnings:{ rating:"", whatWorked:"", whatToAvoid:"" } });
 
@@ -998,6 +1001,21 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
           <Sel value={auto.pipelinePhase||""} onChange={v=>onChange({...auto,pipelinePhase:v})} options={validPhases} placeholder="— none —"/>
         </div>
       )}
+      {/* Pipeline / Standalone mode */}
+      <div style={{ marginBottom:14 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:"#6B7280", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Mode</div>
+        <div style={{ display:"flex", gap:0, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, overflow:"hidden", width:"fit-content" }}>
+          {[["pipeline","↔ Pipeline"],["standalone","⊕ Standalone"]].map(([m, label])=>{
+            const active = (auto.automation_mode||"pipeline")===m;
+            return (
+              <button key={m} type="button" onClick={()=>onChange({...auto,automation_mode:m})}
+                style={{ padding:"6px 16px", fontSize:12, fontWeight:600, fontFamily:F, border:"none", cursor:"pointer", background:active?(m==="standalone"?"#D97706":color):theme.surface, color:active?"#fff":theme.textMuted, transition:"all 0.15s" }}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       {/* Platform toggle */}
       <div style={{ display:"flex", gap:0, marginBottom:14, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, overflow:"hidden", width:"fit-content" }}>
         {["clickup","third_party"].map(p=>{
@@ -1654,6 +1672,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
                 <PhaseSection title="What's in place now?" subtitle="Document the client's current setup and what's breaking" color="#7C3AED" defaultOpen filled={!!(data.audit.overallAssessment || data.audit.builds.length)}>
                   <StepAudit data={data.audit} set={v=>setSD("audit",v)} w={w} caseName={caseName} setCaseName={setCaseName}
                     intakeData={data.intake} setIntake={v=>setSD("intake",v)}
+                    setDelta={v=>setSD("delta",v)} deltaData={data.delta}
                     hideRawPrompt={shouldHidePrompt} onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
                     {...(isEditing && {
                       projectUpdates: data.projectUpdates||[],

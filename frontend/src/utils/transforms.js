@@ -66,6 +66,7 @@ export function formStateToCaseFilePayload(formData, loggedByName = "", name = "
           custom_fields: l.customFields,
           automations: (l.automations || []).map(a => ({
             platform: a.platform || "clickup",
+            automation_mode: a.automation_mode || "pipeline",
             third_party_platform: a.third_party_platform || "",
             pipeline_phase: a.pipelinePhase || "",
             triggers: (a.triggers || []).map(t => ({ type: t.type, detail: t.detail })),
@@ -208,6 +209,7 @@ export function caseFileToFormState(caseFile) {
           customFields: l.custom_fields || "",
           automations: (l.automations || []).map(a => ({
             platform: a.platform || "clickup",
+            automation_mode: a.automation_mode || "pipeline",
             third_party_platform: a.third_party_platform || "",
             pipelinePhase: a.pipeline_phase || "",
             triggers: (a.triggers || []).map(t => ({ type: t.type || "", detail: t.detail || "" })),

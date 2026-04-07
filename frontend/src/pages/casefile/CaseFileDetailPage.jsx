@@ -6,6 +6,7 @@ import { formatDate, satisfactionLabel, formStateToCaseFilePayload, caseFileToFo
 import CaseFileForm, { ChipGroup, IndustryPicker, FrameworkPicker, TOOLS, PAIN_POINTS, CLICKUP_TRIGGERS, CLICKUP_ACTIONS, THIRD_PARTY_PLATFORMS, CURRENT_TOOLS_USED, FAILURE_REASONS, WORKFLOW_TYPES } from "../../components/CaseFileForm";
 import { useBriefByCaseFile } from "../../hooks/useWorkflows";
 import { useTheme } from "../../hooks/useTheme";
+import { WorkflowMapPanel } from "../../components/WorkflowMapPanel";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 const BLUE = "#2563EB";
@@ -58,7 +59,7 @@ function Section({ title, subtitle, color, children, collapsible = false, forceO
   );
 }
 
-function CollapsibleCard({ title, color = "#0284C7", borderColor = "#BAE6FD", background = "#0284C710", badge, children, forceOpen = false }) {
+function CollapsibleCard({ title, color = "#0284C7", borderColor = "#BAE6FD", background = "#0284C710", badge, children, forceOpen = false, action }) {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const isOpen = open || forceOpen;
@@ -74,6 +75,7 @@ function CollapsibleCard({ title, color = "#0284C7", borderColor = "#BAE6FD", ba
         }}>
         {badge}
         <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: theme.text, fontFamily: F }}>{title}</span>
+        {action && <div onClick={e => e.stopPropagation()}>{action}</div>}
         {!forceOpen && <span style={{ fontSize: 11, color, opacity: 0.6 }}>{isOpen ? "▲" : "▼"}</span>}
       </div>
       <div className="fp-collapsible-body" style={{ display: isOpen ? undefined : "none", padding: "0 16px 14px" }}>
@@ -243,6 +245,7 @@ function ViewAutoCard({ auto, autoIdx, forceOpen = false }) {
         <p style={{ margin:0, fontSize:11, fontWeight:700, color:"#0284C7", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Automation {autoIdx+1}</p>
         <span style={{ fontSize:11, fontWeight:600, color:platformColor, background:platformBg, border:`1px solid ${platformBorder}`, borderRadius:6, padding:"2px 8px", fontFamily:F }}>{platformLabel}</span>
         {auto.pipelinePhase && <span style={{ fontSize:10, fontWeight:700, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:6, padding:"2px 8px", fontFamily:F }}>{auto.pipelinePhase}</span>}
+        {auto.automation_mode === "standalone" && <span style={{ fontSize:10, fontWeight:700, color:"#D97706", background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:6, padding:"2px 7px", fontFamily:F }}>STANDALONE</span>}
         {auto.use_agent && <span style={{ fontSize:10, fontWeight:700, color:"#7C3AED", background:"#F5F3FF", border:"1px solid #DDD6FE", borderRadius:6, padding:"2px 7px", fontFamily:F }}>AGENT ON</span>}
         {!forceOpen && <span style={{ color:theme.textFaint, fontSize:11, marginLeft:"auto" }}>{collapsed?"▼":"▲"}</span>}
       </button>
@@ -810,6 +813,7 @@ export default function CaseFileDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [mapWfIndex, setMapWfIndex] = useState(null);
   const [showShare, setShowShare] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -1221,6 +1225,21 @@ export default function CaseFileDetailPage() {
               title={wf.name || `Workflow ${wi + 1}`}
               badge={<span style={{ width: 24, height: 24, borderRadius: 6, background: "#0284C7", color: "#fff", fontSize: 12, fontWeight: 700, fontFamily: F, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{wi + 1}</span>}
               forceOpen={isPrinting}
+              action={
+                <button
+                  onClick={() => setMapWfIndex(mapWfIndex === wi ? null : wi)}
+                  style={{
+                    fontSize: 11, fontWeight: 600, fontFamily: F,
+                    color: mapWfIndex === wi ? "#fff" : "#0284C7",
+                    background: mapWfIndex === wi ? "#0284C7" : "#E0F2FE",
+                    border: "1px solid #BAE6FD",
+                    borderRadius: 6, padding: "3px 10px",
+                    cursor: "pointer", lineHeight: 1.4,
+                  }}
+                >
+                  {mapWfIndex === wi ? "✕ Map" : "Map ↗"}
+                </button>
+              }
             >
               {wf.notes && <p style={{ margin: "0 0 12px", fontSize: 13, color: theme.textSec, fontFamily: F, lineHeight: 1.6, fontStyle: "italic" }}>{wf.notes}</p>}
               {wf.lists?.length > 0 && wf.lists.map((l, li) => (
@@ -1236,14 +1255,46 @@ export default function CaseFileDetailPage() {
                       <pre style={{ margin: 0, fontSize: 12, color: theme.textSec, fontFamily: "monospace", background: theme.surfaceAlt, padding: "8px 10px", borderRadius: 7, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{l.custom_fields}</pre>
                     </div>
                   )}
-                  {Array.isArray(l.automations) && l.automations.length > 0 && (
-                    <div style={{ padding: "8px 0" }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Automations</span>
-                      {l.automations.map((auto, ai) => (
-                        <ViewAutoCard key={ai} auto={auto} autoIdx={ai} forceOpen={isPrinting}/>
-                      ))}
-                    </div>
-                  )}
+                  {Array.isArray(l.automations) && l.automations.length > 0 && (() => {
+                    const pipeline = l.automations.map((a, i) => ({ a, i })).filter(({ a }) => (a.automation_mode || "pipeline") !== "standalone");
+                    const standalone = l.automations.map((a, i) => ({ a, i })).filter(({ a }) => a.automation_mode === "standalone");
+                    const hasMix = pipeline.length > 0 && standalone.length > 0;
+                    return (
+                      <div style={{ padding: "8px 0" }}>
+                        {hasMix ? (
+                          <>
+                            {pipeline.length > 0 && (
+                              <div style={{ marginBottom: 12 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#0284C7" }} />
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#0284C7", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Pipeline</span>
+                                </div>
+                                <div style={{ borderLeft: "2px dashed #BAE6FD", paddingLeft: 12 }}>
+                                  {pipeline.map(({ a, i }) => <ViewAutoCard key={i} auto={a} autoIdx={i} forceOpen={isPrinting} />)}
+                                </div>
+                              </div>
+                            )}
+                            {standalone.length > 0 && (
+                              <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                                  <div style={{ width: 7, height: 7, borderRadius: 2, background: "#D97706" }} />
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#D97706", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Standalone</span>
+                                </div>
+                                {standalone.map(({ a, i }) => <ViewAutoCard key={i} auto={a} autoIdx={i} forceOpen={isPrinting} />)}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>
+                              {standalone.length > 0 ? "Standalone automations" : "Automations"}
+                            </span>
+                            {l.automations.map((auto, ai) => <ViewAutoCard key={ai} auto={auto} autoIdx={ai} forceOpen={isPrinting} />)}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </CollapsibleCard>
@@ -1324,9 +1375,29 @@ export default function CaseFileDetailPage() {
 
     </div>
 
+    {/* ── Workflow map — narrow screen modal ────────────────────────────── */}
+    {mapWfIndex !== null && w < 1300 && build?.workflows?.[mapWfIndex] && (
+      <WorkflowMapPanel
+        workflow={build.workflows[mapWfIndex]}
+        onClose={() => setMapWfIndex(null)}
+        asModal
+      />
+    )}
+
     {/* ── Right sidebar ─────────────────────────────────────────────────── */}
     {w >= 1300 && (
-      <div className="fp-no-print" style={{ width: 480, flexShrink: 0, position: "sticky", top: 24, paddingTop: 28, paddingBottom: 24, maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}>
+      <div className="fp-no-print" style={{ width: 480, flexShrink: 0, position: "sticky", top: 24, paddingTop: 28, paddingBottom: 24, maxHeight: "calc(100vh - 48px)", overflowY: mapWfIndex !== null ? "hidden" : "auto" }}>
+
+        {/* Workflow map panel */}
+        {mapWfIndex !== null && build?.workflows?.[mapWfIndex] && (
+          <WorkflowMapPanel
+            workflow={build.workflows[mapWfIndex]}
+            onClose={() => setMapWfIndex(null)}
+          />
+        )}
+
+        {mapWfIndex !== null ? null : (
+        <>
 
         {/* Project Updates */}
         <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 14, padding: "16px 16px 12px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -1396,6 +1467,8 @@ export default function CaseFileDetailPage() {
               ))
           }
         </div>
+
+        </>)}
 
       </div>
     )}
