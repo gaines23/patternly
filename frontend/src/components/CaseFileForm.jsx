@@ -662,7 +662,7 @@ function AuditProjectUpdateCard({ item, onChange, onRemove }) {
   );
 }
 
-function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProjectUpdatesChange, scopeCreep, onScopeCreepChange, intakeData, setIntake, hideRawPrompt, onAiParse, isParsing, parseError }) {
+function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProjectUpdatesChange, scopeCreep, onScopeCreepChange, intakeData, setIntake, deltaData, setDelta, hideRawPrompt, onAiParse, isParsing, parseError }) {
   const { theme } = useTheme();
   const pu = projectUpdates || [];
   const sc = scopeCreep || [];
@@ -681,6 +681,9 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
     const assembled = assembleGuidedPrompt(next.g1, next.g2, next.g3);
     setIntake({ ...intakeData, rawPrompt: assembled });
     set({ ...data, overallAssessment: assembled });
+    if (setDelta && field === "g3") {
+      setDelta({ ...deltaData, successCriteria: value });
+    }
   };
 
   const switchToGuided = () => { setG1(""); setG2(""); setG3(""); setIntake({ ...intakeData, rawPrompt:"" }); setGuidedMode(true); };
@@ -1654,6 +1657,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
                 <PhaseSection title="What's in place now?" subtitle="Document the client's current setup and what's breaking" color="#7C3AED" defaultOpen filled={!!(data.audit.overallAssessment || data.audit.builds.length)}>
                   <StepAudit data={data.audit} set={v=>setSD("audit",v)} w={w} caseName={caseName} setCaseName={setCaseName}
                     intakeData={data.intake} setIntake={v=>setSD("intake",v)}
+                    setDelta={v=>setSD("delta",v)} deltaData={data.delta}
                     hideRawPrompt={shouldHidePrompt} onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
                     {...(isEditing && {
                       projectUpdates: data.projectUpdates||[],
