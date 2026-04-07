@@ -880,7 +880,7 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
 
 const emptyTrigger = () => ({ type:"", detail:"" });
 const emptyAction = () => ({ type:"", detail:"" });
-const emptyAutomation = () => ({ platform:"clickup", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", use_agent:false });
+const emptyAutomation = () => ({ platform:"clickup", automation_mode:"pipeline", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", use_agent:false });
 const emptyList = () => ({ name:"", statuses:"", customFields:"", automations:[] });
 const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()], status:"Mapping", replaces:"", learnings:{ rating:"", whatWorked:"", whatToAvoid:"" } });
 
@@ -1001,6 +1001,21 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
           <Sel value={auto.pipelinePhase||""} onChange={v=>onChange({...auto,pipelinePhase:v})} options={validPhases} placeholder="— none —"/>
         </div>
       )}
+      {/* Pipeline / Standalone mode */}
+      <div style={{ marginBottom:14 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:"#6B7280", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Mode</div>
+        <div style={{ display:"flex", gap:0, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, overflow:"hidden", width:"fit-content" }}>
+          {[["pipeline","↔ Pipeline"],["standalone","⊕ Standalone"]].map(([m, label])=>{
+            const active = (auto.automation_mode||"pipeline")===m;
+            return (
+              <button key={m} type="button" onClick={()=>onChange({...auto,automation_mode:m})}
+                style={{ padding:"6px 16px", fontSize:12, fontWeight:600, fontFamily:F, border:"none", cursor:"pointer", background:active?(m==="standalone"?"#D97706":color):theme.surface, color:active?"#fff":theme.textMuted, transition:"all 0.15s" }}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       {/* Platform toggle */}
       <div style={{ display:"flex", gap:0, marginBottom:14, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, overflow:"hidden", width:"fit-content" }}>
         {["clickup","third_party"].map(p=>{

@@ -245,6 +245,7 @@ function ViewAutoCard({ auto, autoIdx, forceOpen = false }) {
         <p style={{ margin:0, fontSize:11, fontWeight:700, color:"#0284C7", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Automation {autoIdx+1}</p>
         <span style={{ fontSize:11, fontWeight:600, color:platformColor, background:platformBg, border:`1px solid ${platformBorder}`, borderRadius:6, padding:"2px 8px", fontFamily:F }}>{platformLabel}</span>
         {auto.pipelinePhase && <span style={{ fontSize:10, fontWeight:700, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:6, padding:"2px 8px", fontFamily:F }}>{auto.pipelinePhase}</span>}
+        {auto.automation_mode === "standalone" && <span style={{ fontSize:10, fontWeight:700, color:"#D97706", background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:6, padding:"2px 7px", fontFamily:F }}>STANDALONE</span>}
         {auto.use_agent && <span style={{ fontSize:10, fontWeight:700, color:"#7C3AED", background:"#F5F3FF", border:"1px solid #DDD6FE", borderRadius:6, padding:"2px 7px", fontFamily:F }}>AGENT ON</span>}
         {!forceOpen && <span style={{ color:theme.textFaint, fontSize:11, marginLeft:"auto" }}>{collapsed?"▼":"▲"}</span>}
       </button>
@@ -1254,14 +1255,46 @@ export default function CaseFileDetailPage() {
                       <pre style={{ margin: 0, fontSize: 12, color: theme.textSec, fontFamily: "monospace", background: theme.surfaceAlt, padding: "8px 10px", borderRadius: 7, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{l.custom_fields}</pre>
                     </div>
                   )}
-                  {Array.isArray(l.automations) && l.automations.length > 0 && (
-                    <div style={{ padding: "8px 0" }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Automations</span>
-                      {l.automations.map((auto, ai) => (
-                        <ViewAutoCard key={ai} auto={auto} autoIdx={ai} forceOpen={isPrinting}/>
-                      ))}
-                    </div>
-                  )}
+                  {Array.isArray(l.automations) && l.automations.length > 0 && (() => {
+                    const pipeline = l.automations.map((a, i) => ({ a, i })).filter(({ a }) => (a.automation_mode || "pipeline") !== "standalone");
+                    const standalone = l.automations.map((a, i) => ({ a, i })).filter(({ a }) => a.automation_mode === "standalone");
+                    const hasMix = pipeline.length > 0 && standalone.length > 0;
+                    return (
+                      <div style={{ padding: "8px 0" }}>
+                        {hasMix ? (
+                          <>
+                            {pipeline.length > 0 && (
+                              <div style={{ marginBottom: 12 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#0284C7" }} />
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#0284C7", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Pipeline</span>
+                                </div>
+                                <div style={{ borderLeft: "2px dashed #BAE6FD", paddingLeft: 12 }}>
+                                  {pipeline.map(({ a, i }) => <ViewAutoCard key={i} auto={a} autoIdx={i} forceOpen={isPrinting} />)}
+                                </div>
+                              </div>
+                            )}
+                            {standalone.length > 0 && (
+                              <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                                  <div style={{ width: 7, height: 7, borderRadius: 2, background: "#D97706" }} />
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#D97706", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Standalone</span>
+                                </div>
+                                {standalone.map(({ a, i }) => <ViewAutoCard key={i} auto={a} autoIdx={i} forceOpen={isPrinting} />)}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>
+                              {standalone.length > 0 ? "Standalone automations" : "Automations"}
+                            </span>
+                            {l.automations.map((auto, ai) => <ViewAutoCard key={ai} auto={auto} autoIdx={ai} forceOpen={isPrinting} />)}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </CollapsibleCard>

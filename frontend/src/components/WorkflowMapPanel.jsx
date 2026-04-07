@@ -119,6 +119,7 @@ function TriggerNode({ data }) {
       borderRadius: 8, padding: "8px 12px", minWidth: 130, maxWidth: 200,
     }}>
       <Handle type="target" position={Position.Top} style={{ background: "#0284C7" }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: "#0284C7" }} />
       <p style={{
         margin: "0 0 3px", fontSize: 9, fontWeight: 700, color: "#6B7280",
         fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em",
@@ -163,12 +164,61 @@ function ActionNode({ data }) {
   );
 }
 
+function StandaloneAutoNode({ data }) {
+  const { auto, ai } = data;
+  return (
+    <div style={{
+      background: "#FFFBEB", border: "1.5px solid #FDE68A",
+      borderLeft: "3px solid #D9770680",
+      borderRadius: 8, padding: "10px 14px", minWidth: 170, maxWidth: 240,
+    }}>
+      <Handle type="target" position={Position.Top} style={{ background: "#D97706" }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: "#D97706" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#D97706", fontFamily: F }}>
+          Auto {ai + 1}
+        </p>
+        <span style={{
+          fontSize: 10, fontWeight: 600, color: "#D97706",
+          background: "#FEF3C7", border: "1px solid #FDE68A",
+          borderRadius: 4, padding: "1px 6px", fontFamily: F,
+        }}>Standalone</span>
+      </div>
+      {auto.pipeline_phase && (
+        <p style={{ margin: 0, fontSize: 10, color: "#6B7280", fontFamily: F }}>
+          Phase: {auto.pipeline_phase}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function InstructionNode({ data }) {
+  return (
+    <div style={{
+      background: "#F5F3FF", border: "1.5px solid #DDD6FE",
+      borderRadius: 8, padding: "8px 12px", minWidth: 130, maxWidth: 200,
+    }}>
+      <Handle type="target" position={Position.Top} style={{ background: "#7C3AED" }} />
+      <p style={{
+        margin: "0 0 3px", fontSize: 9, fontWeight: 700, color: "#6B7280",
+        fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em",
+      }}>Instructions</p>
+      <p style={{ margin: 0, fontSize: 10, color: "#7C3AED", fontFamily: "monospace", lineHeight: 1.4 }}>
+        {data.text}
+      </p>
+    </div>
+  );
+}
+
 const NODE_TYPES = {
   workflowNode: WorkflowNode,
   listNode: ListNode,
   autoNode: AutomationNode,
+  standaloneAutoNode: StandaloneAutoNode,
   triggerNode: TriggerNode,
   actionNode: ActionNode,
+  instructionNode: InstructionNode,
 };
 
 // ── Graph builder + dagre layout ────────────────────────────────────────────
@@ -187,19 +237,44 @@ function buildGraph(wf) {
       type: "smoothstep", style: { stroke: "#0284C7", strokeWidth: 1.5 },
     });
 
-    (list.automations || []).forEach((auto, ai) => {
+    const autos = list.automations || [];
+    const pipelineAutos = autos.map((a, ai) => ({ a, ai })).filter(({ a }) => (a.automation_mode || "pipeline") !== "standalone");
+    const standaloneAutos = autos.map((a, ai) => ({ a, ai })).filter(({ a }) => a.automation_mode === "standalone");
+
+    autos.forEach((auto, ai) => {
+      const isStandalone = auto.automation_mode === "standalone";
+      rawNodes.push({ id: `auto-${li}-${ai}`, type: isStandalone ? "standaloneAutoNode" : "autoNode", data: { auto, ai }, width: 210, height: 75 });
+    });
+
+    // Pipeline autos: chain list → A0 → A1 → A2
+    pipelineAutos.forEach(({ a, ai }, pipelineIdx) => {
       const autoId = `auto-${li}-${ai}`;
-      rawNodes.push({ id: autoId, type: "autoNode", data: { auto, ai }, width: 210, height: 75 });
+      const sourceId = pipelineIdx === 0 ? listId : `auto-${li}-${pipelineAutos[pipelineIdx - 1].ai}`;
       edges.push({
-        id: `e-${listId}-${autoId}`, source: listId, target: autoId,
+        id: `e-${sourceId}-${autoId}`, source: sourceId, target: autoId,
         type: "smoothstep", style: { stroke: "#0284C780", strokeWidth: 1.5 },
       });
+    });
 
+    // Standalone autos: branch directly from list with a dashed edge
+    standaloneAutos.forEach(({ a, ai }) => {
+      const autoId = `auto-${li}-${ai}`;
+      edges.push({
+        id: `e-${listId}-sa-${ai}`, source: listId, target: autoId,
+        type: "smoothstep", style: { stroke: "#D9770680", strokeWidth: 1.5, strokeDasharray: "5 4" },
+      });
+    });
+
+    autos.forEach((auto, ai) => {
+      const autoId = `auto-${li}-${ai}`;
       const isThirdParty = (auto.platform || "clickup") === "third_party";
 
+      // Add trigger nodes, connected from the automation
+      const validTriggerIds = [];
       (auto.triggers || []).forEach((t, ti) => {
         if (!t.type) return;
         const tId = `trigger-${li}-${ai}-${ti}`;
+        validTriggerIds.push(tId);
         rawNodes.push({ id: tId, type: "triggerNode", data: { t, ti }, width: 170, height: 70 });
         edges.push({
           id: `e-${autoId}-${tId}`, source: autoId, target: tId,
@@ -207,15 +282,30 @@ function buildGraph(wf) {
         });
       });
 
-      if (!isThirdParty) {
-        (auto.actions || []).forEach((a, ai2) => {
-          if (!a.type) return;
-          const aId = `action-${li}-${ai}-${ai2}`;
-          rawNodes.push({ id: aId, type: "actionNode", data: { a, ai: ai2 }, width: 170, height: 70 });
-          edges.push({
-            id: `e-${autoId}-${aId}`, source: autoId, target: aId,
-            type: "smoothstep", style: { stroke: "#A7F3D0", strokeWidth: 1.5 },
-          });
+      // Actions connect to their paired trigger by index (extras go to the last trigger).
+      // If there are no triggers, actions connect to the automation node itself.
+      const validActions = (!isThirdParty ? (auto.actions || []).filter(a => a.type) : []);
+      validActions.forEach((a, ai2) => {
+        const aId = `action-${li}-${ai}-${ai2}`;
+        const pairedTrigIdx = Math.min(ai2, validTriggerIds.length - 1);
+        const sourceId = validTriggerIds.length > 0 ? validTriggerIds[pairedTrigIdx] : autoId;
+        rawNodes.push({ id: aId, type: "actionNode", data: { a, ai: ai2 }, width: 170, height: 70 });
+        edges.push({
+          id: `e-${sourceId}-${aId}`, source: sourceId, target: aId,
+          type: "smoothstep", style: { stroke: "#A7F3D0", strokeWidth: 1.5 },
+        });
+      });
+
+      // If there are instructions, show them as a node connected from the last trigger
+      const hasInstructions = auto.instructions?.trim();
+      if (hasInstructions) {
+        const instrId = `instr-${li}-${ai}`;
+        const instrText = auto.instructions.length > 70 ? auto.instructions.slice(0, 70) + "…" : auto.instructions;
+        const sourceId = validTriggerIds.length > 0 ? validTriggerIds[validTriggerIds.length - 1] : autoId;
+        rawNodes.push({ id: instrId, type: "instructionNode", data: { text: instrText }, width: 170, height: 75 });
+        edges.push({
+          id: `e-${sourceId}-${instrId}`, source: sourceId, target: instrId,
+          type: "smoothstep", style: { stroke: "#DDD6FE", strokeWidth: 1.5 },
         });
       }
     });
@@ -299,12 +389,17 @@ export function WorkflowMapPanel({ workflow, onClose, asModal = false }) {
       }}>
         {[
           { color: "#0284C7", label: "List" },
-          { color: "#0284C780", label: "Automation" },
+          { color: "#0284C780", label: "Pipeline auto" },
+          { color: "#D9770680", label: "Standalone auto", dashed: true },
           { color: "#BAE6FD", label: "Trigger" },
           { color: "#A7F3D0", label: "Action" },
-        ].map(({ color, label }) => (
+          { color: "#DDD6FE", label: "Instructions" },
+        ].map(({ color, label, dashed }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: 2, background: color, flexShrink: 0 }} />
+            {dashed
+              ? <div style={{ width: 14, height: 2, borderTop: `2px dashed ${color}`, flexShrink: 0 }} />
+              : <div style={{ width: 10, height: 10, borderRadius: 2, background: color, flexShrink: 0 }} />
+            }
             <span style={{ fontSize: 10, color: "#6B7280", fontFamily: F }}>{label}</span>
           </div>
         ))}
