@@ -10,6 +10,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../hooks/useTheme";
+import { useParsePrompt } from "../hooks/useWorkflows";
 
 // ── All data constants (same as workflow-intake.jsx) ──────────────────────────
 const INDUSTRY_MAP = {
@@ -136,35 +137,30 @@ export const CLICKUP_ACTIONS = [
   "Apply Template","Archive Task","Send Webhook",
 ];
 
-const STEPS = [
-  {id:"audit",     label:"Current State",    short:"Audit",     color:"#EA580C"},
-  {id:"intake",    label:"Scenario",          short:"Scenario",  color:"#7C3AED"},
-  {id:"build",     label:"Build",             short:"Build",     color:"#0284C7"},
-  {id:"delta",     label:"Intent vs Reality", short:"Delta",     color:"#DC2626"},
-  {id:"reasoning", label:"Reasoning",         short:"Reasoning", color:"#059669"},
-  {id:"outcome",   label:"Outcome",           short:"Outcome",   color:"#4F46E5"},
+const PHASES = [
+  {id:"situation", label:"The Situation", short:"Situation", color:"#7C3AED"},
+  {id:"build",     label:"The Build",     short:"Build",     color:"#0284C7"},
+  {id:"outcome",   label:"The Outcome",   short:"Outcome",   color:"#059669"},
 ];
 
-const STEP_TITLES = ["Current State Audit","Scenario Intake","Build Documentation","Intent vs Reality","Decision Reasoning","Outcome Capture"];
-const STEP_DESC = [
-  "Document what the user already has — and exactly why it's failing.",
-  "Capture the raw scenario and what the user is trying to solve.",
-  "Document what was actually built in ClickUp, field by field.",
-  "Log the gap between what was wanted and what was delivered.",
-  "Record the reasoning behind every major decision.",
-  "Capture the post-build result and long-term usage signal.",
+
+const PHASE_DESC = [
+  "What's broken and who the client is.",
+  "Document everything that was built.",
+  "How intent, decisions, and results aligned.",
 ];
 
 const DEFAULT_STATE = {
-  audit:     {hasExisting:null,overallAssessment:"",triedToFix:null,previousFixes:"",builds:[],patternSummary:""},
-  intake:    {rawPrompt:"",industries:[],teamSize:"",workflowType:"",processFrameworks:[],tools:[],painPoints:[],priorAttempts:""},
-  build:     {buildNotes:"",workflows:[]},
-  delta:     {userIntent:"",successCriteria:"",actualBuild:"",diverged:null,divergenceReason:"",compromises:"",roadblocks:[]},
-  reasoning: {whyStructure:"",alternatives:"",whyRejected:"",assumptions:"",whenOpposite:"",lessons:"",complexity:3},
-  outcome:   {built:null,blockReason:"",changes:"",whatWorked:"",whatFailed:"",satisfaction:3,recommend:null,revisitWhen:""},
+  audit:         {hasExisting:null,overallAssessment:"",builds:[],patternSummary:""},
+  intake:        {rawPrompt:"",industries:[],teamSize:"",workflowType:"",processFrameworks:[],tools:[],painPoints:[],priorAttempts:""},
+  build:         {buildNotes:"",workflows:[]},
+  delta:         {userIntent:"",successCriteria:"",actualBuild:"",diverged:null,divergenceReason:"",compromises:"",scopeCreep:[],roadblocks:[]},
+  reasoning:     {whyStructure:"",alternatives:"",whyRejected:"",assumptions:"",whenOpposite:"",lessons:"",complexity:3},
+  outcome:       {built:null,blockReason:"",changes:"",whatWorked:"",whatFailed:"",satisfaction:3,recommend:null,revisitWhen:""},
+  projectUpdates:[],
 };
 
-// ── Primitive UI components (self-contained, no external deps) ────────────────
+//  ── Primitive UI components (self-contained, no external deps) ────────────────
 const F = "'Plus Jakarta Sans', sans-serif";
 const BLUE = "#2563EB";
 
@@ -178,20 +174,28 @@ function useWidth() {
   return w;
 }
 
-function Lbl({ children, hint }) {
+function AiBadge() {
+  return (
+    <span style={{ fontSize:10, fontWeight:700, fontFamily:F, color:"#60A5FA", background:"#60A5FA18", border:"1px solid #60A5FA30", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>
+      AI
+    </span>
+  );
+}
+
+function Lbl({ children, hint, aiBadge }) {
   const { theme } = useTheme();
   return (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
-      <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{children}</span>
+      <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{children}{aiBadge && <AiBadge/>}</span>
       {hint && <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F }}>{hint}</span>}
     </div>
   );
 }
 
-function Field({ label, hint, children, style }) {
+function Field({ label, hint, children, style, aiBadge }) {
   return (
     <div style={{ marginBottom:16, ...style }}>
-      {label && <Lbl hint={hint}>{label}</Lbl>}
+      {label && <Lbl hint={hint} aiBadge={aiBadge}>{label}</Lbl>}
       {children}
     </div>
   );
@@ -309,7 +313,7 @@ function TogGroup({ options, value, onChange, color=BLUE }) {
 function Card({ children, accent, style }) {
   const { theme } = useTheme();
   return (
-    <div style={{ background:theme.surface, border:accent?`1.5px solid ${accent}28`:`1px solid ${theme.border}`, borderRadius:14, padding:"20px 18px", marginBottom:14, boxShadow:"0 1px 4px rgba(0,0,0,0.04)", borderLeft:accent?`4px solid ${accent}`:undefined, ...style }}>
+    <div style={{ background:theme.surface, border:accent?`1px solid ${accent}20`:`1px solid ${theme.border}`, borderRadius:12, padding:"18px 18px", marginBottom:12, borderLeft:accent?`3px solid ${accent}`:undefined, ...style }}>
       {children}
     </div>
   );
@@ -328,7 +332,7 @@ function CardTitle({ children, sub }) {
 function Banner({ emoji, title, body, color }) {
   const { theme } = useTheme();
   return (
-    <div style={{ display:"flex", gap:12, padding:"14px 16px", background:color+"0D", border:`1px solid ${color}30`, borderRadius:12, marginBottom:18 }}>
+    <div style={{ display:"flex", gap:12, padding:"12px 14px", background:color+"08", borderLeft:`3px solid ${color}`, borderRadius:"0 8px 8px 0", marginBottom:16 }}>
       <span style={{ fontSize:20, flexShrink:0, lineHeight:1.4 }}>{emoji}</span>
       <div>
         <p style={{ margin:"0 0 3px", fontSize:12, fontWeight:700, color, fontFamily:F }}>{title}</p>
@@ -490,7 +494,7 @@ function FailureList({ selected, onChange, w }) {
   );
 }
 
-const emptyRB = () => ({type:"",severity:"",tools:[],description:"",workaroundFound:null,workaround:"",timeCost:"",futureWarning:""});
+const emptyRB = () => ({stage:"",type:"",severity:"",tools:[],description:"",workaroundFound:null,workaround:"",timeCost:"",futureWarning:""});
 const emptyBuild = () => ({tool:"",structure:"",failureReasons:[],whatBreaks:"",workaroundsTheyUse:"",howLongBroken:"",whoReported:"",integrationsInPlace:[],impactOnTeam:"",urgency:"Medium"});
 
 function RBCard({ rb, index, onChange, onRemove, w }) {
@@ -502,6 +506,7 @@ function RBCard({ rb, index, onChange, onRemove, w }) {
       <button onClick={()=>setOpen(o=>!o)} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", background:"#FFFBF5", border:"none", cursor:"pointer", borderBottom:open?"1px solid #FED7AA":"none", minHeight:52 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:13, fontWeight:700, color:"#EA580C", fontFamily:F }}>Roadblock {index+1}</span>
+          {rb.stage && <span style={{ fontSize:11, fontWeight:600, color:"#EA580C", background:"#FFF7ED", border:"1px solid #FED7AA", borderRadius:10, padding:"2px 8px", fontFamily:F }}>{rb.stage}</span>}
           {rb.severity && <span style={{ fontSize:11, fontWeight:700, color:SC[rb.severity]||"#9CA3AF", background:(SC[rb.severity]||"#9CA3AF")+"18", borderRadius:10, padding:"2px 8px", fontFamily:F }}>{rb.severity}</span>}
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -511,6 +516,13 @@ function RBCard({ rb, index, onChange, onRemove, w }) {
       </button>
       {open && (
         <div style={{ padding:"18px 16px", background:theme.surface }}>
+          <Field label="Stage">
+            <div style={{ display:"flex", gap:6 }}>
+              {["Pre-build","During build","Post-build"].map(s=>(
+                <button key={s} onClick={()=>onChange({...rb,stage:s})} style={{ flex:1, padding:"8px 4px", borderRadius:8, fontSize:11, fontWeight:600, fontFamily:F, cursor:"pointer", border:rb.stage===s?"1.5px solid #EA580C":"1.5px solid #E5E7EB", background:rb.stage===s?"#FFF7ED":"transparent", color:rb.stage===s?"#EA580C":"#9CA3AF", minHeight:40 }}>{s}</button>
+              ))}
+            </div>
+          </Field>
           <Grid2 w={w}>
             <Field label="Roadblock type"><Sel value={rb.type} onChange={v=>onChange({...rb,type:v})} options={ROADBLOCK_TYPES}/></Field>
             <Field label="Severity"><Sel value={rb.severity} onChange={v=>onChange({...rb,severity:v})} options={SEVERITIES}/></Field>
@@ -527,15 +539,15 @@ function RBCard({ rb, index, onChange, onRemove, w }) {
   );
 }
 
-function BuildCard({ item, index, onChange, onRemove, w }) {
-  const [open, setOpen] = useState(true);
+function BuildCard({ item, index, onChange, onRemove, w, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
   const { theme } = useTheme();
   const UC={Low:"#10B981",Medium:"#F59E0B",High:"#F97316",Critical:"#EF4444"};
   return (
     <div style={{ border:"1.5px solid #FED7AA", borderRadius:12, marginBottom:10, overflow:"hidden" }}>
       <button onClick={()=>setOpen(o=>!o)} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 16px", background:"#FFFBF5", border:"none", cursor:"pointer", borderBottom:open?"1px solid #FED7AA":"none", minHeight:52 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:13, fontWeight:700, color:"#EA580C", fontFamily:F }}>Build {index+1}</span>
+          <span style={{ fontSize:13, fontWeight:700, color:"#EA580C", fontFamily:F }}>Previous Build {index+1}</span>
           {item.tool && <span style={{ fontSize:12, color:theme.textSec, fontFamily:F, fontWeight:500 }}>{item.tool}</span>}
           <span style={{ fontSize:11, fontWeight:700, color:UC[item.urgency]||"#9CA3AF", background:(UC[item.urgency]||"#9CA3AF")+"18", borderRadius:10, padding:"2px 8px", fontFamily:F }}>{item.urgency}</span>
         </div>
@@ -572,85 +584,290 @@ function BuildCard({ item, index, onChange, onRemove, w }) {
 
 // ── Step screens ──────────────────────────────────────────────────────────────
 
-function StepAudit({ data, set, w, caseName, setCaseName }) {
+const COMM_COLORS = { Yes:"#059669", Partially:"#D97706", No:"#EF4444" };
+
+function AuditScopeCreepCard({ item, index, onChange, onRemove }) {
   const { theme } = useTheme();
-  const add=()=>set({...data,builds:[...data.builds,emptyBuild()]});
-  const upd=(i,v)=>set({...data,builds:data.builds.map((b,idx)=>idx===i?v:b)});
-  const rem=(i)=>set({...data,builds:data.builds.filter((_,idx)=>idx!==i)});
+  const [open, setOpen] = useState(false);
+  const cc = COMM_COLORS[item.communicated] || "#9CA3AF";
   return (
-    <div>
-      <Banner emoji="🔍" title="Before we recommend anything, let's understand what already exists." body="Documenting the current state — and exactly why it's failing — is the most important input for an accurate recommendation." color="#EA580C"/>
-      <Card accent="#EA580C">
-        <CardTitle sub="Give this project file a short, memorable name">Project name</CardTitle>
-        <TI value={caseName} onChange={setCaseName} placeholder="e.g. Company/Client Name"/>
-      </Card>
-      <Card>
-        <CardTitle>Does this client have an existing setup?</CardTitle>
-        <TogGroup options={["Yes, they have something","No — starting from scratch"]} value={data.hasExisting} onChange={v=>set({...data,hasExisting:v})} color={BLUE}/>
-      </Card>
-      {data.hasExisting==="No — starting from scratch" && (
-        <div style={{ padding:24, textAlign:"center", background:"#ECFDF5", border:"1px solid #6EE7B7", borderRadius:12 }}>
-          <span style={{ fontSize:28 }}>🌱</span>
-          <p style={{ margin:"8px 0 0", fontSize:14, color:"#065F46", fontFamily:F, fontWeight:600 }}>Greenfield build — proceed to Scenario.</p>
+    <div style={{ border:"1.5px solid #FDE68A", borderRadius:10, marginBottom:8, overflow:"hidden" }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"#D9770610", border:"none", cursor:"pointer", borderBottom: open ? "1px solid #FDE68A" : "none" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:12, fontWeight:700, color:"#D97706", fontFamily:F }}>Item {index+1}</span>
+          {item.area && <span style={{ fontSize:12, color:theme.textSec, fontFamily:F }}>{item.area}</span>}
+          {item.communicated && <span style={{ fontSize:10, fontWeight:700, color:cc, background:`${cc}18`, borderRadius:8, padding:"2px 7px", fontFamily:F }}>{item.communicated}</span>}
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button type="button" onClick={e=>{e.stopPropagation();onRemove();}} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F }}>Remove</button>
+          <span style={{ fontSize:11, color:theme.textFaint }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding:"14px 16px", background:theme.surface }}>
+          <Field label="What was added?"><TI value={item.area} onChange={v=>onChange({...item,area:v})} placeholder="e.g. Added a second pipeline for enterprise clients"/></Field>
+          <Field label="Why was it added?"><TI rows={2} value={item.reason} onChange={v=>onChange({...item,reason:v})} placeholder="Client requested it, discovered dependency…"/></Field>
+          <Field label="Impact on timeline / complexity"><TI rows={2} value={item.impact} onChange={v=>onChange({...item,impact:v})} placeholder="Added 2 days, introduced 3 new automations…"/></Field>
+          <Field label="Communicated & approved?"><TogGroup options={["Yes","Partially","No"]} value={item.communicated} onChange={v=>onChange({...item,communicated:v})} color="#D97706"/></Field>
         </div>
       )}
-      {data.hasExisting==="Yes, they have something" && (<>
-        <Card>
-          <CardTitle sub="High-level summary before diving into specifics">Overall assessment</CardTitle>
-          <TI rows={3} value={data.overallAssessment} onChange={v=>set({...data,overallAssessment:v})} placeholder="e.g. They built a ClickUp workspace 18 months ago that was never properly adopted…"/>
-        </Card>
-        <Card>
-          <CardTitle>Have they tried to fix this before?</CardTitle>
-          <Field><TogGroup options={["Yes","No"]} value={data.triedToFix} onChange={v=>set({...data,triedToFix:v})} color={BLUE}/></Field>
-          {data.triedToFix==="Yes" && <Field label="What did they try, and why didn't it stick?"><TI rows={2} value={data.previousFixes} onChange={v=>set({...data,previousFixes:v})} placeholder="What solution did they attempt?"/></Field>}
-        </Card>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
-          <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Builds to audit <span style={{ color:theme.textFaint, fontWeight:400 }}>({data.builds.length})</span></p>
-            <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>One entry per broken tool or workflow area</p>
-          </div>
-          <button onClick={add} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #EA580C", borderRadius:10, color:"#EA580C", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Build</button>
-        </div>
-        {data.builds.length===0 && <div style={{ padding:32, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>Click "Add Build" to document what's broken.</p></div>}
-        {data.builds.map((b,i)=><BuildCard key={i} item={b} index={i} onChange={v=>upd(i,v)} onRemove={()=>rem(i)} w={w}/>)}
-        {data.builds.length>0 && (
-          <Card accent="#EA580C">
-            <CardTitle sub="What does the broken state pattern reveal about what they need?">Pattern summary</CardTitle>
-            <TI rows={3} value={data.patternSummary} onChange={v=>set({...data,patternSummary:v})} placeholder="Core insight from the audit…"/>
-          </Card>
-        )}
-      </>)}
     </div>
   );
 }
 
-function StepIntake({ data, set, w }) {
+function AuditProjectUpdateCard({ item, onChange, onRemove }) {
+  const { theme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const dateLabel = item.createdAt
+    ? (() => { const [y,m,d] = item.createdAt.slice(0,10).split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); })()
+    : "New update";
+  return (
+    <div style={{ border:"1.5px solid #BAE6FD", borderRadius:10, marginBottom:8, overflow:"hidden" }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"#0284C710", border:"none", cursor:"pointer", borderBottom: open ? "1px solid #BAE6FD" : "none" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:12, fontWeight:700, color:"#0284C7", fontFamily:F }}>{dateLabel}</span>
+          {(item.attachments||[]).length > 0 && <span style={{ fontSize:10, fontWeight:700, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"2px 7px", fontFamily:F }}>📎 {item.attachments.length}</span>}
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button type="button" onClick={e=>{e.stopPropagation();onRemove();}} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F }}>Remove</button>
+          <span style={{ fontSize:11, color:theme.textFaint }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding:"14px 16px", background:theme.surface }}>
+          <Field label="Date">
+            <input type="date" value={item.createdAt ? item.createdAt.slice(0,10) : ""}
+              onChange={e=>onChange({...item, createdAt: e.target.value || ""})}
+              style={{ fontFamily:F, fontSize:13, color:theme.text, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg }}/>
+          </Field>
+          <Field label="Update"><TI rows={4} value={item.content} onChange={v=>onChange({...item,content:v})} placeholder="Describe what changed, what was decided, any relevant progress notes…"/></Field>
+          <div style={{ marginTop:4 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <span style={{ fontSize:11, fontWeight:700, color:"#6B7280", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Attachments <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(links)</span></span>
+              <button type="button" onClick={()=>onChange({...item,attachments:[...(item.attachments||[]),{name:"",url:""}]})} style={{ fontSize:12, color:"#0284C7", background:"none", border:"1px dashed #BAE6FD", borderRadius:6, padding:"4px 10px", cursor:"pointer", fontFamily:F }}>+ Add link</button>
+            </div>
+            {(item.attachments||[]).map((att,ai)=>(
+              <div key={ai} style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
+                <div style={{ flex:"0 0 130px" }}><TI value={att.name} onChange={v=>onChange({...item,attachments:(item.attachments||[]).map((a,idx)=>idx===ai?{...a,name:v}:a)})} placeholder="Label…"/></div>
+                <div style={{ flex:1 }}><TI value={att.url} onChange={v=>onChange({...item,attachments:(item.attachments||[]).map((a,idx)=>idx===ai?{...a,url:v}:a)})} placeholder="https://…"/></div>
+                <button type="button" onClick={()=>onChange({...item,attachments:(item.attachments||[]).filter((_,idx)=>idx!==ai)})} style={{ fontSize:18, color:"#EF4444", background:"none", border:"none", cursor:"pointer", padding:"4px", lineHeight:1 }}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProjectUpdatesChange, scopeCreep, onScopeCreepChange, intakeData, setIntake, hideRawPrompt, onAiParse, isParsing, parseError }) {
+  const { theme } = useTheme();
+  const pu = projectUpdates || [];
+  const sc = scopeCreep || [];
+
+  // Guided conversation state (lives here so it persists while on this step)
+  const [guidedMode, setGuidedMode] = useState(!(intakeData?.rawPrompt));
+  const [g1, setG1] = useState("");
+  const [g2, setG2] = useState("");
+  const [g3, setG3] = useState("");
+
+  const updateGuided = (field, value) => {
+    const next = { g1, g2, g3, [field]: value };
+    if (field === "g1") setG1(value);
+    if (field === "g2") setG2(value);
+    if (field === "g3") setG3(value);
+    const assembled = assembleGuidedPrompt(next.g1, next.g2, next.g3);
+    setIntake({ ...intakeData, rawPrompt: assembled });
+    set({ ...data, overallAssessment: assembled });
+  };
+
+  const switchToGuided = () => { setG1(""); setG2(""); setG3(""); setIntake({ ...intakeData, rawPrompt:"" }); setGuidedMode(true); };
+  const switchToRaw = () => setGuidedMode(false);
+  const canParse = !hideRawPrompt && (intakeData?.rawPrompt||"").trim().length > 20 && !!onAiParse;
+
   return (
     <div>
+      <Banner emoji="🔍" title="Before we recommend anything, let's understand what already exists." body="Documenting the current state — and exactly why it's failing — is the most important input for an accurate recommendation." color="#7C3AED"/>
       <Card accent="#7C3AED">
-        <CardTitle sub="Paste exactly as the user described — don't clean it up">Raw scenario prompt</CardTitle>
-        <TI rows={4} value={data.rawPrompt} onChange={v=>set({...data,rawPrompt:v})} placeholder="e.g. We're a 6-person marketing agency managing 12 clients. We use Slack and HubSpot but nothing talks to each other…"/>
+        <CardTitle sub="Give this project file a short, memorable name">Project name</CardTitle>
+        <TI value={caseName} onChange={setCaseName} placeholder="e.g. Company/Client Name"/>
       </Card>
+
+      {/* Guided client conversation — moved here from Scenario step */}
+      {!hideRawPrompt && (
+        <Card accent="#7c3aed">
+          {guidedMode ? (<>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
+              <div>
+                <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>Tell me about the client</p>
+                <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Answer 3 quick questions — AI will fill the rest</p>
+              </div>
+              <button type="button" onClick={switchToRaw}
+                style={{ fontSize:11, color:theme.textFaint, background:"none", border:`1px solid ${theme.borderInput}`, borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
+                Paste raw text
+              </button>
+            </div>
+            {GUIDED_QUESTIONS.map(({ key, q, placeholder }, idx) => {
+              const val = { g1, g2, g3 }[key];
+              return (
+                <div key={key} style={{ marginBottom:16 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                    <span style={{ width:22, height:22, borderRadius:"50%", background:"#7c3aed12", border:"1.5px solid #7C3AED", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#7C3AED", fontFamily:F, flexShrink:0 }}>{idx+1}</span>
+                    <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{q}</span>
+                  </div>
+                  <TI value={val} onChange={v=>updateGuided(key, v)} placeholder={placeholder} rows={2}/>
+                </div>
+              );
+            })}
+          </>) : (<>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+              <div>
+                <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>Raw scenario prompt</p>
+                <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Paste exactly as the client described it — don't clean it up</p>
+              </div>
+              <button type="button" onClick={switchToGuided}
+                style={{ fontSize:11, color:"#60A5FA", background:"#60A5FA10", border:"1px solid #60A5FA30", borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
+                Use guided form
+              </button>
+            </div>
+            <TI rows={4} value={intakeData?.rawPrompt||""} onChange={v=>setIntake({...intakeData,rawPrompt:v})} placeholder="e.g. We're a 6-person marketing agency managing 12 clients. We use Slack and HubSpot but nothing talks to each other…"/>
+          </>)}
+          {canParse && (
+            <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
+              <button type="button" onClick={onAiParse} disabled={isParsing}
+                style={{ padding:"9px 16px", borderRadius:8, fontSize:13, fontWeight:700, fontFamily:F, cursor:isParsing?"not-allowed":"pointer", background:"#60A5FA", color:"#fff", border:"none", opacity:isParsing?0.7:1, transition:"opacity 0.15s" }}>
+                {isParsing ? "Parsing…" : "✦ Let AI parse this"}
+              </button>
+              <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F }}>Auto-fills industry, tools, and pain points</span>
+            </div>
+          )}
+          {parseError && <p style={{ margin:"8px 0 0", fontSize:12, color:"#DC2626", fontFamily:F }}>{parseError}</p>}
+        </Card>
+      )}
+
+      {/* Project Updates — edit only */}
+      {onProjectUpdatesChange && (
+        <Card>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom: pu.length > 0 ? 12 : 0 }}>
+            <div>
+              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Project Updates</p>
+              <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Timestamped notes & attachments</p>
+            </div>
+            <button type="button" onClick={() => onProjectUpdatesChange([...pu, {content:"",attachments:[],createdAt:new Date().toISOString()}])}
+              style={{ fontSize:12, fontWeight:600, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontFamily:F, flexShrink:0 }}>
+              + Add
+            </button>
+          </div>
+          {pu.length === 0
+            ? <p style={{ margin:0, fontSize:12, color:theme.textFaint, fontFamily:F }}>No updates yet — click Add to log progress notes.</p>
+            : pu.map((item, i) => (
+                <AuditProjectUpdateCard key={i} item={item}
+                  onChange={v => { const next=[...pu]; next[i]=v; onProjectUpdatesChange(next); }}
+                  onRemove={() => onProjectUpdatesChange(pu.filter((_,idx)=>idx!==i))}/>
+              ))
+          }
+        </Card>
+      )}
+
+      {/* Scope Creep — edit only */}
+      {onScopeCreepChange && (
+        <Card>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom: sc.length > 0 ? 12 : 0 }}>
+            <div>
+              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Scope Creep</p>
+              <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Unplanned additions to the build</p>
+            </div>
+            <button type="button" onClick={() => onScopeCreepChange([...sc, {area:"",reason:"",impact:"",communicated:null}])}
+              style={{ fontSize:12, fontWeight:600, color:"#D97706", background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontFamily:F, flexShrink:0 }}>
+              + Add
+            </button>
+          </div>
+          {sc.length === 0
+            ? <p style={{ margin:0, fontSize:12, color:theme.textFaint, fontFamily:F }}>No scope creep logged yet.</p>
+            : sc.map((item, i) => (
+                <AuditScopeCreepCard key={i} item={item} index={i}
+                  onChange={v => { const next=[...sc]; next[i]=v; onScopeCreepChange(next); }}
+                  onRemove={() => onScopeCreepChange(sc.filter((_,idx)=>idx!==i))}/>
+              ))
+          }
+        </Card>
+      )}
+    </div>
+  );
+}
+
+const GUIDED_QUESTIONS = [
+  { key:"g1", q:"Who is the client and what do they do?",   placeholder:"e.g. A 6-person marketing agency managing 12 client campaigns" },
+  { key:"g2", q:"What's breaking down right now?",          placeholder:"e.g. Nothing talks to each other — Slack, HubSpot, and spreadsheets are all siloed" },
+  { key:"g3", q:"What would success look like for them?",   placeholder:"e.g. One place to see all client status, automations that update without manual entry" },
+];
+
+function assembleGuidedPrompt(g1, g2, g3) {
+  const parts = [];
+  if (g1.trim()) parts.push(g1.trim());
+  if (g2.trim()) parts.push(`Current issue: ${g2.trim()}`);
+  if (g3.trim()) parts.push(`Success looks like: ${g3.trim()}`);
+  return parts.join("\n\n");
+}
+
+const AI_FILLABLE_FIELDS = new Set(["teamSize", "workflowType", "industries", "processFrameworks", "tools", "painPoints"]);
+
+function AiInfoTip({ hasAiFields }) {
+  const [hovered, setHovered] = useState(false);
+  const { theme } = useTheme();
+  const color = "#60A5FA";
+  const tip = hasAiFields
+    ? { title:"AI pre-filled these fields", body:"Review each suggestion below — correct anything that looks off before saving." }
+    : { title:"AI can pre-fill these fields", body:"Go back to Current State, fill out the guided form, and click 'Let AI parse this' to auto-fill the highlighted fields below." };
+  return (
+    <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12, position:"relative" }}>
+      <div style={{ position:"relative", display:"inline-flex" }}
+        onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)}>
+        <button type="button"
+          style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:20, border:`1px solid ${color}40`, background: hovered ? `${color}14` : `${color}08`, color, fontFamily:F, fontSize:11, fontWeight:700, cursor:"default", transition:"background 0.15s" }}>
+          <span style={{ fontSize:12 }}>✦</span> AI {hasAiFields ? "filled" : "available"}
+        </button>
+        {hovered && (
+          <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, width:260, background:theme.surface, border:`1px solid ${color}30`, borderRadius:10, padding:"12px 14px", zIndex:30, boxShadow:"0 4px 16px rgba(0,0,0,0.12)", pointerEvents:"none" }}>
+            <p style={{ margin:"0 0 4px", fontSize:12, fontWeight:700, color, fontFamily:F }}>{tip.title}</p>
+            <p style={{ margin:0, fontSize:12, color:theme.textMuted, fontFamily:F, lineHeight:1.6 }}>{tip.body}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set() }) {
+  // On the new form (guided flow), badge = "AI can fill this"; after parsing or on edit/brief form, badge = "AI filled this"
+  const ai = (field) => aiSuggestedFields.has(field) || (!hideRawPrompt && AI_FILLABLE_FIELDS.has(field));
+  const hasAiFields = aiSuggestedFields.size > 0;
+
+  return (
+    <div>
+      {(!hideRawPrompt || hasAiFields) && <AiInfoTip hasAiFields={hasAiFields}/>}
       <Card>
         <CardTitle>Team basics</CardTitle>
         <Grid2 w={w}>
-          <Field label="Team size"><TI value={data.teamSize} onChange={v=>set({...data,teamSize:v})} placeholder="e.g. 6"/></Field>
-          <Field label="Primary workflow type"><SelDesc value={data.workflowType} onChange={v=>set({...data,workflowType:v})} options={WORKFLOW_TYPES}/></Field>
+          <Field label="Team size" aiBadge={ai("teamSize")}><TI value={data.teamSize} onChange={v=>set({...data,teamSize:v})} placeholder="e.g. 6"/></Field>
+          <Field label="Primary workflow type" aiBadge={ai("workflowType")}><SelDesc value={data.workflowType} onChange={v=>set({...data,workflowType:v})} options={WORKFLOW_TYPES}/></Field>
         </Grid2>
       </Card>
       <Card>
-        <CardTitle sub="Expand a category — multiple allowed">Industry</CardTitle>
+        <CardTitle sub="Expand a category — multiple allowed">Industry{ai("industries") && <AiBadge/>}</CardTitle>
         <IndustryPicker selected={data.industries} onChange={v=>set({...data,industries:v})}/>
       </Card>
       <Card>
-        <CardTitle sub="Select every framework they reference or need support with">Process frameworks</CardTitle>
+        <CardTitle sub="Select every framework they reference or need support with">Process frameworks{ai("processFrameworks") && <AiBadge/>}</CardTitle>
         <FrameworkPicker selected={data.processFrameworks} onChange={v=>set({...data,processFrameworks:v})}/>
       </Card>
       <Card>
         <CardTitle>Tools & pain points</CardTitle>
-        <Field label="Tools currently in use" hint="select all"><ChipGroup options={TOOLS} selected={data.tools} onChange={v=>set({...data,tools:v})} color={BLUE}/></Field>
+        <Field label="Tools currently in use" hint="select all" aiBadge={ai("tools")}><ChipGroup options={TOOLS} selected={data.tools} onChange={v=>set({...data,tools:v})} color={BLUE}/></Field>
         <HR label="pain points"/>
-        <Field label="Core pain points"><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#7C3AED"/></Field>
+        <Field label="Core pain points" aiBadge={ai("painPoints")}><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#60A5FA"/></Field>
         <HR/>
         <Field label="What have they already tried that didn't work?" hint="optional"><TI rows={2} value={data.priorAttempts} onChange={v=>set({...data,priorAttempts:v})} placeholder="Previous tools, failed automations…"/></Field>
       </Card>
@@ -662,10 +879,12 @@ const emptyTrigger = () => ({ type:"", detail:"" });
 const emptyAction = () => ({ type:"", detail:"" });
 const emptyAutomation = () => ({ platform:"clickup", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", use_agent:false });
 const emptyList = () => ({ name:"", statuses:"", customFields:"", automations:[] });
-const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()] });
+const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()], status:"Mapping", replaces:"", learnings:{ rating:"", whatWorked:"", whatToAvoid:"" } });
 
-function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp, onMoveDown, isFirst, isLast, color, pipelinePhases }) {
+function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp, onMoveDown, isFirst, isLast, color, pipelinePhases, suggestedAutomations }) {
   const { theme } = useTheme();
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionQuery, setSuggestionQuery] = useState("");
   const updTrigger = (i,k,v) => onChange({ ...auto, triggers: auto.triggers.map((t,idx)=>idx===i?{...t,[k]:v}:t) });
   const addTrigger = () => onChange({ ...auto, triggers:[...auto.triggers, emptyTrigger()] });
   const remTrigger = i => onChange({ ...auto, triggers: auto.triggers.filter((_,idx)=>idx!==i) });
@@ -673,12 +892,33 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
   const addAction = () => onChange({ ...auto, actions:[...auto.actions, emptyAction()] });
   const remAction = i => onChange({ ...auto, actions: auto.actions.filter((_,idx)=>idx!==i) });
   const validPhases = (pipelinePhases||[]).filter(p=>p.trim());
+  const hasSuggestions = suggestedAutomations?.length > 0;
+
+  const applySuggestion = (s) => {
+    onChange({ ...auto, triggers: s.triggers, actions: s.actions, instructions: s.instructions || "", use_agent: !!(s.instructions?.trim()) });
+    setShowSuggestions(false);
+  };
+
+  const suggestionLabel = (s) => {
+    const t = s.triggers?.[0];
+    const a = s.actions?.[0];
+    const tLabel = t?.type || t?.detail || "…";
+    const aLabel = a?.type || a?.detail || "…";
+    return `${tLabel} → ${aLabel}`;
+  };
+
   return (
-    <div style={{ border:`1px solid ${color}20`, borderLeft:`3px solid ${color}80`, borderRadius:9, padding:"14px 16px", marginBottom:10, background:theme.surface }}>
+    <div style={{ position:"relative", border:`1px solid ${color}20`, borderLeft:`3px solid ${color}80`, borderRadius:9, padding:"14px 16px", marginBottom:10, background:theme.surface }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:11, fontWeight:700, color, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Automation {autoIdx+1}</span>
           {auto.pipelinePhase && <span style={{ fontSize:10, fontWeight:700, color, background:color+"12", border:`1px solid ${color}30`, borderRadius:6, padding:"2px 8px", fontFamily:F }}>{auto.pipelinePhase}</span>}
+          {hasSuggestions && (
+            <button type="button" onClick={() => setShowSuggestions(s => !s)}
+              style={{ fontSize:11, fontWeight:600, color: showSuggestions ? "#fff" : color, background: showSuggestions ? color : `${color}12`, border:`1px solid ${color}40`, borderRadius:6, padding:"2px 9px", cursor:"pointer", fontFamily:F, display:"flex", alignItems:"center", gap:4 }}>
+              ✨ {showSuggestions ? "Close" : "Flow suggestion"}
+            </button>
+          )}
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
           <button type="button" onClick={onMoveUp} disabled={isFirst} style={{ fontSize:13, color:isFirst?theme.borderInput:theme.textMuted, background:"none", border:"none", cursor:isFirst?"default":"pointer", padding:"2px 4px", lineHeight:1 }} title="Move up">▲</button>
@@ -686,6 +926,71 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
           {canRemove && <button type="button" onClick={onRemove} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F, marginLeft:4 }}>Remove</button>}
         </div>
       </div>
+
+      {/* Suggestion popover — floats to the right of the card */}
+      {showSuggestions && (
+        <div style={{ position:"absolute", left:"calc(100% + 12px)", top:0, width:280, zIndex:50, border:`1px solid ${color}25`, borderRadius:8, overflow:"hidden", background:theme.surface, boxShadow:"0 4px 20px rgba(0,0,0,0.14)" }}>
+          {/* Header */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:`${color}08`, borderBottom:`1px solid ${color}20` }}>
+            <p style={{ margin:0, fontSize:10, fontWeight:700, color, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Flow suggestions</p>
+            <button type="button" onClick={() => { setShowSuggestions(false); setSuggestionQuery(""); }} style={{ fontSize:16, lineHeight:1, color, background:"none", border:"none", cursor:"pointer", padding:0 }}>×</button>
+          </div>
+          {/* Search */}
+          <div style={{ padding:"7px 10px", borderBottom:`1px solid ${color}15` }}>
+            <input
+              type="text"
+              value={suggestionQuery}
+              onChange={e => setSuggestionQuery(e.target.value)}
+              placeholder="Search suggestions…"
+              autoFocus
+              style={{ width:"100%", boxSizing:"border-box", fontSize:12, fontFamily:F, color:theme.text, background:theme.bg, border:`1px solid ${theme.borderInput}`, borderRadius:6, padding:"5px 9px", outline:"none" }}
+            />
+          </div>
+          {/* Grouped scrollable list — ~5 items visible */}
+          {(() => {
+            const q = suggestionQuery.toLowerCase();
+            const filtered = suggestedAutomations.filter(s => {
+              if (!q) return true;
+              const searchable = [
+                ...(s.triggers||[]).map(t => `${t.type} ${t.detail}`),
+                ...(s.actions||[]).map(a => `${a.type} ${a.detail}`),
+              ].join(" ").toLowerCase();
+              return searchable.includes(q);
+            });
+            const groups = {};
+            filtered.forEach(s => {
+              const key = s.triggers?.[0]?.type || s.triggers?.[0]?.detail || "Other";
+              if (!groups[key]) groups[key] = [];
+              groups[key].push(s);
+            });
+            const groupKeys = Object.keys(groups);
+            if (groupKeys.length === 0) {
+              return <p style={{ margin:0, padding:"12px 10px", fontSize:12, color:theme.textFaint, fontFamily:F, textAlign:"center" }}>No matches</p>;
+            }
+            return (
+              <div style={{ maxHeight:185, overflowY:"auto" }}>
+                {groupKeys.map(key => (
+                  <div key={key}>
+                    <div style={{ padding:"5px 10px 3px", fontSize:10, fontWeight:700, color, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", background:`${color}06`, borderBottom:`1px solid ${color}12`, position:"sticky", top:0 }}>
+                      {key}
+                    </div>
+                    {groups[key].map((s, i) => (
+                      <button key={i} type="button" onClick={() => applySuggestion(s)}
+                        style={{ width:"100%", display:"block", textAlign:"left", padding:"7px 10px", fontSize:12, fontFamily:F, color:theme.textSec, background:"none", border:"none", borderBottom:`1px solid ${theme.border}`, cursor:"pointer", lineHeight:1.4 }}
+                        onMouseEnter={e => e.currentTarget.style.background = `${color}08`}
+                        onMouseLeave={e => e.currentTarget.style.background = "none"}
+                      >
+                        {suggestionLabel(s)}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Pipeline phase */}
       {validPhases.length > 0 && (
         <div style={{ marginBottom:12 }}>
@@ -771,7 +1076,7 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
   );
 }
 
-function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color, pipelinePhases }) {
+function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color, pipelinePhases, suggestedAutomations }) {
   const upd = (k,v) => onChange({ ...list, [k]: v });
   const autos = list.automations||[];
   const updAuto = (i,v) => upd("automations", autos.map((a,idx)=>idx===i?v:a));
@@ -795,7 +1100,7 @@ function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color,
       <Field label="Custom fields"><TI rows={3} value={list.customFields} onChange={v=>upd("customFields",v)} placeholder={"Client Name — Text\nDue Date — Date\nPriority — Dropdown (High / Med / Low)"}/></Field>
       <HR label={`automations (${autos.length})`}/>
       {autos.map((auto,ai)=>(
-        <AutomationCard key={ai} auto={auto} autoIdx={ai} onChange={v=>updAuto(ai,v)} onRemove={()=>remAuto(ai)} canRemove={autos.length>0} onMoveUp={()=>moveAuto(ai,-1)} onMoveDown={()=>moveAuto(ai,1)} isFirst={ai===0} isLast={ai===autos.length-1} color={color} pipelinePhases={pipelinePhases}/>
+        <AutomationCard key={ai} auto={auto} autoIdx={ai} onChange={v=>updAuto(ai,v)} onRemove={()=>remAuto(ai)} canRemove={autos.length>0} onMoveUp={()=>moveAuto(ai,-1)} onMoveDown={()=>moveAuto(ai,1)} isFirst={ai===0} isLast={ai===autos.length-1} color={color} pipelinePhases={pipelinePhases} suggestedAutomations={suggestedAutomations}/>
       ))}
       <button type="button" onClick={addAuto} style={{ width:"100%", padding:"8px 0", background:"transparent", border:`1.5px dashed ${color}50`, borderRadius:9, color, fontSize:12, fontWeight:600, fontFamily:F, cursor:"pointer", marginTop:4 }}>
         + Add automation
@@ -804,29 +1109,44 @@ function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color,
   );
 }
 
-function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w }) {
+const LIFECYCLE_STAGES = ["Mapping","In Review","Client Approved","Live","Archived"];
+const LIFECYCLE_COLORS = { "Mapping":"#D97706","In Review":"#7C3AED","Client Approved":"#0284C7","Live":"#059669","Archived":"#6B7280" };
+
+function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomations, previousBuilds }) {
   const { theme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const color = "#0284C7";
+  const status = wf.status || "Mapping";
+  const sc = LIFECYCLE_COLORS[status] || "#D97706";
+  const showLearnings = status === "Client Approved" || status === "Live" || status === "Archived";
   const updList = (i,v) => onChange({ ...wf, lists: wf.lists.map((l,idx)=>idx===i?v:l) });
   const addList = () => onChange({ ...wf, lists: [...wf.lists, emptyList()] });
   const remList = i => onChange({ ...wf, lists: wf.lists.filter((_,idx)=>idx!==i) });
   return (
     <Card accent={color} style={{ marginBottom:16 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom: collapsed ? 0 : 14 }}>
-        <button type="button" onClick={()=>setCollapsed(c=>!c)} style={{ display:"flex", alignItems:"center", gap:10, background:"none", border:"none", cursor:"pointer", padding:0, flex:1, textAlign:"left" }}>
+      <div style={{ display:"flex", alignItems:"center", marginBottom: collapsed ? 0 : 14, gap:8 }}>
+        <button type="button" onClick={()=>setCollapsed(c=>!c)} style={{ display:"flex", alignItems:"center", gap:8, background:"none", border:"none", cursor:"pointer", padding:0, flex:1, minWidth:0, textAlign:"left" }}>
           <span style={{ width:24, height:24, borderRadius:6, background:color, color:"#fff", fontSize:12, fontWeight:700, fontFamily:F, display:"inline-flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{wfIdx+1}</span>
-          <span style={{ fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{wf.name||`Workflow ${wfIdx+1}`}</span>
-          <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F, marginLeft:4 }}>
-            {collapsed ? `${wf.lists.length} list${wf.lists.length!==1?"s":""}` : ""}
-          </span>
-          <span style={{ fontSize:12, color:theme.textMuted, marginLeft:"auto", paddingRight:8, transition:"transform 0.2s", display:"inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
+          <span style={{ fontSize:14, fontWeight:700, color:theme.text, fontFamily:F, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{wf.name||`Workflow ${wfIdx+1}`}</span>
+          <span style={{ fontSize:16, color:theme.textMuted, transition:"transform 0.2s", display:"inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", flexShrink:0 }}>▾</span>
         </button>
-        <button type="button" onClick={onRemove} style={{ fontSize:12, color:"#EF4444", background:"none", border:"none", cursor:"pointer", fontFamily:F, flexShrink:0 }}>Remove workflow</button>
+        <select value={status}
+          onChange={e => { if (e.target.value === "__remove__") { onRemove(); } else { onChange({...wf, status: e.target.value}); } }}
+          onClick={e => e.stopPropagation()}
+          style={{ fontFamily:F, fontSize:11, fontWeight:700, color:sc, border:`1.5px solid ${sc}40`, borderRadius:8, padding:"5px 24px 5px 9px", outline:"none", background:`${sc}0D`, cursor:"pointer", appearance:"none", backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%239CA3AF' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center", flexShrink:0 }}>
+          {LIFECYCLE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          <option disabled style={{ color:"#9CA3AF" }}>──────────</option>
+          <option value="__remove__" style={{ color:"#EF4444" }}>Remove workflow</option>
+        </select>
       </div>
       {!collapsed && (
         <>
           <Field label="Workflow name"><TI value={wf.name} onChange={v=>onChange({...wf,name:v})} placeholder="e.g. Sales Space Pipeline, Workspace Workflow"/></Field>
+          {previousBuilds && previousBuilds.length > 0 && (
+            <Field label="Replaces" hint="optional">
+              <Sel value={wf.replaces||""} onChange={v=>onChange({...wf,replaces:v})} options={["— None —", ...previousBuilds.map(b=>b.tool).filter(Boolean)]}/>
+            </Field>
+          )}
           <Field label="Notes" hint="optional"><TI rows={2} value={wf.notes} onChange={v=>onChange({...wf,notes:v})} placeholder="Edge cases, dependencies, context…"/></Field>
           <HR label={`pipeline phases (${(wf.pipeline||[]).length})`}/>
           <div style={{ marginBottom:8 }}>
@@ -844,59 +1164,113 @@ function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w }) {
           </div>
           <HR label={`lists (${wf.lists.length})`}/>
           {wf.lists.map((l,i)=>(
-            <WorkflowListCard key={i} list={l} listIdx={i} onChange={v=>updList(i,v)} onRemove={()=>remList(i)} canRemove={wf.lists.length>1} color={color} pipelinePhases={wf.pipeline||[]}/>
+            <WorkflowListCard key={i} list={l} listIdx={i} onChange={v=>updList(i,v)} onRemove={()=>remList(i)} canRemove={wf.lists.length>1} color={color} pipelinePhases={wf.pipeline||[]} suggestedAutomations={suggestedAutomations}/>
           ))}
           <button type="button" onClick={addList} style={{ width:"100%", padding:"9px 0", background:"transparent", border:`1.5px dashed ${color}50`, borderRadius:9, color, fontSize:12, fontWeight:600, fontFamily:F, cursor:"pointer", marginTop:4 }}>
             + Add list to this workflow
           </button>
+
+          {/* ── Build Learnings (unlocks at Client Approved / Live / Archived) ── */}
+          {showLearnings && (
+            <>
+              <HR label="build learnings"/>
+              <div style={{ background:"#F0FDF4", border:"1px solid #BBF7D0", borderRadius:10, padding:"14px 16px", marginTop:4 }}>
+                <p style={{ margin:"0 0 12px", fontSize:12, fontWeight:700, color:"#065F46", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.05em" }}>Build learnings <span style={{ fontSize:11, fontWeight:400, textTransform:"none", letterSpacing:0, color:"#6B7280" }}>— used to train future recommendations</span></p>
+                <Field label="Overall rating">
+                  <TogGroup options={["Good build","Mixed","Bad build"]} value={wf.learnings?.rating} onChange={v=>onChange({...wf,learnings:{...(wf.learnings||{}),rating:v}})} color="#059669"/>
+                </Field>
+                <Field label="What worked well?">
+                  <TI rows={2} value={wf.learnings?.whatWorked} onChange={v=>onChange({...wf,learnings:{...(wf.learnings||{}),whatWorked:v}})} placeholder="What about this build was effective or reusable?"/>
+                </Field>
+                <Field label="What would you avoid next time?">
+                  <TI rows={2} value={wf.learnings?.whatToAvoid} onChange={v=>onChange({...wf,learnings:{...(wf.learnings||{}),whatToAvoid:v}})} placeholder="Mistakes, misalignments, things that needed rework…"/>
+                </Field>
+              </div>
+            </>
+          )}
         </>
       )}
     </Card>
   );
 }
 
-function StepBuild({ data, set, w, deltaData, setDelta }) {
+function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, isEditing }) {
   const { theme } = useTheme();
   const workflows = data.workflows || [];
   const addWf = () => set({ ...data, workflows: [...workflows, emptyWorkflow()] });
   const updWf = (i,v) => set({ ...data, workflows: workflows.map((wf,idx)=>idx===i?v:wf) });
   const remWf = i => set({ ...data, workflows: workflows.filter((_,idx)=>idx!==i) });
-  const addRb=()=>setDelta({...deltaData,roadblocks:[...deltaData.roadblocks,emptyRB()]});
-  const updRb=(i,v)=>setDelta({...deltaData,roadblocks:deltaData.roadblocks.map((r,idx)=>idx===i?v:r)});
-  const remRb=(i)=>setDelta({...deltaData,roadblocks:deltaData.roadblocks.filter((_,idx)=>idx!==i)});
+
+  const hasExisting = auditData?.hasExisting === "Yes, they have something";
+  const builds = auditData?.builds || [];
+  const addBuild = () => setAudit({ ...auditData, builds: [...builds, emptyBuild()] });
+  const updBuild = (i,v) => setAudit({ ...auditData, builds: builds.map((b,idx)=>idx===i?v:b) });
+  const remBuild = i => setAudit({ ...auditData, builds: builds.filter((_,idx)=>idx!==i) });
+
   return (
     <div>
-      <Banner emoji="🏗️" title="Map each workflow build in detail." body="Add one workflow per distinct space or flow. Each workflow has its own lists — and each list has its own statuses, custom fields, and automations." color="#0284C7"/>
+      <Banner emoji="🏗️" title="Document what was in place, then map what you're building." body="Log the client's previous setups first, then add each new mapped workflow space by space." color="#0284C7"/>
+
+      {/* ── Does this client have an existing setup? ───────────────────────── */}
+      <Card>
+        <CardTitle>Does this client have an existing setup?</CardTitle>
+        <TogGroup options={["Yes, they have something","No — starting from scratch"]} value={auditData?.hasExisting} onChange={v=>setAudit({...auditData,hasExisting:v})} color={BLUE}/>
+      </Card>
+      {auditData?.hasExisting==="No — starting from scratch" && (
+        <div style={{ padding:24, textAlign:"center", background:"#ECFDF5", border:"1px solid #6EE7B7", borderRadius:12, marginBottom:14 }}>
+          <span style={{ fontSize:28 }}>🌱</span>
+          <p style={{ margin:"8px 0 0", fontSize:14, color:"#065F46", fontFamily:F, fontWeight:600 }}>Greenfield build — skip to the new workflow section below.</p>
+        </div>
+      )}
+
+      {/* ── Audit builds (existing broken setups) ──────────────────────────── */}
+      {hasExisting && (<>
+        <HR label="previous builds — what was in place"/>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
+          <div>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Previous Builds <span style={{ color:theme.textFaint, fontWeight:400 }}>({builds.length})</span></p>
+            <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>What the client had before — broken setups, legacy tools, or workflows being replaced</p>
+          </div>
+          <button onClick={addBuild} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #EA580C", borderRadius:10, color:"#EA580C", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Previous Build</button>
+        </div>
+        {builds.length === 0
+          ? <div style={{ padding:32, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12, marginBottom:14 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>Click "Add Previous Build" to document what was in place.</p></div>
+          : builds.map((b,i) => <BuildCard key={i} item={b} index={i} onChange={v=>updBuild(i,v)} onRemove={()=>remBuild(i)} w={w} defaultOpen={!isEditing}/>)
+        }
+        {builds.length > 0 && (
+          <Card accent="#EA580C">
+            <CardTitle sub="What does the broken state pattern reveal about what they need?">Pattern summary</CardTitle>
+            <TI rows={3} value={auditData.patternSummary} onChange={v=>setAudit({...auditData,patternSummary:v})} placeholder="Core insight from the audit…"/>
+          </Card>
+        )}
+      </>)}
+
+      {/* ── Mapped workflows ────────────────────────────────────────────────── */}
+      <HR label="mapped workflows — what you're building"/>
       {workflows.length === 0 ? (
         <div style={{ padding:"40px 24px", textAlign:"center", background:theme.surface, border:"1.5px dashed #BFDBFE", borderRadius:14, marginBottom:14 }}>
           <p style={{ margin:"0 0 16px", fontSize:14, color:theme.textMuted, fontFamily:F }}>No workflows yet. Add one to start mapping the build.</p>
           <button type="button" onClick={addWf} style={{ padding:"10px 24px", background:"#0284C7", border:"none", borderRadius:10, color:"#fff", fontSize:13, fontWeight:700, fontFamily:F, cursor:"pointer" }}>+ Add first workflow</button>
         </div>
-      ) : (
-        <>
-          {workflows.map((wf,i)=>(
-            <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w}/>
-          ))}
-          <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #BFDBFE", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
-            + Add another workflow
-          </button>
-        </>
-      )}
+      ) : (<>
+        {workflows.map((wf,i) => (
+          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds}/>
+        ))}
+        <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #BFDBFE", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
+          + Add another workflow
+        </button>
+      </>)}
       <Card><CardTitle hint="optional">Overall build notes</CardTitle><TI rows={3} value={data.buildNotes} onChange={v=>set({...data,buildNotes:v})} placeholder="General notes that apply across all workflows…"/></Card>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
-        <div>
-          <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Roadblocks</p>
-          <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Each becomes a proactive warning for future similar builds</p>
-        </div>
-        <button onClick={addRb} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #F97316", borderRadius:10, color:"#F97316", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Roadblock</button>
-      </div>
-      {deltaData.roadblocks.length===0 && <div style={{ padding:24, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>No roadblocks — add one if something broke.</p></div>}
-      {deltaData.roadblocks.map((r,i)=><RBCard key={i} rb={r} index={i} onChange={v=>updRb(i,v)} onRemove={()=>remRb(i)} w={w}/>)}
     </div>
   );
 }
 
 function StepDelta({ data, set, w }) {
+  const { theme } = useTheme();
+  const roadblocks = data.roadblocks || [];
+  const addRb = () => set({...data, roadblocks:[...roadblocks, emptyRB()]});
+  const updRb = (i,v) => set({...data, roadblocks: roadblocks.map((r,idx)=>idx===i?v:r)});
+  const remRb = (i) => set({...data, roadblocks: roadblocks.filter((_,idx)=>idx!==i)});
   return (
     <div>
       <Banner emoji="⚖️" title="Where did intent and reality diverge?" body="Capture not just what was built, but the gap between what was asked for and what was achievable." color="#DC2626"/>
@@ -912,6 +1286,15 @@ function StepDelta({ data, set, w }) {
         {data.diverged==="Yes" && <Field label="What caused the divergence?" style={{marginTop:14}}><TI rows={2} value={data.divergenceReason} onChange={v=>set({...data,divergenceReason:v})} placeholder="Integration limitation? Scope change?"/></Field>}
         <Field label="Compromises accepted" style={{marginTop:14}}><TI rows={2} value={data.compromises} onChange={v=>set({...data,compromises:v})} placeholder="What did they settle for?"/></Field>
       </Card>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Roadblocks</p>
+          <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Log once — tag the stage (pre / during / post-build) so the system knows when it occurred</p>
+        </div>
+        <button onClick={addRb} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #F97316", borderRadius:10, color:"#F97316", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Roadblock</button>
+      </div>
+      {roadblocks.length===0 && <div style={{ padding:24, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>No roadblocks — add one if something broke or was blocked at any stage.</p></div>}
+      {roadblocks.map((r,i)=><RBCard key={i} rb={r} index={i} onChange={v=>updRb(i,v)} onRemove={()=>remRb(i)} w={w}/>)}
     </div>
   );
 }
@@ -985,8 +1368,8 @@ function MobileStepDrawer({ step, setStep, cs, open, onClose }) {
       <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:40 }}/>
       <div style={{ position:"fixed", bottom:0, left:0, right:0, background:theme.surface, borderRadius:"18px 18px 0 0", zIndex:50, padding:"12px 0 32px" }}>
         <div style={{ width:36, height:4, background:theme.border, borderRadius:4, margin:"0 auto 16px" }}/>
-        <p style={{ margin:"0 0 8px", padding:"0 20px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, letterSpacing:"0.08em", textTransform:"uppercase" }}>Jump to step</p>
-        {STEPS.map((s,i)=>(
+        <p style={{ margin:"0 0 8px", padding:"0 20px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, letterSpacing:"0.08em", textTransform:"uppercase" }}>Jump to phase</p>
+        {PHASES.map((s,i)=>(
           <button key={s.id} onClick={()=>{setStep(i);onClose();}} style={{ width:"100%", display:"flex", alignItems:"center", gap:14, padding:"14px 20px", background:i===step?s.color+"0D":"transparent", border:"none", cursor:"pointer", borderLeft:i===step?`3px solid ${s.color}`:"3px solid transparent" }}>
             <div style={{ width:28, height:28, borderRadius:"50%", background:i<step?"#059669":i===step?s.color:theme.skeleton, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
               {i<step
@@ -995,7 +1378,7 @@ function MobileStepDrawer({ step, setStep, cs, open, onClose }) {
             </div>
             <div style={{ textAlign:"left" }}>
               <p style={{ margin:0, fontSize:14, fontWeight:i===step?700:500, color:i===step?s.color:theme.textSec, fontFamily:F }}>{s.label}</p>
-              <p style={{ margin:0, fontSize:11, color:theme.textFaint, fontFamily:F }}>{STEP_DESC[i].slice(0,48)}…</p>
+              <p style={{ margin:0, fontSize:11, color:theme.textFaint, fontFamily:F }}>{PHASE_DESC[i]}</p>
             </div>
           </button>
         ))}
@@ -1004,24 +1387,194 @@ function MobileStepDrawer({ step, setStep, cs, open, onClose }) {
   );
 }
 
+// ── Phase accordion section ───────────────────────────────────────────────────
+function PhaseSection({ title, subtitle, color, defaultOpen = false, filled, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const { theme } = useTheme();
+  return (
+    <div style={{ marginBottom: open ? 28 : 4 }}>
+      <button type="button" onClick={()=>setOpen(o=>!o)}
+        style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 14px", background: open ? `${color}12` : theme.surface, borderRadius: open ? "10px 10px 0 0" : 10, border:`1px solid ${open ? color+"40" : theme.border}`, borderBottom: open ? `1.5px solid ${color+"50"}` : `1px solid ${theme.border}`, cursor:"pointer", transition:"background 0.15s, border-color 0.15s" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          {filled
+            ? <span style={{ width:20, height:20, background:"#059669", borderRadius:"50%", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:10, color:"#fff", fontWeight:700, flexShrink:0 }}>✓</span>
+            : <span style={{ width:20, height:20, borderRadius:"50%", border:`2px solid ${open ? color : theme.borderInput}`, background: open ? `${color}15` : "transparent", flexShrink:0, transition:"all 0.2s" }}/>
+          }
+          <div style={{ textAlign:"left" }}>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color: open ? color : theme.text, fontFamily:F, transition:"color 0.15s" }}>{title}</p>
+            {subtitle && <p style={{ margin:"1px 0 0", fontSize:11, color:theme.textFaint, fontFamily:F }}>{subtitle}</p>}
+          </div>
+        </div>
+        <span style={{ fontSize:16, color: open ? color : theme.textMuted, display:"inline-block", transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition:"transform 0.2s, color 0.15s", flexShrink:0 }}>▾</span>
+      </button>
+      {open && <div style={{ padding:"18px 14px 4px", border:`1px solid ${color}40`, borderTop:"none", borderRadius:"0 0 10px 10px" }}>{children}</div>}
+    </div>
+  );
+}
+
+// ── AI Confidence Score ───────────────────────────────────────────────────────
+function computeConfidence(data) {
+  let score = 0;
+
+  // Current State / Audit — 25 pts
+  const assess = (data.audit?.overallAssessment || "").trim();
+  if (assess.length > 30) score += 12;
+  else if (assess.length > 0) score += 5;
+  if (data.audit?.hasExisting !== null && data.audit?.hasExisting !== undefined) score += 5;
+  if (data.audit?.builds?.length > 0) score += 8;
+
+  // Scenario / Intake — 30 pts
+  if (data.intake?.industries?.length > 0) score += 8;
+  if (data.intake?.workflowType) score += 7;
+  if (data.intake?.teamSize) score += 5;
+  if (data.intake?.tools?.length > 0) score += 5;
+  if (data.intake?.painPoints?.length > 0) score += 5;
+
+  // Build — 20 pts
+  const workflows = data.build?.workflows || [];
+  if (workflows.length > 0 && workflows[0].name) score += 10;
+  if (workflows.some(w => w.lists?.some(l => l.statuses || l.customFields))) score += 10;
+
+  // Delta — 10 pts
+  if ((data.delta?.userIntent || "").trim()) score += 5;
+  if ((data.delta?.successCriteria || "").trim()) score += 5;
+
+  // Reasoning — 10 pts
+  if ((data.reasoning?.whyStructure || "").trim()) score += 6;
+  if ((data.reasoning?.lessons || "").trim()) score += 4;
+
+  // Outcome — 5 pts
+  if (data.outcome?.built !== null && data.outcome?.built !== undefined) score += 3;
+  if ((data.outcome?.whatWorked || "").trim()) score += 2;
+
+  const pct = Math.min(100, score);
+
+  // Determine next highest-value action
+  let hint;
+  if (!data.intake?.workflowType || !data.intake?.industries?.length) {
+    hint = `Add scenario details to reach ${Math.min(100, pct + 20)}%`;
+  } else if (assess.length < 30) {
+    hint = `Describe the current setup to reach ${Math.min(100, pct + 12)}%`;
+  } else if (!(workflows.length > 0 && workflows[0].name)) {
+    hint = `Add build documentation to reach ${Math.min(100, pct + 20)}%`;
+  } else if (!data.delta?.userIntent?.trim()) {
+    hint = `Log intent vs reality to reach ${Math.min(100, pct + 10)}%`;
+  } else if (!data.reasoning?.whyStructure?.trim()) {
+    hint = `Add decision reasoning to reach ${Math.min(100, pct + 10)}%`;
+  } else if (data.outcome?.built === null || data.outcome?.built === undefined) {
+    hint = `Capture the outcome to reach ${Math.min(100, pct + 5)}%`;
+  } else {
+    hint = "Case file complete";
+  }
+
+  return { score: pct, hint };
+}
+
 // ── Main CaseFileForm ─────────────────────────────────────────────────────────
-export default function CaseFileForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel }) {
+export default function CaseFileForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel, hideRawPrompt, suggestedAutomations }) {
+  const shouldHidePrompt = hideRawPrompt || isEditing;
   const [step, setStep] = useState(0);
   const [data, setData] = useState(initialData || DEFAULT_STATE);
   const [enteredBy, setEnteredBy] = useState(initialEnteredBy || "");
   const [caseName, setCaseName] = useState(initialName || "");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [parseError, setParseError] = useState(null);
   const w = useWidth();
   const { theme } = useTheme();
+  const parsePromutMutation = useParsePrompt();
+
+  // Compute which intake fields were pre-filled by AI (brief flow only)
+  const [aiSuggestedFields, setAiSuggestedFields] = useState(() => {
+    if (shouldHidePrompt && initialData?.intake) {
+      const fields = new Set();
+      const i = initialData.intake;
+      if (i.industries?.length) fields.add("industries");
+      if (i.teamSize) fields.add("teamSize");
+      if (i.workflowType) fields.add("workflowType");
+      if (i.tools?.length) fields.add("tools");
+      if (i.painPoints?.length) fields.add("painPoints");
+      if (i.processFrameworks?.length) fields.add("processFrameworks");
+      return fields;
+    }
+    return new Set();
+  });
+
+  const handleAiParse = async () => {
+    const prompt = data.intake.rawPrompt.trim();
+    if (!prompt) return;
+    setParseError(null);
+    try {
+      const parsed = await parsePromutMutation.mutateAsync(prompt);
+      const newFields = new Set();
+      const newIntake = { ...data.intake };
+      if (parsed.industries?.length) { newIntake.industries = parsed.industries; newFields.add("industries"); }
+      if (parsed.team_size) { newIntake.teamSize = parsed.team_size; newFields.add("teamSize"); }
+      if (parsed.workflow_type) { newIntake.workflowType = parsed.workflow_type; newFields.add("workflowType"); }
+      if (parsed.tools?.length) { newIntake.tools = parsed.tools; newFields.add("tools"); }
+      if (parsed.pain_points?.length) { newIntake.painPoints = parsed.pain_points; newFields.add("painPoints"); }
+      if (parsed.process_frameworks?.length) { newIntake.processFrameworks = parsed.process_frameworks; newFields.add("processFrameworks"); }
+
+      // Pre-fill the existing setup section from AI inference
+      const auditUpdates = {};
+      if (parsed.has_existing_setup != null) {
+        auditUpdates.hasExisting = parsed.has_existing_setup
+          ? "Yes, they have something"
+          : "No — starting from scratch";
+      }
+      if (parsed.has_existing_setup && (parsed.existing_tools?.length || parsed.existing_issues?.length)) {
+        // Match AI-detected tool name to the closest option in our known list
+        const matchedTool = (parsed.existing_tools || []).reduce((found, aiTool) => {
+          if (found) return found;
+          const lower = aiTool.toLowerCase();
+          return CURRENT_TOOLS_USED.find(opt => opt.toLowerCase().includes(lower) || lower.includes(opt.toLowerCase().split(" ")[0])) || "";
+        }, "");
+        // Match AI-detected issues to predefined failure reason chips
+        const matchedReasons = FAILURE_REASONS.filter(reason =>
+          (parsed.existing_issues || []).some(issue =>
+            reason.toLowerCase().split(" ").slice(0, 3).some(word => issue.toLowerCase().includes(word))
+          )
+        );
+        // Any issues that didn't map to a chip go into the free-text field
+        const unmatchedIssues = (parsed.existing_issues || []).filter(issue =>
+          !matchedReasons.some(r => r.toLowerCase().split(" ").some(word => issue.toLowerCase().includes(word)))
+        );
+        const suggestedBuild = {
+          tool: matchedTool,
+          structure: "",
+          failureReasons: matchedReasons,
+          whatBreaks: unmatchedIssues.join("\n"),
+          workaroundsTheyUse: "",
+          howLongBroken: "",
+          whoReported: "",
+          integrationsInPlace: [],
+          impactOnTeam: "",
+          urgency: "Medium",
+        };
+        auditUpdates.builds = [suggestedBuild];
+      }
+
+      setData(d => ({
+        ...d,
+        intake: newIntake,
+        audit: { ...d.audit, ...auditUpdates },
+      }));
+      setAiSuggestedFields(newFields);
+    } catch {
+      setParseError("Couldn't parse the prompt — check your connection and try again.");
+    }
+  };
 
   const isMobile = w < 640;
-  const cs = STEPS[step];
-  const pct = (step / (STEPS.length - 1)) * 100;
+  const cs = PHASES[step];
+  const pct = (step / (PHASES.length - 1)) * 100;
   const px = isMobile ? 16 : 28;
 
   const setSD = (key, val) => setData(d => ({ ...d, [key]: val }));
 
   const handleSave = () => onSubmit(data, enteredBy, caseName);
+
+  const { score: confScore, hint: confHint } = computeConfidence(data);
+  const confColor = confScore >= 80 ? "#059669" : confScore >= 50 ? "#7C3AED" : "#D97706";
 
   return (
     <div style={{ background:theme.bg, minHeight:"100vh" }}>
@@ -1034,26 +1587,24 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", height: isMobile ? 52 : 60 }}>
             <div>
               <p style={{ margin:0, fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{isEditing ? "Edit project file" : "New case file"}</p>
-              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{STEP_TITLES[step]}</p>
+              <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{caseName || "Untitled project"}</p>
             </div>
-            {isMobile ? (
-              <button onClick={()=>setDrawerOpen(true)} style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 12px", background:`${cs.color}10`, border:`1px solid ${cs.color}40`, borderRadius:8, cursor:"pointer" }}>
-                <span style={{ fontSize:11, fontWeight:700, color:cs.color, fontFamily:F }}>{step+1}/{STEPS.length}</span>
-                <span style={{ fontSize:10, color:cs.color }}>▼</span>
-              </button>
-            ) : (
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <label style={{ fontSize:12, color:theme.textFaint, fontFamily:F, fontWeight:500 }}>Logged by</label>
-                <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
-                  style={{ width:160, fontFamily:F, fontSize:13, color:theme.textSec, background:theme.surfaceAlt, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"8px 12px", outline:"none" }}/>
+            <div style={{ textAlign:"right", flexShrink:0, marginLeft:16 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end", marginBottom:3 }}>
+                <span style={{ fontSize:11, fontFamily:F, color:theme.textFaint }}>🧠</span>
+                <span style={{ fontSize:12, fontWeight:700, fontFamily:F, color:confColor }}>AI Confidence: {confScore}%</span>
               </div>
-            )}
+              <div style={{ width: isMobile ? 100 : 140, height:3, background:theme.skeleton, borderRadius:4, marginBottom:3, marginLeft:"auto" }}>
+                <div style={{ height:"100%", width:`${confScore}%`, background:confColor, borderRadius:4, transition:"width 0.4s ease" }}/>
+              </div>
+              {!isMobile && <p style={{ margin:0, fontSize:10, color:theme.textFaint, fontFamily:F, maxWidth:200 }}>{confHint}</p>}
+            </div>
           </div>
 
-          {/* Step tabs (desktop + tablet) */}
+          {/* Phase tabs (desktop + tablet) */}
           {!isMobile && (
             <div style={{ display:"flex", gap:0, overflowX:"auto", scrollbarWidth:"none" }}>
-              {STEPS.map((s,i)=>(
+              {PHASES.map((s,i)=>(
                 <button key={s.id} onClick={()=>setStep(i)} style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 16px", background:"transparent", border:"none", cursor:"pointer", flexShrink:0, borderBottom:i===step?`3px solid ${s.color}`:"3px solid transparent", transition:"all 0.2s" }}>
                   {i<step && <span style={{ width:16, height:16, background:"#059669", borderRadius:"50%", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:700 }}>✓</span>}
                   <span style={{ fontSize:12, fontWeight:i===step?700:500, color:i===step?s.color:i<step?theme.textFaint:theme.borderInput, fontFamily:F, whiteSpace:"nowrap" }}>{w < 900 ? s.short : s.label}</span>
@@ -1065,7 +1616,7 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
           {/* Mobile progress dots */}
           {isMobile && (
             <div style={{ display:"flex", gap:5, padding:"10px 0 11px" }}>
-              {STEPS.map((_,i)=>(
+              {PHASES.map((_,i)=>(
                 <div key={i} onClick={()=>setStep(i)} style={{ flex:i===step?3:1, height:4, borderRadius:4, background:i===step?cs.color:i<step?theme.textFaint:theme.border, cursor:"pointer", transition:"all 0.3s" }}/>
               ))}
             </div>
@@ -1084,24 +1635,57 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
       <MobileStepDrawer step={step} setStep={setStep} cs={cs} open={drawerOpen} onClose={()=>setDrawerOpen(false)}/>
 
       {/* ── Content ─────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth:820, margin:"0 auto", padding:`24px ${px}px 140px` }}>
+      {(() => {
+        return (
+          <div style={{ maxWidth:820, margin:"0 auto", padding:`24px ${px}px 140px` }}>
 
-        {/* Mobile: logged by */}
-        {isMobile && (
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:12, padding:"10px 14px" }}>
-            <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F, fontWeight:500, flexShrink:0 }}>Logged by</span>
-            <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
-              style={{ flex:1, fontFamily:F, fontSize:14, color:theme.textSec, background:"transparent", border:"none", outline:"none" }}/>
+            {/* Mobile: logged by */}
+            {isMobile && (
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:12, padding:"10px 14px" }}>
+                <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F, fontWeight:500, flexShrink:0 }}>Logged by</span>
+                <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
+                  style={{ flex:1, fontFamily:F, fontSize:14, color:theme.textSec, background:"transparent", border:"none", outline:"none" }}/>
+              </div>
+            )}
+
+            <>
+              {/* ── Phase 0: The Situation ──────────────────────────────── */}
+              {step===0 && (<>
+                <PhaseSection title="What's in place now?" subtitle="Document the client's current setup and what's breaking" color="#7C3AED" defaultOpen filled={!!(data.audit.overallAssessment || data.audit.builds.length)}>
+                  <StepAudit data={data.audit} set={v=>setSD("audit",v)} w={w} caseName={caseName} setCaseName={setCaseName}
+                    intakeData={data.intake} setIntake={v=>setSD("intake",v)}
+                    hideRawPrompt={shouldHidePrompt} onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
+                    {...(isEditing && {
+                      projectUpdates: data.projectUpdates||[],
+                      onProjectUpdatesChange: v=>setSD("projectUpdates",v),
+                      scopeCreep: data.delta?.scopeCreep||[],
+                      onScopeCreepChange: v=>setData(d=>({...d,delta:{...d.delta,scopeCreep:v}})),
+                    })}/>
+                </PhaseSection>
+                <PhaseSection title="Who's the client?" subtitle="Capture the scenario, industry, team, and tools" color="#7C3AED" filled={!!(data.intake.industries.length || data.intake.workflowType)}>
+                  <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>
+                </PhaseSection>
+              </>)}
+
+              {/* ── Phase 1: The Build ──────────────────────────────────── */}
+              {step===1 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} setAudit={v=>setSD("audit",v)} isEditing={isEditing}/>}
+
+              {/* ── Phase 2: The Outcome ────────────────────────────────── */}
+              {step===2 && (<>
+                <PhaseSection title="Intent vs Reality" subtitle="Log the gap between what was wanted and what was delivered" color="#059668" defaultOpen filled={!!(data.delta.userIntent || data.delta.actualBuild)}>
+                  <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w}/>
+                </PhaseSection>
+                <PhaseSection title="Decision Reasoning" subtitle="Record the reasoning behind every major decision" color="#059668" filled={!!(data.reasoning.whyStructure || data.reasoning.lessons)}>
+                  <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>
+                </PhaseSection>
+                <PhaseSection title="Outcome" subtitle="Capture the post-build result and long-term usage signal" color="#059668" filled={!!(data.outcome.built || data.outcome.whatWorked)}>
+                  <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>
+                </PhaseSection>
+              </>)}
+            </>
           </div>
-        )}
-
-        {step===0 && <StepAudit   data={data.audit}     set={v=>setSD("audit",v)}     w={w} caseName={caseName} setCaseName={setCaseName}/>}
-        {step===1 && <StepIntake  data={data.intake}    set={v=>setSD("intake",v)}    w={w}/>}
-        {step===2 && <StepBuild   data={data.build}     set={v=>setSD("build",v)}     w={w} deltaData={data.delta} setDelta={v=>setSD("delta",v)}/>}
-        {step===3 && <StepDelta   data={data.delta}     set={v=>setSD("delta",v)}     w={w}/>}
-        {step===4 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
-        {step===5 && <StepOutcome data={data.outcome}   set={v=>setSD("outcome",v)}   w={w}/>}
-      </div>
+        );
+      })()}
 
       {/* ── Sticky footer ────────────────────────────────────────────────── */}
       <div style={{ position:"fixed", bottom:0, left:0, right:0, background:theme.surface, borderTop:`1px solid ${theme.border}`, padding:`12px ${isMobile?16:24}px`, boxShadow:"0 -4px 16px rgba(0,0,0,0.06)", zIndex:20 }}>
@@ -1120,13 +1704,13 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
 
           {!isMobile && (
             <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-              {STEPS.map((_,i)=>(
+              {PHASES.map((_,i)=>(
                 <div key={i} onClick={()=>setStep(i)} style={{ width:i===step?20:6, height:6, borderRadius:3, background:i===step?cs.color:i<step?"#D1D5DB":"#E5E7EB", cursor:"pointer", transition:"all 0.3s" }}/>
               ))}
             </div>
           )}
 
-          {step < STEPS.length - 1 ? (
+          {step < PHASES.length - 1 ? (
             <button onClick={()=>setStep(s=>s+1)} style={{ padding:`11px ${isMobile?22:28}px`, border:"none", borderRadius:10, background:cs.color, color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, boxShadow:`0 2px 10px ${cs.color}45`, minHeight:44 }}>
               Continue →
             </button>

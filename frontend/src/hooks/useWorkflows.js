@@ -7,6 +7,17 @@ export const briefKeys = {
   detail: (id) => [...briefKeys.all, "detail", id],
 };
 
+export function useParsePrompt() {
+  return useMutation({
+    mutationFn: async (rawPrompt) => {
+      const { data } = await api.post("/v1/workflows/parse/", {
+        raw_prompt: rawPrompt,
+      });
+      return data;
+    },
+  });
+}
+
 export function useGenerateBrief() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -40,6 +51,33 @@ export function useGeneratedBrief(id) {
       return data;
     },
     enabled: !!id,
+  });
+}
+
+export function useBriefByCaseFile(caseFileId) {
+  return useQuery({
+    queryKey: [...briefKeys.all, "byCaseFile", caseFileId],
+    queryFn: async () => {
+      const { data } = await api.get(`/v1/workflows/briefs/?case_file_id=${caseFileId}`);
+      return data[0] || null;
+    },
+    enabled: !!caseFileId,
+  });
+}
+
+export function useMarkBriefConverted() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ briefId, caseFileId }) => {
+      const { data } = await api.patch(`/v1/workflows/briefs/${briefId}/convert/`, {
+        case_file_id: caseFileId,
+      });
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(briefKeys.detail(data.id), data);
+      queryClient.invalidateQueries({ queryKey: briefKeys.lists() });
+    },
   });
 }
 

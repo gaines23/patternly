@@ -6,36 +6,29 @@ import publicApi from "../../api/publicClient";
 const F = "'Plus Jakarta Sans', sans-serif";
 const BLUE = "#2563EB";
 
-const STEP_COLORS = {
-  audit: "#EA580C",
-  intake: "#7C3AED",
-  build: "#0284C7",
-  delta: "#DC2626",
-  reasoning: "#059669",
-  outcome: "#4F46E5",
-};
-
-function Section({ title, emoji, color, children }) {
+function Section({ title, subtitle, color, children }) {
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div style={{ marginBottom: 28 }}>
       <div style={{
         display: "flex", alignItems: "center", gap: 10,
-        padding: "14px 18px",
-        background: color + "0A",
-        borderRadius: "12px 12px 0 0",
-        borderTop: `3px solid ${color}`,
-        borderLeft: `1px solid ${color}25`,
-        borderRight: `1px solid ${color}25`,
+        padding: "12px 14px",
+        background: `${color}12`,
+        borderRadius: "10px 10px 0 0",
+        border: `1px solid ${color}40`,
+        borderBottom: `1.5px solid ${color}50`,
       }}>
-        <span style={{ fontSize: 18 }}>{emoji}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color, fontFamily: F }}>{title}</span>
+        <span style={{ width: 20, height: 20, background: "#059669", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 700, flexShrink: 0 }}>✓</span>
+        <div style={{ textAlign: "left" }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color, fontFamily: F }}>{title}</p>
+          {subtitle && <p style={{ margin: "1px 0 0", fontSize: 11, color: "#6B7280", fontFamily: F }}>{subtitle}</p>}
+        </div>
       </div>
       <div style={{
         background: "#fff",
-        border: `1px solid ${color}20`,
+        border: `1px solid ${color}40`,
         borderTop: "none",
-        borderRadius: "0 0 12px 12px",
-        padding: "20px 18px",
+        borderRadius: "0 0 10px 10px",
+        padding: "18px 14px",
       }}>
         {children}
       </div>
@@ -60,7 +53,7 @@ function Row({ label, value, fullWidth }) {
       <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", paddingTop: fullWidth ? 0 : 1 }}>
         {label}
       </span>
-      <span style={{ fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6, marginTop: fullWidth ? 6 : 0 }}>
+      <span style={{ fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6, marginTop: fullWidth ? 10 : 0, display: fullWidth ? "block" : "inline" }}>
         {typeof displayValue === "boolean"
           ? displayValue ? "Yes" : "No"
           : displayValue}
@@ -84,10 +77,52 @@ function TagList({ items, color = BLUE }) {
   );
 }
 
+function CurrentBuildCard({ build, index }) {
+  const [open, setOpen] = useState(true);
+  const urgColors = { low: "#10B981", medium: "#F59E0B", high: "#F97316", critical: "#EF4444" };
+  const uc = urgColors[build.urgency?.toLowerCase()] || "#9CA3AF";
+  return (
+    <div style={{ border: "1px solid #BAE6FD", borderLeft: "3px solid #0284C7", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: open ? "#E0F2FE" : "#fff", cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>Build {index + 1}</span>
+        {build.tool && <span style={{ fontSize: 13, fontWeight: 600, color: "#374151", fontFamily: F }}>{build.tool}</span>}
+        {build.urgency && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: uc, background: uc + "18", border: `1px solid ${uc}40`, borderRadius: 10, padding: "2px 8px", fontFamily: F }}>
+            {build.urgency.toUpperCase()}
+          </span>
+        )}
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "#0284C7", opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "14px 16px", background: "#fff", borderTop: "1px solid #BAE6FD" }}>
+          <Row label="Structure" value={build.structure} fullWidth />
+          {build.failure_reasons?.length > 0 && (
+            <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Why it's failing</span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {build.failure_reasons.map(r => (
+                  <span key={r} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 12, background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", fontFamily: F }}>{r}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          <Row label="What breaks" value={build.what_breaks} fullWidth />
+          <Row label="Workarounds" value={build.workarounds_they_use} fullWidth />
+          <Row label="How long broken" value={build.how_long_broken} />
+          <Row label="Reported by" value={build.who_reported} />
+          <Row label="Business impact" value={build.impact_on_team} fullWidth />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CollapsibleCard({ title, badge, children }) {
   const [open, setOpen] = useState(true);
   return (
-    <div style={{ border: "1px solid #BAE6FD", borderRadius: 12, marginBottom: 14, background: "#0284C710" }}>
+    <div style={{ border: "1px solid #BAE6FD", borderRadius: 12, marginBottom: 14, background: "#0284C710", overflow: "hidden" }}>
       <div
         onClick={() => setOpen(o => !o)}
         style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", cursor: "pointer", userSelect: "none" }}
@@ -216,7 +251,7 @@ export default function SharedBriefPage() {
 
         {/* Project Updates */}
         {project_updates?.length > 0 && (
-          <Section title="Project Updates" emoji="📝" color="#0284C7">
+          <Section title="Project Updates" color="#0284C7">
             {project_updates.map((pu, i) => {
               const dateLabel = pu.created_at
                 ? (() => { const [y,m,d] = pu.created_at.slice(0,10).split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); })()
@@ -246,7 +281,7 @@ export default function SharedBriefPage() {
 
         {/* Scope Creep */}
         {delta?.scope_creep?.length > 0 && (
-          <Section title="Scope Creep" emoji="📎" color="#D97706">
+          <Section title="Scope Creep" color="#D97706">
             {delta.scope_creep.map((sc, i) => (
               <div key={i} style={{ border: "1px solid #FDE68A", borderLeft: "3px solid #D97706", borderRadius: 10, padding: "12px 14px", marginBottom: 8, background: "#FFFBEB" }}>
                 <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#92400E", fontFamily: F }}>{sc.area || `Item ${i + 1}`}</p>
@@ -269,57 +304,70 @@ export default function SharedBriefPage() {
           </Section>
         )}
 
-        {/* Audit */}
-        {audit && (audit.overall_assessment || audit.builds?.length > 0) && (
-          <Section title="Current State Audit" emoji="🔍" color={STEP_COLORS.audit}>
+        {/* What's in place now — Audit */}
+        {audit && (audit.overall_assessment || audit.pattern_summary) && (
+          <Section title="What's in place now?" subtitle="Document the client's current setup and what's breaking" color="#7C3AED">
             <Row label="Overall assessment" value={audit.overall_assessment} fullWidth />
             <Row label="Pattern summary" value={audit.pattern_summary} fullWidth />
-            {audit.builds?.map((b, i) => (
-              <div key={b.id || i} style={{ border: "1px solid #FED7AA", borderRadius: 10, padding: "14px 16px", marginBottom: 10, background: "#FFFBF5", marginTop: i === 0 ? 12 : 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#EA580C", fontFamily: F }}>Current tool {i + 1}</span>
-                  {b.tool && <span style={{ fontSize: 13, color: "#374151", fontFamily: F, fontWeight: 600 }}>{b.tool}</span>}
-                </div>
-                <Row label="Structure" value={b.structure} fullWidth />
-                <Row label="What breaks" value={b.what_breaks} fullWidth />
-                <Row label="Workarounds" value={b.workarounds_they_use} fullWidth />
-              </div>
-            ))}
           </Section>
         )}
 
-        {/* Intake */}
-        {intake && (intake.pain_points?.length > 0 || intake.raw_prompt) && (
-          <Section title="Scope & Context" emoji="📋" color={STEP_COLORS.intake}>
-            <Row label="Overview" value={intake.raw_prompt} fullWidth />
+        {/* Who's the client — Intake */}
+        {intake && (intake.workflow_type || intake.team_size || intake.industries?.length > 0 || intake.tools?.length > 0 || intake.pain_points?.length > 0 || intake.process_frameworks?.length > 0 || intake.prior_attempts) && (
+          <Section title="Who's the client?" subtitle="Capture the scenario, industry, team, and tools" color="#7C3AED">
+            <Row label="Team size" value={intake.team_size} />
+            <Row label="Workflow type" value={intake.workflow_type} />
+            {intake.industries?.length > 0 && (
+              <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Industries</span>
+                <TagList items={intake.industries} color="#2563EB" />
+              </div>
+            )}
+            {intake.process_frameworks?.length > 0 && (
+              <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Frameworks</span>
+                <TagList items={intake.process_frameworks} color="#7C3AED" />
+              </div>
+            )}
+            {intake.tools?.length > 0 && (
+              <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Tools in use</span>
+                <TagList items={intake.tools} color="#6B7280" />
+              </div>
+            )}
             {intake.pain_points?.length > 0 && (
               <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Pain points</span>
                 <TagList items={intake.pain_points} color="#7C3AED" />
               </div>
             )}
-            <Row label="Workflow type" value={intake.workflow_type} />
             <Row label="Prior attempts" value={intake.prior_attempts} fullWidth />
           </Section>
         )}
 
-        {/* Build */}
-        {build && (build.spaces || build.statuses || build.automations || build.build_notes || build.workflows?.length > 0) && (
-          <Section title="Workspace Blueprint" emoji="🏗️" color={STEP_COLORS.build}>
-            <Row label="Spaces" value={build.spaces} fullWidth />
-            <Row label="Lists" value={build.lists} fullWidth />
-            <Row label="Statuses" value={build.statuses} fullWidth />
-            <Row label="Custom fields" value={build.custom_fields} fullWidth />
-            <Row label="Automations" value={build.automations} fullWidth />
-            {build.integrations?.length > 0 && (
-              <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Integrations</span>
-                <TagList items={build.integrations} color="#0284C7" />
+        {/* Build Documentation */}
+        {(build || audit?.builds?.length > 0) && (
+          <Section title="Build Documentation" subtitle="Document everything that was built" color="#0284C7">
+            {audit?.builds?.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+                  Builds audited ({audit.builds.length})
+                </p>
+                {audit.builds.map((b, i) => <CurrentBuildCard key={b.id || i} build={b} index={i} />)}
               </div>
             )}
-            <Row label="Build notes" value={build.build_notes} fullWidth />
-            {build.workflows?.length > 0 && (
-              <div style={{ marginTop: 12 }}>
+            {build?.spaces && (
+              <div style={{ marginBottom: 16 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Spaces</span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {build.spaces.split(",").map(s => s.trim()).filter(Boolean).map((s, i) => (
+                    <span key={i} style={{ fontSize: 12, fontWeight: 600, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "3px 10px", fontFamily: F }}>{s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {build?.workflows?.length > 0 && (
+              <div style={{ marginTop: 4 }}>
                 {build.workflows.map((wf, wi) => (
                   <CollapsibleCard
                     key={wi}
@@ -328,7 +376,7 @@ export default function SharedBriefPage() {
                   >
                     {wf.notes && <p style={{ margin: "0 0 12px", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6, fontStyle: "italic" }}>{wf.notes}</p>}
                     {wf.lists?.map((l, li) => (
-                      <div key={li} style={{ border: "1px solid #BAE6FD", borderLeft: "3px solid #0284C7", borderRadius: 9, padding: "12px 14px", marginBottom: 8, background: "#fff" }}>
+                      <div key={li} style={{ border: `1px solid #BAE6FD`, borderLeft: "3px solid #0284C7", borderRadius: 9, padding: "12px 14px", marginBottom: 8, background: "#fff" }}>
                         <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#0284C7", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                           List {li + 1}{l.name ? ` — ${l.name}` : ""}
                         </p>
@@ -390,13 +438,14 @@ export default function SharedBriefPage() {
                 ))}
               </div>
             )}
+            {build?.build_notes && <Row label="Build notes" value={build.build_notes} fullWidth />}
           </Section>
         )}
 
-        {/* Delta / Roadblocks */}
+        {/* Intent vs Reality — Delta */}
         {delta && (delta.user_intent || delta.success_criteria || delta.roadblocks?.length > 0) && (
-          <Section title="Scope & Known Challenges" emoji="⚡" color={STEP_COLORS.delta}>
-            <Row label="Your intent" value={delta.user_intent} fullWidth />
+          <Section title="Intent vs Reality" subtitle="Log the gap between what was wanted and what was delivered" color="#059669">
+            <Row label="User intent" value={delta.user_intent} fullWidth />
             <Row label="Success criteria" value={delta.success_criteria} fullWidth />
             {delta.roadblocks?.length > 0 && (
               <div style={{ marginTop: 16 }}>
@@ -409,9 +458,9 @@ export default function SharedBriefPage() {
           </Section>
         )}
 
-        {/* Reasoning */}
+        {/* Decision Reasoning */}
         {reasoning && (reasoning.why_structure || reasoning.alternatives) && (
-          <Section title="Design Rationale" emoji="💡" color={STEP_COLORS.reasoning}>
+          <Section title="Decision Reasoning" subtitle="Record the reasoning behind every major decision" color="#059669">
             <Row label="Why this structure" value={reasoning.why_structure} fullWidth />
             <Row label="Alternatives considered" value={reasoning.alternatives} fullWidth />
             <Row label="Why they were rejected" value={reasoning.why_rejected} fullWidth />
@@ -422,7 +471,7 @@ export default function SharedBriefPage() {
 
         {/* Outcome */}
         {outcome && (outcome.built || outcome.what_worked || outcome.what_failed) && (
-          <Section title="Outcome" emoji="✅" color={STEP_COLORS.outcome}>
+          <Section title="Outcome" subtitle="Capture the post-build result and long-term usage signal" color="#059669">
             <Row label="Build status" value={outcome.built} />
             <Row label="What worked" value={outcome.what_worked} fullWidth />
             <Row label="What failed" value={outcome.what_failed} fullWidth />

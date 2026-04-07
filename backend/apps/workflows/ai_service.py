@@ -45,7 +45,8 @@ class AIServiceError(Exception):
 @dataclass
 class ParsedScenario:
     """Structured output from the prompt parser."""
-    industry: str = ""
+    client_name: str = ""
+    industries: list = field(default_factory=list)
     team_size: str = ""
     workflow_type: str = ""
     tools: list = field(default_factory=list)
@@ -53,6 +54,9 @@ class ParsedScenario:
     process_frameworks: list = field(default_factory=list)
     key_requirements: list = field(default_factory=list)
     raw_prompt: str = ""
+    has_existing_setup: bool = False
+    existing_tools: list = field(default_factory=list)
+    existing_issues: list = field(default_factory=list)
 
 
 @dataclass
@@ -89,13 +93,17 @@ Extract the following fields from the user's text. If a field cannot be determin
 
 Return ONLY valid JSON, no markdown fences, no explanation. Schema:
 {
-  "industry": "string — e.g. 'Marketing Agency', 'SaaS / Software Product'",
+  "client_name": "string — the company or client name if mentioned, otherwise empty string",
+  "industries": ["array of industries that apply — e.g. 'Consulting', 'SaaS / Software Product', 'Marketing Agency'. Include all that fit, not just the primary one."],
   "team_size": "string — e.g. '6', '10-20', 'small'",
   "workflow_type": "string — e.g. 'Client Project Management', 'Sprint Planning'",
   "tools": ["array of tool names mentioned — e.g. Slack, HubSpot, GitHub"],
   "pain_points": ["array of pain points — e.g. Visibility, Handoffs, Reporting"],
   "process_frameworks": ["array of frameworks mentioned — e.g. Agile / Scrum, OKRs"],
-  "key_requirements": ["array of 3-5 specific things they need the workflow to do"]
+  "key_requirements": ["array of 3-5 specific things they need the workflow to do"],
+  "has_existing_setup": "boolean — true if the client already has something in place (ClickUp, Asana, spreadsheets, any prior tool or process), false if they are starting from scratch",
+  "existing_tools": ["array of tools/systems the client is currently using or migrating away from — e.g. Asana, Monday.com, Google Sheets, a custom spreadsheet"],
+  "existing_issues": ["array of specific problems or failure reasons with their current setup — e.g. 'tasks fall through the cracks', 'no visibility across teams', 'automations broken'"]
 }"""
 
 RECOMMEND_SYSTEM_PROMPT = """You are a senior ClickUp solutions engineer with deep expertise in workflow design.
@@ -127,6 +135,15 @@ Return ONLY valid JSON. Schema:
 }"""
 
 
+def _strip_json_fences(text: str) -> str:
+    """Strip markdown code fences that Claude sometimes wraps JSON in."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]  # drop opening fence line
+        text = text.rsplit("```", 1)[0]  # drop closing fence
+    return text.strip()
+
+
 # ── Core service ──────────────────────────────────────────────────────────────
 
 class FlowpathAIService:
@@ -145,7 +162,7 @@ class FlowpathAIService:
                 "ANTHROPIC_API_KEY is not set. Add it to your .env file."
             )
         self.client = anthropic.Anthropic(api_key=api_key)
-        self.model = "claude-sonnet-4-5"
+        self.model = "claude-sonnet-4-6"
 
     # ── Step 1: Parse prompt ──────────────────────────────────────────────────
 
@@ -162,17 +179,21 @@ class FlowpathAIService:
                 system=PARSE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": raw_prompt}],
             )
-            raw = message.content[0].text.strip()
+            raw = _strip_json_fences(message.content[0].text)
             data = json.loads(raw)
             return ParsedScenario(
                 raw_prompt=raw_prompt,
-                industry=data.get("industry", ""),
+                client_name=data.get("client_name", ""),
+                industries=data.get("industries", []),
                 team_size=data.get("team_size", ""),
                 workflow_type=data.get("workflow_type", ""),
                 tools=data.get("tools", []),
                 pain_points=data.get("pain_points", []),
                 process_frameworks=data.get("process_frameworks", []),
                 key_requirements=data.get("key_requirements", []),
+                has_existing_setup=bool(data.get("has_existing_setup", False)),
+                existing_tools=data.get("existing_tools", []),
+                existing_issues=data.get("existing_issues", []),
             )
         except json.JSONDecodeError as e:
             logger.error("Failed to parse AI JSON response: %s", e)
@@ -201,8 +222,8 @@ class FlowpathAIService:
                 qs = matching
 
         # Filter by industry if we have matches
-        if scenario.industry:
-            industry_match = qs.filter(industries__contains=[scenario.industry])
+        if scenario.industries:
+            industry_match = qs.filter(industries__overlap=scenario.industries)
             if industry_match.exists():
                 qs = industry_match
 
@@ -293,11 +314,11 @@ class FlowpathAIService:
         try:
             message = self.client.messages.create(
                 model=self.model,
-                max_tokens=2000,
+                max_tokens=6000,
                 system=RECOMMEND_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_message}],
             )
-            raw = message.content[0].text.strip()
+            raw = _strip_json_fences(message.content[0].text)
             data = json.loads(raw)
         except json.JSONDecodeError as e:
             logger.error("AI recommendation JSON parse error: %s", e)
@@ -322,7 +343,7 @@ class FlowpathAIService:
         parts = [
             "## User Scenario",
             f"Raw prompt: {scenario.raw_prompt}",
-            f"Industry: {scenario.industry}",
+            f"Industries: {', '.join(scenario.industries)}",
             f"Team size: {scenario.team_size}",
             f"Workflow type: {scenario.workflow_type}",
             f"Tools: {', '.join(scenario.tools)}",
@@ -383,7 +404,8 @@ class FlowpathAIService:
         brief = GeneratedBrief.objects.create(
             raw_prompt=raw_prompt,
             parsed_scenario={
-                "industry": scenario.industry,
+                "client_name": scenario.client_name,
+                "industries": scenario.industries,
                 "team_size": scenario.team_size,
                 "workflow_type": scenario.workflow_type,
                 "tools": scenario.tools,

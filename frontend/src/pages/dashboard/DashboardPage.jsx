@@ -391,7 +391,7 @@ function SatisfactionPanel({ byWorkflow = [], byIndustry = [], loading, theme })
   return (
     <Card style={{ padding: "20px 22px" }} theme={theme}>
       <CardHeader title="Satisfaction Breakdown" sub="Average score (1–5) by workflow type · case file distribution by industry" theme={theme} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" }}>
+      <div className="fp-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" }}>
         <div style={colStyle}>
           <p style={labelStyle}>By Workflow Type</p>
           {loading ? <Skeleton theme={theme} /> : wfData.length === 0 ? <Empty text="No data yet" theme={theme} /> : (
@@ -418,7 +418,7 @@ export default function DashboardPage() {
   const recent = recentData?.results || [];
 
   return (
-    <div style={{ padding: "32px 32px 80px", maxWidth: 1100 }}>
+    <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 1100 }}>
 
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
@@ -439,7 +439,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Roadblock types + Scope creep */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+      <div className="fp-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
         <RoadblockTypesChart types={stats?.roadblock_types} loading={statsLoading} theme={theme} />
         <ScopeCreepChart tools={stats?.scope_creep_tools} loading={statsLoading} theme={theme} />
       </div>

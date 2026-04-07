@@ -1,17 +1,23 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useCreateCaseFile } from "../../hooks/useCaseFiles";
-import { formStateToCaseFilePayload } from "../../utils/transforms";
+import { formStateToCaseFilePayload, briefToFormState, briefToSuggestedAutomations } from "../../utils/transforms";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
+import { useGeneratedBrief, useMarkBriefConverted } from "../../hooks/useWorkflows";
 
 import CaseFileForm from "../../components/CaseFileForm";
 
 export default function NewCaseFilePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { theme } = useTheme();
   const createMutation = useCreateCaseFile();
+  const markConverted = useMarkBriefConverted();
+
+  const briefId = location.state?.briefId || null;
+  const { data: sourceBrief, isLoading: briefLoading } = useGeneratedBrief(briefId);
 
   const [apiError, setApiError] = useState(null);
 
@@ -24,6 +30,12 @@ export default function NewCaseFilePage() {
         caseName || "",
       );
       const result = await createMutation.mutateAsync(payload);
+
+      // Link the generated brief to the new case file
+      if (briefId) {
+        markConverted.mutate({ briefId, caseFileId: result.id });
+      }
+
       navigate(`/case-files/${result.id}`, {
         state: { justCreated: true },
       });
@@ -33,17 +45,48 @@ export default function NewCaseFilePage() {
         ? JSON.stringify(data, null, 2)
         : "Failed to save. Please check your connection and try again.";
       setApiError(msg);
-      // Scroll to top to show error
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
+  // Wait for brief to load before rendering the form so initialData is stable
+  if (briefId && briefLoading) {
+    return (
+      <div style={{ padding: 48, textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", color: theme.textMuted, fontSize: 14 }}>
+        Loading recommendation...
+      </div>
+    );
+  }
+
+  const initialData = sourceBrief ? briefToFormState(sourceBrief) : undefined;
+  const suggestedAutomations = sourceBrief ? briefToSuggestedAutomations(sourceBrief) : [];
+
+  const initialName = sourceBrief
+    ? [
+        sourceBrief.parsed_scenario?.client_name,
+        sourceBrief.parsed_scenario?.workflow_type,
+      ].filter(Boolean).join(" — ")
+    : "";
+
   return (
     <div>
+      {briefId && sourceBrief && (
+        <div style={{
+          margin: "24px 32px 0",
+          padding: "12px 16px",
+          background: "#EFF6FF",
+          border: "1px solid #BFDBFE",
+          borderRadius: 10,
+          fontSize: 13,
+          color: "#1D4ED8",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+        }}>
+          Pre-filled from your AI recommendation. Fill in the audit, delta, and outcome layers to complete the case file.
+        </div>
+      )}
       {apiError && (
         <div style={{
-          margin: "0 32px",
-          marginTop: 24,
+          margin: "16px 32px 0",
           padding: "14px 18px",
           background: theme.surface,
           border: "1px solid #FECACA",
@@ -60,6 +103,10 @@ export default function NewCaseFilePage() {
         onSubmit={handleSubmit}
         isSaving={createMutation.isPending}
         initialEnteredBy={user?.full_name || user?.email || ""}
+        initialData={initialData}
+        initialName={initialName}
+        hideRawPrompt={!!briefId}
+        suggestedAutomations={suggestedAutomations}
       />
     </div>
   );

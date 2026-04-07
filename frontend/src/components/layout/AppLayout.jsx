@@ -107,7 +107,7 @@ export default function AppLayout({ children }) {
   );
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: theme.bg }}>
+    <div className="fp-app-root" style={{ display: "flex", minHeight: "100vh", background: theme.bg }}>
 
       {/* Sidebar */}
       <aside className="fp-sidebar" style={{ width: 220, background: theme.surface, borderRight: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 20 }}>
@@ -125,10 +125,10 @@ export default function AppLayout({ children }) {
             </div>
           </Link>
         </div>
-        <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
+        <nav className="fp-sidebar-nav" style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
           {NAV.map(item => <NavLink key={item.to} item={item} />)}
         </nav>
-        <SidebarFooter />
+        <div className="fp-sidebar-footer"><SidebarFooter /></div>
       </aside>
 
       {/* Mobile header */}
@@ -174,8 +174,10 @@ export default function AppLayout({ children }) {
       )}
 
       {/* Main content */}
-      <main className="fp-main" style={{ marginLeft: 220, flex: 1, minHeight: "100vh" }}>
-        {children}
+      <main className="fp-main" style={{ marginLeft: 220, flex: 1, minHeight: "100vh", overflowX: "hidden" }}>
+        <div key={location.pathname} className="fp-page-enter">
+          {children}
+        </div>
       </main>
 
       <style>{`

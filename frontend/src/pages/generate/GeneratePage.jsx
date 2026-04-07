@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useGenerateBrief, useGeneratedBriefs } from "../../hooks/useWorkflows";
 import { useTheme } from "../../hooks/useTheme";
 import { formatDate } from "../../utils/transforms";
@@ -15,6 +15,7 @@ const EXAMPLE_PROMPTS = [
 
 function RecommendationPanel({ brief, theme }) {
   const rec = brief.recommendation;
+  const navigate = useNavigate();
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [rating, setRating] = useState(0);
 
@@ -48,11 +49,12 @@ function RecommendationPanel({ brief, theme }) {
             </p>
           )}
         </div>
-        <Link to="/case-files/new">
-          <button style={{ padding: "9px 18px", background: theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
-            Log this as a case file →
-          </button>
-        </Link>
+        <button
+          onClick={() => navigate("/case-files/new", { state: { briefId: brief.id } })}
+          style={{ padding: "9px 18px", background: theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}
+        >
+          Log this as a case file →
+        </button>
       </div>
 
       {/* Proactive warnings */}
@@ -172,7 +174,7 @@ export default function GeneratePage() {
   };
 
   return (
-    <div style={{ padding: "32px 32px 80px", maxWidth: 900 }}>
+    <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 900 }}>
 
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
@@ -185,7 +187,7 @@ export default function GeneratePage() {
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: currentBrief ? "1fr 1fr" : "1fr", gap: 24 }}>
+      <div className={currentBrief ? "fp-two-col" : ""} style={{ display: "grid", gridTemplateColumns: currentBrief ? "1fr 1fr" : "1fr", gap: 24 }}>
 
         {/* Left: Input */}
         <div>

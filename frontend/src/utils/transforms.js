@@ -286,6 +286,265 @@ export function caseFileToFormState(caseFile) {
   };
 }
 
+// ── Automation type inference helpers ────────────────────────────────────────
+
+// Mirror the constants from CaseFileForm so inference can exact-match against them
+const _TRIGGER_LIST = [
+  "Task Created","Task Status Changed","Task Completed","Task Moved","Task Assigned","Task Unassigned",
+  "Task Due Date Arrives","Task Start Date Arrives","Task Due Date Changed","Task Priority Changed",
+  "Custom Field Changed","Custom Field Is","Comment Posted","Attachment Added","Tag Added","Tag Removed",
+  "Task Type Is","Checklist Item Completed","Time Estimate Changed","Dependency Resolved",
+  "Form Submitted","Recurring Task Due",
+];
+const _ACTION_LIST = [
+  "Change Status","Assign To","Unassign From","Set Priority","Set Due Date","Set Start Date",
+  "Move to List","Add to List","Create List","Copy Task","Create Subtask","Create Task",
+  "Post Comment","Send Email","Add Tag","Remove Tag","Set Custom Field",
+  "Start Time Tracking","Stop Time Tracking","Change Task Type",
+  "Apply Template","Archive Task","Send Webhook",
+];
+
+/**
+ * Split text on "AND" only when the following word looks like a new
+ * action/trigger verb — prevents splitting "notify assignee and manager"
+ * into two broken entries.
+ */
+function _splitOnAnd(text, kind) {
+  const actionVerb = /^(assign|unassign|change|set|move|add|remove|create|copy|post|send|start|stop|apply|archive|update|notify|alert|mark|tag|generate|attach|transfer|convert|close|open|delete|duplicate|schedule|log|clear|email)\b/i;
+  const triggerVerb = /^(task|status|custom|comment|attachment|tag|checklist|time|dependency|form|recurring|when|if|on|new)\b/i;
+  const pattern = kind === "action" ? actionVerb : triggerVerb;
+
+  const parts = text.split(/\s+and\s+/i);
+  if (parts.length <= 1) return parts;
+  const result = [parts[0]];
+  for (let i = 1; i < parts.length; i++) {
+    if (pattern.test(parts[i].trim())) {
+      result.push(parts[i].trim());
+    } else {
+      result[result.length - 1] += " and " + parts[i];
+    }
+  }
+  return result.filter(Boolean);
+}
+
+function inferTriggerType(text) {
+  const t = text.trim();
+  const tl = t.toLowerCase();
+
+  // 1. Exact match (case-insensitive)
+  const exact = _TRIGGER_LIST.find(v => v.toLowerCase() === tl);
+  if (exact) return exact;
+
+  // 2. Contains the full type name as a substring
+  const partial = _TRIGGER_LIST.find(v => tl.includes(v.toLowerCase()));
+  if (partial) return partial;
+
+  // 3. Fuzzy keyword matching — ordered most-specific first
+  if (/custom field.*(changed|updated|modified)/i.test(t)) return "Custom Field Changed";
+  if (/custom field.*(is|equals|becomes|set to)/i.test(t)) return "Custom Field Is";
+  if (/\bchecklist\b/i.test(t)) return "Checklist Item Completed";
+  if (/time estimate/i.test(t)) return "Time Estimate Changed";
+  if (/\bdependenc/i.test(t)) return "Dependency Resolved";
+  if (/\brecurr/i.test(t)) return "Recurring Task Due";
+  if (/task type/i.test(t)) return "Task Type Is";
+  if (/\battachment|\bfile (upload|attach)/i.test(t)) return "Attachment Added";
+  if (/(tag|label).*(added|applied)|(added|applied).*(tag|label)/i.test(t)) return "Tag Added";
+  if (/(tag|label).*(removed|deleted)|(removed|deleted).*(tag|label)/i.test(t)) return "Tag Removed";
+  if (/\bcomment(ed|s)?\b/i.test(t)) return "Comment Posted";
+  if (/form.*(submit|fill|complet|receiv)|submit.*form|\bform (is )?receiv/i.test(t)) return "Form Submitted";
+  if (/\bsubmit(ted|s)?\b/i.test(t)) return "Form Submitted";
+  if (/due date.*(arrives?|reached|hit|pass|trigger|today|overdue|past)|overdue|past due/i.test(t)) return "Task Due Date Arrives";
+  if (/start date.*(arrives?|reached|hit|today)/i.test(t)) return "Task Start Date Arrives";
+  if (/due date.*(changed|updated|modified|set)|change.*due date|update.*due date/i.test(t)) return "Task Due Date Changed";
+  if (/priority.*(changed|updated|modified)|change.*priority/i.test(t)) return "Task Priority Changed";
+  if (/\bunassign/i.test(t)) return "Task Unassigned";
+  if (/\bassign(ed)?\b/i.test(t)) return "Task Assigned";
+  if (/(task|item).*(moved?|transferred|relocated)|moved?.*to.*list/i.test(t)) return "Task Moved";
+  if (/(task|item|ticket).*(created|added|new)|new.*(task|item|ticket)|created?\b/i.test(t) && !/custom field/i.test(t)) return "Task Created";
+  if (/mark(ed)? (as )?(done|complete|finished)|completed?\b|finished?\b|\bdone\b|closed\b/i.test(t)) return "Task Completed";
+  if (/status.*(changed|updated|moved|set|is|to|becomes)|change.*status|move.*status|set.*status/i.test(t)) return "Task Status Changed";
+  if (/\bstatus\b/i.test(t)) return "Task Status Changed";
+  if (/\bnew\b|\bcreated?\b/i.test(t)) return "Task Created";
+  return "";
+}
+
+function inferActionType(text) {
+  const t = text.trim();
+  const tl = t.toLowerCase();
+
+  // 1. Exact match (case-insensitive)
+  const exact = _ACTION_LIST.find(v => v.toLowerCase() === tl);
+  if (exact) return exact;
+
+  // 2. Contains the full type name as a substring
+  const partial = _ACTION_LIST.find(v => tl.includes(v.toLowerCase()));
+  if (partial) return partial;
+
+  // 3. Fuzzy keyword matching — ordered most-specific first
+  if (/stop.*time.?track|time.?track.*stop/i.test(t)) return "Stop Time Tracking";
+  if (/start.*time.?track|time.?track.*start/i.test(t)) return "Start Time Tracking";
+  if (/change.*task.?type|task.?type.*change/i.test(t)) return "Change Task Type";
+  if (/\bwebhook\b/i.test(t)) return "Send Webhook";
+  if (/\barchive\b/i.test(t)) return "Archive Task";
+  if (/\btemplate\b/i.test(t)) return "Apply Template";
+  if (/remove.*tag|tag.*remov|untag/i.test(t)) return "Remove Tag";
+  if (/add.*tag|tag.*add|\btag\b/i.test(t)) return "Add Tag";
+  if (/remove.*custom|clear.*custom/i.test(t)) return "Set Custom Field";
+  if (/custom.?field|set.*field|update.*field/i.test(t)) return "Set Custom Field";
+  if (/copy.*task|duplicate.*task/i.test(t)) return "Copy Task";
+  if (/sub.?task/i.test(t)) return "Create Subtask";
+  if (/create.*list|new.*list/i.test(t)) return "Create List";
+  if (/add.*to.*list/i.test(t)) return "Add to List";
+  if (/move.*to.*list|move.*list|transfer.*list|send.*to.*list/i.test(t)) return "Move to List";
+  if (/move|transfer/i.test(t) && /list/i.test(t)) return "Move to List";
+  if (/create.*task|new.*task|add.*task|generate.*task/i.test(t)) return "Create Task";
+  if (/set.*start.?date|start.?date.*set|update.*start/i.test(t)) return "Set Start Date";
+  if (/set.*due.?date|due.?date.*set|update.*due|change.*due/i.test(t)) return "Set Due Date";
+  if (/\bdue.?date\b/i.test(t)) return "Set Due Date";
+  if (/send.*email|email.*send|email.*notif|notif.*email|\bemail\b/i.test(t)) return "Send Email";
+  if (/post.*comment|add.*comment|leave.*comment|\bcomment\b/i.test(t)) return "Post Comment";
+  if (/\bunassign\b/i.test(t)) return "Unassign From";
+  if (/\bassign\b/i.test(t)) return "Assign To";
+  if (/(change|update|set|switch|move|mark).*(status|to)|(status).*(change|update|set|to)|mark.*as/i.test(t)) return "Change Status";
+  if (/(set|change|update).*(priority)|priority.*(set|change|update|to)|\bhigh\b|\blow\b|\burgent\b|\bmedium\b/i.test(t)) return "Set Priority";
+  if (/\bnotif(y|ication)\b|\balert\b|\bslack\b|\bmessage\b|\bping\b/i.test(t)) return "Post Comment";
+  if (/move|transfer/i.test(t)) return "Move to List";
+  return "";
+}
+
+/**
+ * Maps a GeneratedBrief (from AI output) into CaseFileForm's initialData shape.
+ * Pre-fills Intake, Build, and Reasoning layers from parsed_scenario + recommendation.
+ * Audit, Delta, and Outcome are left empty for the user to fill manually.
+ */
+/**
+ * Parse the AI recommendation's automations text into structured suggestion objects.
+ * Exported so components can show these as side-panel suggestions rather than
+ * pre-filling the form directly.
+ */
+export function briefToSuggestedAutomations(brief) {
+  const raw = brief?.recommendation?.automations || "";
+  return raw
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line.includes("→") || line.includes("->"))
+    .map(line => {
+      const [triggerPart, ...actionParts] = line.split(/→|->/).map(s => s.trim());
+      const actionText = actionParts.join(" → ").trim();
+      const triggerTexts = triggerPart ? _splitOnAnd(triggerPart, "trigger") : [];
+      const actionTexts = actionText ? _splitOnAnd(actionText, "action") : [];
+      return {
+        platform: "clickup",
+        third_party_platform: "",
+        pipelinePhase: "",
+        triggers: triggerTexts.length > 0
+          ? triggerTexts.map(text => ({ type: inferTriggerType(text), detail: text }))
+          : [{ type: "", detail: "" }],
+        actions: actionTexts.length > 0
+          ? actionTexts.map(text => ({ type: inferActionType(text), detail: text }))
+          : [{ type: "", detail: "" }],
+        instructions: line,
+        use_agent: false,
+      };
+    });
+}
+
+export function briefToFormState(brief) {
+  const scenario = brief.parsed_scenario || {};
+  const rec = brief.recommendation || {};
+
+  // Parse comma/newline-separated space names into workflow objects
+  const spaceNames = (rec.spaces || "")
+    .split(/,|\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const emptyAutos = [];
+
+  const workflows = spaceNames.map((spaceName, i) => ({
+    name: spaceName,
+    notes: i === 0 ? rec.lists || "" : "",
+    pipeline: [],
+    lists: i === 0
+      ? [{
+          name: "Main",
+          space: spaceName,
+          statuses: rec.statuses || "",
+          customFields: rec.custom_fields || "",
+          automations: emptyAutos,
+        }]
+      : [],
+  }));
+
+  if (workflows.length === 0) {
+    workflows.push({
+      name: "",
+      notes: rec.lists || "",
+      pipeline: [],
+      lists: [{
+        name: "Main",
+        space: "",
+        statuses: rec.statuses || "",
+        customFields: rec.custom_fields || "",
+        automations: emptyAutos,
+      }],
+    });
+  }
+
+  return {
+    audit: {
+      hasExisting: null,
+      overallAssessment: "",
+      triedToFix: null,
+      previousFixes: "",
+      builds: [],
+      patternSummary: "",
+    },
+    intake: {
+      rawPrompt: scenario.raw_prompt || "",
+      industries: scenario.industry ? [scenario.industry] : [],
+      teamSize: scenario.team_size || "",
+      workflowType: scenario.workflow_type || "",
+      processFrameworks: scenario.process_frameworks || [],
+      tools: scenario.tools || [],
+      painPoints: scenario.pain_points || [],
+      priorAttempts: "",
+    },
+    build: {
+      buildNotes: rec.build_notes || "",
+      workflows,
+    },
+    delta: {
+      userIntent: "",
+      successCriteria: "",
+      actualBuild: "",
+      diverged: null,
+      divergenceReason: "",
+      compromises: "",
+      roadblocks: [],
+    },
+    reasoning: {
+      whyStructure: rec.reasoning || "",
+      alternatives: "",
+      whyRejected: "",
+      assumptions: "",
+      whenOpposite: "",
+      lessons: "",
+      complexity: rec.estimated_complexity || 3,
+    },
+    outcome: {
+      built: null,
+      blockReason: "",
+      changes: "",
+      whatWorked: "",
+      whatFailed: "",
+      satisfaction: 3,
+      recommend: null,
+      revisitWhen: "",
+    },
+  };
+}
+
 /**
  * Format a date string for display.
  */
