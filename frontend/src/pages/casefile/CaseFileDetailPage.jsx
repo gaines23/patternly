@@ -6,6 +6,7 @@ import { formatDate, satisfactionLabel, formStateToCaseFilePayload, caseFileToFo
 import CaseFileForm, { ChipGroup, IndustryPicker, FrameworkPicker, TOOLS, PAIN_POINTS, CLICKUP_TRIGGERS, CLICKUP_ACTIONS, THIRD_PARTY_PLATFORMS, CURRENT_TOOLS_USED, FAILURE_REASONS, WORKFLOW_TYPES } from "../../components/CaseFileForm";
 import { useBriefByCaseFile } from "../../hooks/useWorkflows";
 import { useTheme } from "../../hooks/useTheme";
+import { WorkflowMapPanel } from "../../components/WorkflowMapPanel";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 const BLUE = "#2563EB";
@@ -58,7 +59,7 @@ function Section({ title, subtitle, color, children, collapsible = false, forceO
   );
 }
 
-function CollapsibleCard({ title, color = "#0284C7", borderColor = "#BAE6FD", background = "#0284C710", badge, children, forceOpen = false }) {
+function CollapsibleCard({ title, color = "#0284C7", borderColor = "#BAE6FD", background = "#0284C710", badge, children, forceOpen = false, action }) {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const isOpen = open || forceOpen;
@@ -74,6 +75,7 @@ function CollapsibleCard({ title, color = "#0284C7", borderColor = "#BAE6FD", ba
         }}>
         {badge}
         <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: theme.text, fontFamily: F }}>{title}</span>
+        {action && <div onClick={e => e.stopPropagation()}>{action}</div>}
         {!forceOpen && <span style={{ fontSize: 11, color, opacity: 0.6 }}>{isOpen ? "▲" : "▼"}</span>}
       </div>
       <div className="fp-collapsible-body" style={{ display: isOpen ? undefined : "none", padding: "0 16px 14px" }}>
@@ -810,6 +812,7 @@ export default function CaseFileDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [mapWfIndex, setMapWfIndex] = useState(null);
   const [showShare, setShowShare] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -1221,6 +1224,21 @@ export default function CaseFileDetailPage() {
               title={wf.name || `Workflow ${wi + 1}`}
               badge={<span style={{ width: 24, height: 24, borderRadius: 6, background: "#0284C7", color: "#fff", fontSize: 12, fontWeight: 700, fontFamily: F, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{wi + 1}</span>}
               forceOpen={isPrinting}
+              action={
+                <button
+                  onClick={() => setMapWfIndex(mapWfIndex === wi ? null : wi)}
+                  style={{
+                    fontSize: 11, fontWeight: 600, fontFamily: F,
+                    color: mapWfIndex === wi ? "#fff" : "#0284C7",
+                    background: mapWfIndex === wi ? "#0284C7" : "#E0F2FE",
+                    border: "1px solid #BAE6FD",
+                    borderRadius: 6, padding: "3px 10px",
+                    cursor: "pointer", lineHeight: 1.4,
+                  }}
+                >
+                  {mapWfIndex === wi ? "✕ Map" : "Map ↗"}
+                </button>
+              }
             >
               {wf.notes && <p style={{ margin: "0 0 12px", fontSize: 13, color: theme.textSec, fontFamily: F, lineHeight: 1.6, fontStyle: "italic" }}>{wf.notes}</p>}
               {wf.lists?.length > 0 && wf.lists.map((l, li) => (
@@ -1324,9 +1342,29 @@ export default function CaseFileDetailPage() {
 
     </div>
 
+    {/* ── Workflow map — narrow screen modal ────────────────────────────── */}
+    {mapWfIndex !== null && w < 1300 && build?.workflows?.[mapWfIndex] && (
+      <WorkflowMapPanel
+        workflow={build.workflows[mapWfIndex]}
+        onClose={() => setMapWfIndex(null)}
+        asModal
+      />
+    )}
+
     {/* ── Right sidebar ─────────────────────────────────────────────────── */}
     {w >= 1300 && (
-      <div className="fp-no-print" style={{ width: 480, flexShrink: 0, position: "sticky", top: 24, paddingTop: 28, paddingBottom: 24, maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}>
+      <div className="fp-no-print" style={{ width: 480, flexShrink: 0, position: "sticky", top: 24, paddingTop: 28, paddingBottom: 24, maxHeight: "calc(100vh - 48px)", overflowY: mapWfIndex !== null ? "hidden" : "auto" }}>
+
+        {/* Workflow map panel */}
+        {mapWfIndex !== null && build?.workflows?.[mapWfIndex] && (
+          <WorkflowMapPanel
+            workflow={build.workflows[mapWfIndex]}
+            onClose={() => setMapWfIndex(null)}
+          />
+        )}
+
+        {mapWfIndex !== null ? null : (
+        <>
 
         {/* Project Updates */}
         <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 14, padding: "16px 16px 12px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -1396,6 +1434,8 @@ export default function CaseFileDetailPage() {
               ))
           }
         </div>
+
+        </>)}
 
       </div>
     )}
