@@ -678,7 +678,9 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
     if (field === "g1") setG1(value);
     if (field === "g2") setG2(value);
     if (field === "g3") setG3(value);
-    setIntake({ ...intakeData, rawPrompt: assembleGuidedPrompt(next.g1, next.g2, next.g3) });
+    const assembled = assembleGuidedPrompt(next.g1, next.g2, next.g3);
+    setIntake({ ...intakeData, rawPrompt: assembled });
+    set({ ...data, overallAssessment: assembled });
   };
 
   const switchToGuided = () => { setG1(""); setG2(""); setG3(""); setIntake({ ...intakeData, rawPrompt:"" }); setGuidedMode(true); };
@@ -715,19 +717,10 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
                     <span style={{ width:22, height:22, borderRadius:"50%", background:"#7c3aed12", border:"1.5px solid #7C3AED", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#7C3AED", fontFamily:F, flexShrink:0 }}>{idx+1}</span>
                     <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{q}</span>
                   </div>
-                  <TI value={val} onChange={v=>updateGuided(key, v)} placeholder={placeholder} rows={idx===1?2:1}/>
+                  <TI value={val} onChange={v=>updateGuided(key, v)} placeholder={placeholder} rows={2}/>
                 </div>
               );
             })}
-            <HR/>
-            <div style={{ marginBottom:6 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
-                <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>Describe the current setup end-to-end</span>
-                <AiBadge/>
-              </div>
-              <p style={{ margin:"0 0 8px", fontSize:11, color:theme.textFaint, fontFamily:F, lineHeight:1.5 }}>This is stored as the AI's permanent reference for this case. The more specific you are, the better future recommendations get when similar scenarios come in.</p>
-              <TI rows={3} value={data.overallAssessment} onChange={v=>set({...data,overallAssessment:v})} placeholder="e.g. They built a ClickUp workspace 18 months ago with 3 spaces and 47 custom fields — never properly adopted. Team of 8 defaulted back to spreadsheets. Tried rebuilding twice but same pattern repeated."/>
-            </div>
           </>) : (<>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
               <div>
@@ -1514,13 +1507,57 @@ export default function CaseFileForm({ onSubmit, isSaving, initialData, initialN
       const parsed = await parsePromutMutation.mutateAsync(prompt);
       const newFields = new Set();
       const newIntake = { ...data.intake };
-      if (parsed.industry) { newIntake.industries = [parsed.industry]; newFields.add("industries"); }
+      if (parsed.industries?.length) { newIntake.industries = parsed.industries; newFields.add("industries"); }
       if (parsed.team_size) { newIntake.teamSize = parsed.team_size; newFields.add("teamSize"); }
       if (parsed.workflow_type) { newIntake.workflowType = parsed.workflow_type; newFields.add("workflowType"); }
       if (parsed.tools?.length) { newIntake.tools = parsed.tools; newFields.add("tools"); }
       if (parsed.pain_points?.length) { newIntake.painPoints = parsed.pain_points; newFields.add("painPoints"); }
       if (parsed.process_frameworks?.length) { newIntake.processFrameworks = parsed.process_frameworks; newFields.add("processFrameworks"); }
-      setData(d => ({ ...d, intake: newIntake }));
+
+      // Pre-fill the existing setup section from AI inference
+      const auditUpdates = {};
+      if (parsed.has_existing_setup != null) {
+        auditUpdates.hasExisting = parsed.has_existing_setup
+          ? "Yes, they have something"
+          : "No — starting from scratch";
+      }
+      if (parsed.has_existing_setup && (parsed.existing_tools?.length || parsed.existing_issues?.length)) {
+        // Match AI-detected tool name to the closest option in our known list
+        const matchedTool = (parsed.existing_tools || []).reduce((found, aiTool) => {
+          if (found) return found;
+          const lower = aiTool.toLowerCase();
+          return CURRENT_TOOLS_USED.find(opt => opt.toLowerCase().includes(lower) || lower.includes(opt.toLowerCase().split(" ")[0])) || "";
+        }, "");
+        // Match AI-detected issues to predefined failure reason chips
+        const matchedReasons = FAILURE_REASONS.filter(reason =>
+          (parsed.existing_issues || []).some(issue =>
+            reason.toLowerCase().split(" ").slice(0, 3).some(word => issue.toLowerCase().includes(word))
+          )
+        );
+        // Any issues that didn't map to a chip go into the free-text field
+        const unmatchedIssues = (parsed.existing_issues || []).filter(issue =>
+          !matchedReasons.some(r => r.toLowerCase().split(" ").some(word => issue.toLowerCase().includes(word)))
+        );
+        const suggestedBuild = {
+          tool: matchedTool,
+          structure: "",
+          failureReasons: matchedReasons,
+          whatBreaks: unmatchedIssues.join("\n"),
+          workaroundsTheyUse: "",
+          howLongBroken: "",
+          whoReported: "",
+          integrationsInPlace: [],
+          impactOnTeam: "",
+          urgency: "Medium",
+        };
+        auditUpdates.builds = [suggestedBuild];
+      }
+
+      setData(d => ({
+        ...d,
+        intake: newIntake,
+        audit: { ...d.audit, ...auditUpdates },
+      }));
       setAiSuggestedFields(newFields);
     } catch {
       setParseError("Couldn't parse the prompt — check your connection and try again.");

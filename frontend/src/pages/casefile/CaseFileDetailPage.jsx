@@ -101,7 +101,7 @@ function Row({ label, value, fullWidth }) {
       <span style={{ fontSize: 12, fontWeight: 600, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", paddingTop: fullWidth ? 0 : 1 }}>
         {label}
       </span>
-      <span style={{ fontSize: 13, color: theme.textSec, fontFamily: F, lineHeight: 1.6, marginTop: fullWidth ? 6 : 0 }}>
+      <span style={{ fontSize: 13, color: theme.textSec, fontFamily: F, lineHeight: 1.6, marginTop: fullWidth ? 10 : 0, display: fullWidth ? "block" : "inline" }}>
         {typeof displayValue === "boolean"
           ? displayValue ? "Yes" : "No"
           : displayValue}
@@ -410,7 +410,7 @@ function PRow({ label, value, fullWidth }) {
   return (
     <div style={{ display: fullWidth ? "block" : "grid", gridTemplateColumns: "180px 1fr", gap: 12, padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
       <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.06em", paddingTop: fullWidth ? 0 : 1 }}>{label}</span>
-      <span style={{ fontSize: 13, color: "#374151", fontFamily: PF, lineHeight: 1.6, marginTop: fullWidth ? 6 : 0 }}>
+      <span style={{ fontSize: 13, color: "#374151", fontFamily: PF, lineHeight: 1.6, marginTop: fullWidth ? 10 : 0, display: fullWidth ? "block" : "inline" }}>
         {typeof display === "boolean" ? (display ? "Yes" : "No") : display}
       </span>
     </div>
@@ -581,15 +581,28 @@ function PrintView({ cf }) {
       )}
 
       {/* Who's the client — Intake */}
-      {intake && (intake.pain_points?.length > 0 || intake.raw_prompt || intake.workflow_type) && (
+      {intake && (intake.workflow_type || intake.team_size || intake.industries?.length > 0 || intake.tools?.length > 0 || intake.pain_points?.length > 0 || intake.process_frameworks?.length > 0 || intake.prior_attempts) && (
         <PSection title="Who's the client?" subtitle="Capture the scenario, industry, team, and tools" color="#7C3AED">
-          {intake.raw_prompt && (
-            <div style={{ padding: "12px 14px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, marginBottom: 14 }}>
-              <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.06em" }}>Overview</p>
-              <p style={{ margin: 0, fontSize: 13, color: "#374151", fontFamily: PF, lineHeight: 1.7 }}>{intake.raw_prompt}</p>
+          <PRow label="Team size" value={intake.team_size} />
+          <PRow label="Workflow type" value={intake.workflow_type} />
+          {intake.industries?.length > 0 && (
+            <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Industries</span>
+              <PTagList items={intake.industries} color="#2563EB" />
             </div>
           )}
-          <PRow label="Workflow type" value={intake.workflow_type} />
+          {intake.process_frameworks?.length > 0 && (
+            <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Frameworks</span>
+              <PTagList items={intake.process_frameworks} color="#7C3AED" />
+            </div>
+          )}
+          {intake.tools?.length > 0 && (
+            <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Tools in use</span>
+              <PTagList items={intake.tools} color="#6B7280" />
+            </div>
+          )}
           {intake.pain_points?.length > 0 && (
             <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Pain points</span>
@@ -787,6 +800,13 @@ export default function CaseFileDetailPage() {
   const location = useLocation();
   const { theme } = useTheme();
   const justCreated = location.state?.justCreated;
+  const [showBanner, setShowBanner] = useState(!!justCreated);
+
+  useEffect(() => {
+    if (!justCreated) return;
+    const t = setTimeout(() => setShowBanner(false), 3000);
+    return () => clearTimeout(t);
+  }, [justCreated]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [apiError, setApiError] = useState(null);
@@ -933,12 +953,13 @@ export default function CaseFileDetailPage() {
       <div className="fp-no-print">
 
       {/* Success banner */}
-      {justCreated && (
+      {showBanner && (
         <div className="fp-no-print" style={{ padding: "12px 16px", background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 10, marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 18 }}>✅</span>
-          <span style={{ fontSize: 14, color: "#065F46", fontFamily: F, fontWeight: 600 }}>
+          <span style={{ fontSize: 14, color: "#065F46", fontFamily: F, fontWeight: 600, flex: 1 }}>
             Case file saved successfully. It's now part of the knowledge base.
           </span>
+          <button onClick={() => setShowBanner(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#6EE7B7", lineHeight: 1, padding: 0 }}>×</button>
         </div>
       )}
 
@@ -1137,12 +1158,12 @@ export default function CaseFileDetailPage() {
       {/* ── Layer 2: Intake ─────────────────────────────────────────────── */}
       {intake && (
         <Section title="Who's the client?" subtitle="Capture the scenario, industry, team, and tools" color="#7C3AED" collapsible forceOpen={isPrinting}>
-          {intake.raw_prompt && (
+          {/* {intake.raw_prompt && (
             <div style={{ padding: "12px 14px", background: theme.surfaceAlt, border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 14 }}>
               <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Raw prompt</p>
               <p style={{ margin: 0, fontSize: 14, color: theme.textSec, fontFamily: F, lineHeight: 1.7, fontStyle: "italic" }}>"{intake.raw_prompt}"</p>
             </div>
-          )}
+          )} */}
           <Row label="Team size" value={intake.team_size} />
           <Row label="Workflow type" value={intake.workflow_type} />
           {intake.industries?.length > 0 && (

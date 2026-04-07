@@ -53,7 +53,7 @@ function Row({ label, value, fullWidth }) {
       <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", paddingTop: fullWidth ? 0 : 1 }}>
         {label}
       </span>
-      <span style={{ fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6, marginTop: fullWidth ? 6 : 0 }}>
+      <span style={{ fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6, marginTop: fullWidth ? 10 : 0, display: fullWidth ? "block" : "inline" }}>
         {typeof displayValue === "boolean"
           ? displayValue ? "Yes" : "No"
           : displayValue}
@@ -313,15 +313,28 @@ export default function SharedBriefPage() {
         )}
 
         {/* Who's the client — Intake */}
-        {intake && (intake.pain_points?.length > 0 || intake.raw_prompt || intake.workflow_type) && (
+        {intake && (intake.workflow_type || intake.team_size || intake.industries?.length > 0 || intake.tools?.length > 0 || intake.pain_points?.length > 0 || intake.process_frameworks?.length > 0 || intake.prior_attempts) && (
           <Section title="Who's the client?" subtitle="Capture the scenario, industry, team, and tools" color="#7C3AED">
-            {intake.raw_prompt && (
-              <div style={{ padding: "12px 14px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, marginBottom: 14 }}>
-                <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Overview</p>
-                <p style={{ margin: 0, fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.7 }}>{intake.raw_prompt}</p>
+            <Row label="Team size" value={intake.team_size} />
+            <Row label="Workflow type" value={intake.workflow_type} />
+            {intake.industries?.length > 0 && (
+              <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Industries</span>
+                <TagList items={intake.industries} color="#2563EB" />
               </div>
             )}
-            <Row label="Workflow type" value={intake.workflow_type} />
+            {intake.process_frameworks?.length > 0 && (
+              <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Frameworks</span>
+                <TagList items={intake.process_frameworks} color="#7C3AED" />
+              </div>
+            )}
+            {intake.tools?.length > 0 && (
+              <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Tools in use</span>
+                <TagList items={intake.tools} color="#6B7280" />
+              </div>
+            )}
             {intake.pain_points?.length > 0 && (
               <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Pain points</span>

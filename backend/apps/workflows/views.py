@@ -88,12 +88,15 @@ def parse_prompt(request):
         service = FlowpathAIService()
         scenario = service.parse_scenario(raw_prompt)
         return Response({
-            "industry": scenario.industry,
+            "industries": scenario.industries,
             "team_size": scenario.team_size,
             "workflow_type": scenario.workflow_type,
             "tools": scenario.tools,
             "pain_points": scenario.pain_points,
             "process_frameworks": scenario.process_frameworks,
+            "has_existing_setup": scenario.has_existing_setup,
+            "existing_tools": scenario.existing_tools,
+            "existing_issues": scenario.existing_issues,
         })
     except ConfigurationError as e:
         logger.error("AI service not configured: %s", e)
