@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@hooks/useTheme";
-import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile, useToggleCaseFileStatus } from "@hooks/useCaseFiles";
-import { useBriefByCaseFile } from "@hooks/useWorkflows";
-import { formStateToCaseFilePayload, caseFileToFormState, briefToSuggestedAutomations } from "@utils/transforms";
-import CaseFileForm from "@components/CaseFileForm";
+import { useProject, useDeleteProject, useUpdateProject, useToggleProjectStatus } from "@hooks/useProjects";
+import { useBriefByProject } from "@hooks/useWorkflows";
+import { formToProjectPayload, projectToFormState, briefToSuggestedAutomations } from "@utils/transforms";
+import ProjectForm from "@components/ProjectForm";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
 
 // Detail-layer components
-import CaseFileHeader  from "./detail/components/CaseFileHeader";
-import CaseFileSidebar from "./detail/components/CaseFileSidebar";
+import CaseFileHeader  from "./detail/components/ProjectHeader";
+import CaseFileSidebar from "./detail/components/ProjectSidebar";
 import ShareModal      from "./detail/components/ShareModal";
 
 // Section render blocks
@@ -75,23 +75,23 @@ export default function CaseFileDetailPage() {
   }, []);
 
   // ── Data ───────────────────────────────────────────────────────────────────
-  const { data: cf, isLoading, isError } = useCaseFile(id);
-  const deleteMutation  = useDeleteCaseFile();
-  const updateMutation  = useUpdateCaseFile(id);
-  const statusMutation  = useToggleCaseFileStatus(id);
-  const { data: linkedBrief } = useBriefByCaseFile(id);
+  const { data: cf, isLoading, isError } = useProject(id);
+  const deleteMutation  = useDeleteProject();
+  const updateMutation  = useUpdateProject(id);
+  const statusMutation  = useToggleProjectStatus(id);
+  const { data: linkedBrief } = useBriefByProject(id);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleDelete = async () => {
-    if (!window.confirm("Delete this case file? This cannot be undone.")) return;
+    if (!window.confirm("Delete this project? This cannot be undone.")) return;
     await deleteMutation.mutateAsync(id);
-    navigate("/case-files");
+    navigate("/projects");
   };
 
   const handleEditSubmit = async (formData, enteredBy, caseName) => {
     setApiError(null);
     try {
-      const payload = formStateToCaseFilePayload(formData, enteredBy, caseName || "");
+      const payload = formToProjectPayload(formData, enteredBy, caseName || "");
       await updateMutation.mutateAsync(payload);
       setIsEditing(false);
     } catch (err) {
@@ -104,7 +104,7 @@ export default function CaseFileDetailPage() {
   if (isLoading) {
     return (
       <div style={{ padding: 60, textAlign: "center", color: theme.textFaint, fontFamily: F }}>
-        Loading case file…
+        Loading project…
       </div>
     );
   }
@@ -112,15 +112,15 @@ export default function CaseFileDetailPage() {
   if (isError) {
     return (
       <div style={{ padding: 60, textAlign: "center" }}>
-        <p style={{ color: "#EF4444", fontFamily: F, marginBottom: 16 }}>Failed to load case file.</p>
-        <Link to="/case-files" style={{ color: theme.blue, fontFamily: F }}>← Back to case files</Link>
+        <p style={{ color: "#EF4444", fontFamily: F, marginBottom: 16 }}>Failed to load project.</p>
+        <Link to="/projects" style={{ color: theme.blue, fontFamily: F }}>← Back to projects</Link>
       </div>
     );
   }
 
   // ── Edit mode ──────────────────────────────────────────────────────────────
   if (isEditing) {
-    const initialData         = caseFileToFormState(cf);
+    const initialData         = projectToFormState(cf);
     const suggestedAutomations = linkedBrief ? briefToSuggestedAutomations(linkedBrief) : [];
     return (
       <div>
@@ -129,7 +129,7 @@ export default function CaseFileDetailPage() {
             <strong>Save failed:</strong> {apiError}
           </div>
         )}
-        <CaseFileForm
+        <ProjectForm
           initialData={initialData}
           initialName={cf.name || ""}
           initialEnteredBy={cf.logged_by_name || ""}
@@ -188,7 +188,7 @@ export default function CaseFileDetailPage() {
               <div style={{ padding: "12px 16px", background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 10, marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 18 }}>✅</span>
                 <span style={{ fontSize: 14, color: "#065F46", fontFamily: F, fontWeight: 600, flex: 1 }}>
-                  Case file saved successfully. It's now part of the knowledge base.
+                  Project saved successfully. It's now part of the knowledge base.
                 </span>
                 <button onClick={() => setShowBanner(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#6EE7B7", lineHeight: 1, padding: 0 }}>×</button>
               </div>

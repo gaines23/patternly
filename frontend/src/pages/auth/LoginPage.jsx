@@ -96,7 +96,7 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p style={{ margin: "0 0 24px", fontSize: 13, color: theme.textMuted, fontFamily: F }}>
-            Log in to access the case file builder.
+            Log in to access the project builder.
           </p>
 
           {passwordReset && (

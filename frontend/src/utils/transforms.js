@@ -2,7 +2,7 @@
  * Transforms the local React form state (from workflow-intake.jsx)
  * into the shape expected by POST /api/v1/briefs/
  */
-export function formStateToCaseFilePayload(formData, loggedByName = "", name = "") {
+export function formToProjectPayload(formData, loggedByName = "", name = "") {
   const { audit, intake, build, delta, reasoning, outcome, projectUpdates } = formData;
 
   return {
@@ -152,7 +152,7 @@ export function formStateToCaseFilePayload(formData, loggedByName = "", name = "
 /**
  * Transforms API response back into form state shape for editing.
  */
-export function caseFileToFormState(caseFile) {
+export function projectToFormState(caseFile) {
   const { audit, intake, build, delta, reasoning, outcome, project_updates } = caseFile;
 
   return {
@@ -290,7 +290,7 @@ export function caseFileToFormState(caseFile) {
 
 // ── Automation type inference helpers ────────────────────────────────────────
 
-// Mirror the constants from CaseFileForm so inference can exact-match against them
+// Mirror the constants from ProjectForm so inference can exact-match against them
 const _TRIGGER_LIST = [
   "Task Created","Task Status Changed","Task Completed","Task Moved","Task Assigned","Task Unassigned",
   "Task Due Date Arrives","Task Start Date Arrives","Task Due Date Changed","Task Priority Changed",
@@ -415,7 +415,7 @@ function inferActionType(text) {
 }
 
 /**
- * Maps a GeneratedBrief (from AI output) into CaseFileForm's initialData shape.
+ * Maps a GeneratedBrief (from AI output) into ProjectForm's initialData shape.
  * Pre-fills Intake, Build, and Reasoning layers from parsed_scenario + recommendation.
  * Audit, Delta, and Outcome are left empty for the user to fill manually.
  */

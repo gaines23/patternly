@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList, Legend,
   PieChart, Pie, Cell, Label,
 } from "recharts";
-import { useCaseFiles, useCaseFileStats } from "../../hooks/useCaseFiles";
+import { useProjects, useProjectStats } from "@hooks/useProjects";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
 import { formatDate, satisfactionLabel } from "../../utils/transforms";
@@ -390,7 +390,7 @@ function SatisfactionPanel({ byWorkflow = [], byIndustry = [], loading, theme })
 
   return (
     <Card style={{ padding: "20px 22px" }} theme={theme}>
-      <CardHeader title="Satisfaction Breakdown" sub="Average score (1–5) by workflow type · case file distribution by industry" theme={theme} />
+      <CardHeader title="Satisfaction Breakdown" sub="Average score (1–5) by workflow type · project distribution by industry" theme={theme} />
       <div className="fp-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" }}>
         <div style={colStyle}>
           <p style={labelStyle}>By Workflow Type</p>
@@ -412,8 +412,8 @@ function SatisfactionPanel({ byWorkflow = [], byIndustry = [], loading, theme })
 export default function DashboardPage() {
   const { user } = useAuth();
   const { theme } = useTheme();
-  const { data: stats, isLoading: statsLoading } = useCaseFileStats();
-  const { data: recentData, isLoading: listLoading } = useCaseFiles({ page: 1 });
+  const { data: stats, isLoading: statsLoading } = useProjectStats();
+  const { data: recentData, isLoading: listLoading } = useProjects({ page: 1 });
 
   const recent = recentData?.results || [];
 
@@ -432,7 +432,7 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 28 }}>
-        <StatCard label="Total case files" value={statsLoading ? "—" : stats?.total_case_files ?? 0} sub="builds documented" theme={theme} />
+        <StatCard label="Total projects" value={statsLoading ? "—" : stats?.total_case_files ?? 0} sub="builds documented" theme={theme} />
         <StatCard label="Avg satisfaction" value={statsLoading ? "—" : stats?.avg_satisfaction ? `${stats.avg_satisfaction}/5` : "—"} sub="across all outcomes" color={GREEN} theme={theme} />
         <StatCard label="Roadblocks logged" value={statsLoading ? "—" : stats?.total_roadblocks ?? 0} sub="known failure patterns" color={ORANGE} theme={theme} />
         <StatCard label="Avg hours lost" value={statsLoading ? "—" : stats?.avg_roadblock_hours ? `${stats.avg_roadblock_hours}h` : "—"} sub="per roadblock" color={AMBER} theme={theme} />
@@ -468,19 +468,19 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Recent case files */}
+      {/* Recent projects */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: theme.text, fontFamily: F }}>Recent case files</p>
-        <Link to="/case-files" style={{ fontSize: 13, color: theme.blue, fontFamily: F, fontWeight: 600 }}>View all →</Link>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: theme.text, fontFamily: F }}>Recent projects</p>
+        <Link to="/projects" style={{ fontSize: 13, color: theme.blue, fontFamily: F, fontWeight: 600 }}>View all →</Link>
       </div>
 
       {listLoading ? (
         <div style={{ padding: 40, textAlign: "center", color: theme.textFaint, fontFamily: F }}>Loading…</div>
       ) : recent.length === 0 ? (
         <Card style={{ padding: "40px 20px", textAlign: "center" }} theme={theme}>
-          <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: theme.textSec, fontFamily: F }}>No case files yet</p>
+          <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: theme.textSec, fontFamily: F }}>No projects yet</p>
           <p style={{ margin: "0 0 20px", fontSize: 13, color: theme.textFaint, fontFamily: F }}>Start documenting workflow builds to train the system.</p>
-          <Link to="/case-files/new">
+          <Link to="/projects/new">
             <button style={{ padding: "10px 22px", background: theme.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
               Log first build
             </button>
@@ -489,7 +489,7 @@ export default function DashboardPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {recent.slice(0, 8).map((cf) => (
-            <Link key={cf.id} to={`/case-files/${cf.id}`} style={{ textDecoration: "none" }}>
+            <Link key={cf.id} to={`/projects/${cf.id}`} style={{ textDecoration: "none" }}>
               <div
                 style={{
                   background: theme.surface,

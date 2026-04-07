@@ -50,10 +50,10 @@ function RecommendationPanel({ brief, theme }) {
           )}
         </div>
         <button
-          onClick={() => navigate("/case-files/new", { state: { briefId: brief.id } })}
+          onClick={() => navigate("/projects/new", { state: { briefId: brief.id } })}
           style={{ padding: "9px 18px", background: theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}
         >
-          Log this as a case file →
+          Log this as a project →
         </button>
       </div>
 
