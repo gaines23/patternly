@@ -58,6 +58,9 @@ export function formToProjectPayload(formData, loggedByName = "", name = "") {
       workflows: (build.workflows || []).map(wf => ({
         name: wf.name,
         notes: wf.notes,
+        status: wf.status || "Mapping",
+        replaces: wf.replaces || "",
+        learnings: wf.learnings || { rating: "", whatWorked: "", whatToAvoid: "" },
         pipeline: (wf.pipeline || []).filter(p => p.trim()),
         lists: (wf.lists || []).map(l => ({
           name: l.name,
@@ -72,6 +75,7 @@ export function formToProjectPayload(formData, loggedByName = "", name = "") {
             triggers: (a.triggers || []).map(t => ({ type: t.type, detail: t.detail })),
             actions: (a.actions || []).map(ac => ({ type: ac.type, detail: ac.detail })),
             instructions: a.instructions,
+            map_description: a.map_description || "",
             use_agent: !!(a.instructions && a.instructions.trim().length > 0),
           })),
         })),
@@ -201,6 +205,9 @@ export function projectToFormState(caseFile) {
       workflows: (build?.workflows || []).map(wf => ({
         name: wf.name || "",
         notes: wf.notes || "",
+        status: wf.status || "Mapping",
+        replaces: wf.replaces || "",
+        learnings: wf.learnings || { rating: "", whatWorked: "", whatToAvoid: "" },
         pipeline: (wf.pipeline || []).map(p => p || ""),
         lists: (wf.lists || []).map(l => ({
           name: l.name || "",
@@ -215,6 +222,7 @@ export function projectToFormState(caseFile) {
             triggers: (a.triggers || []).map(t => ({ type: t.type || "", detail: t.detail || "" })),
             actions: (a.actions || []).map(ac => ({ type: ac.type || "", detail: ac.detail || "" })),
             instructions: a.instructions || "",
+            map_description: a.map_description || "",
             use_agent: a.use_agent ?? !!(a.instructions && a.instructions.trim().length > 0),
           })),
         })),

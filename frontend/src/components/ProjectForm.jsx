@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { useParsePrompt } from "../hooks/useWorkflows";
+import { WorkflowMapPanel } from "./WorkflowMapPanel";
 
 // ── All data constants (same as workflow-intake.jsx) ──────────────────────────
 const INDUSTRY_MAP = {
@@ -880,8 +881,14 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
 
 const emptyTrigger = () => ({ type:"", detail:"" });
 const emptyAction = () => ({ type:"", detail:"" });
-const emptyAutomation = () => ({ platform:"clickup", automation_mode:"pipeline", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", use_agent:false });
+const emptyAutomation = () => ({ platform:"clickup", automation_mode:"pipeline", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", map_description:"", use_agent:false });
 const emptyList = () => ({ name:"", statuses:"", customFields:"", automations:[] });
+
+function summarizeInstructions(text) {
+  const lines = text.split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#"));
+  const first = lines[0] || "";
+  return first.length > 80 ? first.slice(0, 80) + "…" : first;
+}
 const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()], status:"Mapping", replaces:"", learnings:{ rating:"", whatWorked:"", whatToAvoid:"" } });
 
 function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp, onMoveDown, isFirst, isLast, color, pipelinePhases, suggestedAutomations }) {
@@ -1066,16 +1073,33 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
       <div style={{ marginBottom:4 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>
-              {(auto.platform||"clickup")==="clickup" ? "Agent / Automation Instructions" : "Actions / Instructions"}
+            <span style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>
+              Agent / Automation Instructions
             </span>
             {auto.use_agent && <span style={{ fontSize:10, fontWeight:700, color:"#7C3AED", background:"#F5F3FF", border:"1px solid #DDD6FE", borderRadius:6, padding:"2px 7px", fontFamily:F, letterSpacing:"0.04em" }}>AGENT ON</span>}
           </div>
           <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F }}>optional</span>
         </div>
+        <div style={{ marginBottom:10 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+            description <span style={{ fontSize:10, fontWeight:400, textTransform:"none", letterSpacing:0, color:theme.textFaint }}>— shown on the workflow map instead of the full instructions</span>
+          </div>
+          <TI
+            value={auto.map_description||""}
+            onChange={v=>onChange({...auto, map_description:v})}
+            placeholder="e.g. Sends Slack alert and creates HubSpot record"
+          />
+        </div>
+        <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+            Instructions
+          </div>
         <textarea
           value={auto.instructions}
-          onChange={e=>onChange({...auto, instructions:e.target.value, use_agent:e.target.value.trim().length>0})}
+          onChange={e=>{
+            const val = e.target.value;
+            const desc = !auto.map_description?.trim() ? summarizeInstructions(val) : auto.map_description;
+            onChange({...auto, instructions:val, use_agent:val.trim().length>0, map_description:desc});
+          }}
           rows={5}
           placeholder={(auto.platform||"clickup")==="clickup"
             ? "# Agent / automation instructions\n# Describe the logic for this automation\n\nIF task.status == 'Done':\n  notify(assignee)\n  move_to_list('Completed')"
@@ -1130,7 +1154,7 @@ function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color,
 const LIFECYCLE_STAGES = ["Mapping","In Review","Client Approved","Live","Archived"];
 const LIFECYCLE_COLORS = { "Mapping":"#D97706","In Review":"#7C3AED","Client Approved":"#0284C7","Live":"#059669","Archived":"#6B7280" };
 
-function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomations, previousBuilds }) {
+function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomations, previousBuilds, isMapActive, onToggleMap }) {
   const { theme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const color = "#0284C7";
@@ -1156,6 +1180,10 @@ function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomati
           <option disabled style={{ color:"#9CA3AF" }}>──────────</option>
           <option value="__remove__" style={{ color:"#EF4444" }}>Remove workflow</option>
         </select>
+        <button type="button" onClick={e => { e.stopPropagation(); onToggleMap(); }}
+          style={{ fontSize:11, fontWeight:600, fontFamily:F, color: isMapActive ? "#fff" : "#0284C7", background: isMapActive ? "#0284C7" : "#E0F2FE", border:"1px solid #BAE6FD", borderRadius:6, padding:"3px 10px", cursor:"pointer", lineHeight:1.4, flexShrink:0 }}>
+          {isMapActive ? "✕ Map" : "Map ↗"}
+        </button>
       </div>
       {!collapsed && (
         <>
@@ -1212,8 +1240,25 @@ function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomati
   );
 }
 
+function formWfToMapWf(wf) {
+  return {
+    ...wf,
+    lists: (wf.lists || []).map(l => ({
+      ...l,
+      custom_fields: l.customFields,
+      automations: (l.automations || []).map(a => ({
+        ...a,
+        pipeline_phase: a.pipelinePhase,
+        third_party_platform: a.third_party_platform,
+        map_description: a.map_description,
+      })),
+    })),
+  };
+}
+
 function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, isEditing }) {
   const { theme } = useTheme();
+  const [mapWfIndex, setMapWfIndex] = useState(null);
   const workflows = data.workflows || [];
   const addWf = () => set({ ...data, workflows: [...workflows, emptyWorkflow()] });
   const updWf = (i,v) => set({ ...data, workflows: workflows.map((wf,idx)=>idx===i?v:wf) });
@@ -1272,12 +1317,15 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, is
         </div>
       ) : (<>
         {workflows.map((wf,i) => (
-          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds}/>
+          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds} isMapActive={mapWfIndex===i} onToggleMap={()=>setMapWfIndex(mapWfIndex===i?null:i)}/>
         ))}
         <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #BFDBFE", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
           + Add another workflow
         </button>
       </>)}
+      {mapWfIndex !== null && workflows[mapWfIndex] && (
+        <WorkflowMapPanel workflow={formWfToMapWf(workflows[mapWfIndex])} onClose={() => setMapWfIndex(null)} asModal />
+      )}
       <Card><CardTitle hint="optional">Overall build notes</CardTitle><TI rows={3} value={data.buildNotes} onChange={v=>set({...data,buildNotes:v})} placeholder="General notes that apply across all workflows…"/></Card>
     </div>
   );
