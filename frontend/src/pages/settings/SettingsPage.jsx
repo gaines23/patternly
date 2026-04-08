@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
-import { useUpdateMe, useChangePassword, useCreateInvite } from "../../hooks/useUsers";
+import { useUpdateMe, useChangePassword, useCreateInvite, useAuditLogs, useSignOutAll, useAdminUsers, useAdminUpdateUser } from "../../hooks/useUsers";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
@@ -74,6 +74,24 @@ export default function SettingsPage() {
   const updateMe = useUpdateMe();
   const changePassword = useChangePassword();
   const createInvite = useCreateInvite();
+
+  const auditLogs = useAuditLogs();
+  const signOutAll = useSignOutAll();
+  const adminUsers = useAdminUsers();
+  const adminUpdateUser = useAdminUpdateUser();
+
+  const isAdmin = user?.role === "admin" || user?.is_staff;
+  const [signOutMsg, setSignOutMsg] = useState(null);
+
+  const handleSignOutAll = async () => {
+    setSignOutMsg(null);
+    try {
+      await signOutAll.mutateAsync();
+      setSignOutMsg({ type: "success", message: "Signed out of all devices. Your current session is still active." });
+    } catch {
+      setSignOutMsg({ type: "error", message: "Failed to sign out of all devices." });
+    }
+  };
 
   const [inviteLink, setInviteLink] = useState("");
   const [inviteCopied, setInviteCopied] = useState(false);
@@ -268,6 +286,26 @@ export default function SettingsPage() {
         </form>
       </Card>
 
+      {/* Session Security */}
+      <Card title="Session security" sub="Manage active sessions across all your devices." theme={theme}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "8px 0", gap: 16 }}>
+          <div>
+            <p style={{ margin: "0 0 3px", fontSize: 13, fontWeight: 600, color: theme.text, fontFamily: F }}>Sign out of all devices</p>
+            <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>
+              Invalidates all active sessions everywhere. You will stay signed in on this device.
+            </p>
+          </div>
+          <button
+            onClick={handleSignOutAll}
+            disabled={signOutAll.isPending}
+            style={{ flexShrink: 0, padding: "9px 18px", background: signOutAll.isPending ? theme.blueSubtle : "#FEF2F2", border: "1px solid #FECACA", borderRadius: 9, color: "#DC2626", fontSize: 13, fontWeight: 600, fontFamily: F, cursor: signOutAll.isPending ? "not-allowed" : "pointer", whiteSpace: "nowrap", transition: "all 0.15s" }}
+          >
+            {signOutAll.isPending ? "Signing out…" : "Sign out all"}
+          </button>
+        </div>
+        {signOutMsg && <Alert type={signOutMsg.type} message={signOutMsg.message} />}
+      </Card>
+
       {/* Invite */}
       <Card title="Invite a user" sub="Generate a one-time invite link. It expires after 2 days." theme={theme}>
         <div style={{ paddingTop: 4 }}>
@@ -306,6 +344,77 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      {/* Team Members — admin only */}
+      {isAdmin && (
+        <Card title="Team members" sub="Manage roles and access for all users in your organization." theme={theme}>
+          {adminUsers.isLoading && (
+            <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, padding: "8px 0" }}>Loading…</p>
+          )}
+          {adminUsers.isError && (
+            <p style={{ fontSize: 13, color: "#DC2626", fontFamily: F, padding: "8px 0" }}>Failed to load team members.</p>
+          )}
+          {adminUsers.data?.results?.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: F }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "8px 12px 8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>Member</th>
+                    <th style={{ textAlign: "left", padding: "8px 12px 8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>Role</th>
+                    <th style={{ textAlign: "left", padding: "8px 12px 8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>Status</th>
+                    <th style={{ textAlign: "left", padding: "8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminUsers.data.results.map((member) => {
+                    const isSelf = member.id === user?.id;
+                    return (
+                      <tr key={member.id}>
+                        <td style={{ padding: "10px 12px 10px 0", borderBottom: `1px solid ${theme.borderSubtle}` }}>
+                          <p style={{ margin: 0, fontWeight: 600, color: theme.text }}>{member.full_name}</p>
+                          <p style={{ margin: 0, fontSize: 11, color: theme.textFaint }}>{member.email}</p>
+                        </td>
+                        <td style={{ padding: "10px 12px 10px 0", borderBottom: `1px solid ${theme.borderSubtle}` }}>
+                          {isSelf ? (
+                            <span style={{ fontSize: 13, color: theme.textSec }}>{member.role}</span>
+                          ) : (
+                            <select
+                              defaultValue={member.role}
+                              disabled={adminUpdateUser.isPending}
+                              onChange={(e) => adminUpdateUser.mutate({ id: member.id, role: e.target.value })}
+                              style={{ padding: "5px 8px", border: `1px solid ${theme.borderInput}`, borderRadius: 7, fontFamily: F, fontSize: 13, color: theme.text, background: theme.inputBg, cursor: "pointer" }}
+                            >
+                              <option value="admin">Admin</option>
+                              <option value="engineer">Engineer</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                          )}
+                        </td>
+                        <td style={{ padding: "10px 12px 10px 0", borderBottom: `1px solid ${theme.borderSubtle}` }}>
+                          <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: member.is_active ? "#ECFDF5" : "#F3F4F6", color: member.is_active ? "#059669" : "#6B7280" }}>
+                            {member.is_active ? "Active" : "Deactivated"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px 0", borderBottom: `1px solid ${theme.borderSubtle}` }}>
+                          {!isSelf && (
+                            <button
+                              disabled={adminUpdateUser.isPending}
+                              onClick={() => adminUpdateUser.mutate({ id: member.id, is_active: !member.is_active })}
+                              style={{ padding: "5px 12px", background: member.is_active ? "#FEF2F2" : theme.blueLight, border: `1px solid ${member.is_active ? "#FECACA" : theme.blueBorder}`, borderRadius: 7, color: member.is_active ? "#DC2626" : theme.blue, fontSize: 12, fontWeight: 600, fontFamily: F, cursor: adminUpdateUser.isPending ? "not-allowed" : "pointer" }}
+                            >
+                              {member.is_active ? "Deactivate" : "Reactivate"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Account info */}
       <Card title="Account" sub="Read-only account details." theme={theme}>
         <InputRow label="Account ID" theme={theme}>
@@ -319,6 +428,73 @@ export default function SettingsPage() {
             theme={theme}
           />
         </InputRow>
+      </Card>
+
+      {/* Activity Log */}
+      <Card
+        title="Activity Log"
+        sub={user?.role === "admin" ? "All account activity across your organization." : "Recent security events for your account."}
+        theme={theme}
+      >
+        {auditLogs.isLoading && (
+          <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, padding: "8px 0" }}>Loading…</p>
+        )}
+        {auditLogs.isError && (
+          <p style={{ fontSize: 13, color: "#DC2626", fontFamily: F, padding: "8px 0" }}>Failed to load activity log.</p>
+        )}
+        {auditLogs.data && auditLogs.data.results?.length === 0 && (
+          <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, padding: "8px 0" }}>No activity recorded yet.</p>
+        )}
+        {auditLogs.data && auditLogs.data.results?.length > 0 && (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: F }}>
+              <thead>
+                <tr>
+                  {user?.role === "admin" && (
+                    <th style={{ textAlign: "left", padding: "8px 10px 8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}`, whiteSpace: "nowrap" }}>User</th>
+                  )}
+                  <th style={{ textAlign: "left", padding: "8px 10px 8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}`, whiteSpace: "nowrap" }}>Event</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px 8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}`, whiteSpace: "nowrap" }}>Status</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px 8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}`, whiteSpace: "nowrap" }}>IP Address</th>
+                  <th style={{ textAlign: "left", padding: "8px 0", color: theme.textSec, fontWeight: 600, borderBottom: `1px solid ${theme.border}`, whiteSpace: "nowrap" }}>Date &amp; Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.data.results.map((entry) => (
+                  <tr key={entry.id}>
+                    {user?.role === "admin" && (
+                      <td style={{ padding: "9px 10px 9px 0", color: theme.textSec, borderBottom: `1px solid ${theme.borderSubtle}`, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {entry.user_email || "—"}
+                      </td>
+                    )}
+                    <td style={{ padding: "9px 10px 9px 0", color: theme.text, fontWeight: 500, borderBottom: `1px solid ${theme.borderSubtle}`, whiteSpace: "nowrap" }}>
+                      {entry.action_display}
+                    </td>
+                    <td style={{ padding: "9px 10px 9px 0", borderBottom: `1px solid ${theme.borderSubtle}`, whiteSpace: "nowrap" }}>
+                      <span style={{
+                        display: "inline-block",
+                        padding: "2px 8px",
+                        borderRadius: 99,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        background: entry.success ? "#ECFDF5" : "#FEF2F2",
+                        color: entry.success ? "#059669" : "#DC2626",
+                      }}>
+                        {entry.success ? "Success" : "Failed"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "9px 10px 9px 0", color: theme.textSec, borderBottom: `1px solid ${theme.borderSubtle}`, fontFamily: "monospace", fontSize: 12, whiteSpace: "nowrap" }}>
+                      {entry.ip_address || "—"}
+                    </td>
+                    <td style={{ padding: "9px 0", color: theme.textFaint, borderBottom: `1px solid ${theme.borderSubtle}`, whiteSpace: "nowrap" }}>
+                      {new Date(entry.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );
