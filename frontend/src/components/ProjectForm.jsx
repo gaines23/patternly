@@ -905,30 +905,38 @@ function AiInfoTip({ hasAiFields }) {
   );
 }
 
-function SuggestedBuildsPanel({ builds, selectedWorkflowType, onSelect }) {
+function SuggestedBuildsPanel({ builds, onApply }) {
   const { theme } = useTheme();
+  const [previewIdx, setPreviewIdx] = useState(null);
   if (!builds?.length) return null;
   const color = "#60A5FA";
   const COMPLEXITY_LABELS = ["", "Very simple", "Simple", "Moderate", "Complex", "Very complex"];
+  const preview = previewIdx !== null ? builds[previewIdx] : null;
+
   return (
     <div style={{ marginBottom:16 }}>
       <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
         <span style={{ fontSize:12, fontWeight:700, color, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Suggested builds</span>
         <AiBadge/>
       </div>
+
+      {/* Card list */}
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {builds.map((result, i) => {
           const { template, score, match_reasons } = result;
-          const isSelected = selectedWorkflowType === template.workflow_type || selectedWorkflowType === template.name;
+          const isActive = previewIdx === i;
           const scoreColor = score >= 70 ? { bg:"#ECFDF5", border:"#6EE7B7", text:"#059669" }
             : score >= 40 ? { bg:"#EFF6FF", border:"#BFDBFE", text:"#1D4ED8" }
             : { bg:theme.surfaceAlt, border:theme.border, text:theme.textFaint };
           return (
-            <button key={i} type="button" onClick={() => onSelect(template.workflow_type || template.name)}
-              style={{ textAlign:"left", background: isSelected ? theme.blueLight : theme.surface, border:`1.5px solid ${isSelected ? color : theme.borderInput}`, borderRadius:10, padding:"12px 14px", cursor:"pointer", transition:"border-color 0.15s, background 0.15s", width:"100%" }}>
+            <button key={i} type="button" onClick={() => setPreviewIdx(isActive ? null : i)}
+              style={{ textAlign:"left", background: isActive ? theme.blueLight : theme.surface, border:`1.5px solid ${isActive ? color : theme.borderInput}`, borderRadius:10, padding:"12px 14px", cursor:"pointer", transition:"border-color 0.15s, background 0.15s", width:"100%" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, marginBottom:4 }}>
-                <span style={{ fontSize:13, fontWeight:700, color: isSelected ? color : theme.text, fontFamily:F }}>{template.name}</span>
-                <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", background:scoreColor.bg, border:`1px solid ${scoreColor.border}`, borderRadius:8, color:scoreColor.text, fontFamily:F, flexShrink:0 }}>{score}% match</span>
+                <span style={{ fontSize:13, fontWeight:700, color: isActive ? color : theme.text, fontFamily:F }}>{template.name}</span>
+                <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                  <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", background:scoreColor.bg, border:`1px solid ${scoreColor.border}`, borderRadius:8, color:scoreColor.text, fontFamily:F }}>{score}% match</span>
+                  <span style={{ fontSize:11, color:isActive ? color : theme.textFaint, fontFamily:F }}>{isActive ? "▲" : "▼"}</span>
+                </div>
               </div>
               <p style={{ margin:"0 0 6px", fontSize:12, color:theme.textMuted, fontFamily:F, lineHeight:1.45 }}>{template.description}</p>
               <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
@@ -945,6 +953,55 @@ function SuggestedBuildsPanel({ builds, selectedWorkflowType, onSelect }) {
           );
         })}
       </div>
+
+      {/* Expanded preview */}
+      {preview && (() => {
+        const { template } = preview;
+        return (
+          <div style={{ marginTop:10, border:`1.5px solid ${color}40`, borderRadius:12, background:theme.surface, overflow:"hidden" }}>
+            <div style={{ padding:"14px 16px", borderBottom:`1px solid ${theme.borderSubtle}`, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+              <div>
+                <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>{template.name}</p>
+                {template.description && <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textMuted, fontFamily:F, lineHeight:1.5 }}>{template.description}</p>}
+              </div>
+              <button type="button" onClick={() => setPreviewIdx(null)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, color:theme.textFaint, lineHeight:1, padding:"0 2px", flexShrink:0 }}>×</button>
+            </div>
+            <div style={{ padding:"14px 16px", display:"flex", flexDirection:"column", gap:12 }}>
+              {template.spaces && (
+                <div>
+                  <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Spaces</p>
+                  <p style={{ margin:0, fontSize:13, color:theme.text, fontFamily:F }}>{template.spaces}</p>
+                </div>
+              )}
+              {template.lists && (
+                <div>
+                  <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Lists</p>
+                  <p style={{ margin:0, fontSize:13, color:theme.text, fontFamily:F }}>{template.lists}</p>
+                </div>
+              )}
+              {template.statuses && (
+                <div>
+                  <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Status flow</p>
+                  <p style={{ margin:0, fontSize:13, color:theme.text, fontFamily:F }}>{template.statuses}</p>
+                </div>
+              )}
+              {template.build_notes && (
+                <div>
+                  <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Build notes</p>
+                  <p style={{ margin:0, fontSize:13, color:theme.textSec, fontFamily:F, lineHeight:1.6 }}>{template.build_notes}</p>
+                </div>
+              )}
+            </div>
+            <div style={{ padding:"12px 16px", borderTop:`1px solid ${theme.borderSubtle}`, display:"flex", justifyContent:"flex-end" }}>
+              <button type="button"
+                onClick={() => { onApply(template); setPreviewIdx(null); }}
+                style={{ padding:"9px 20px", background:color, border:"none", borderRadius:9, color:"#fff", fontSize:13, fontWeight:700, fontFamily:F, cursor:"pointer" }}>
+                Use Template →
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -1360,7 +1417,7 @@ function formWfToMapWf(wf) {
   };
 }
 
-function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [], selectedWorkflowType, onSelectBuild }) {
+function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [] }) {
   const { theme } = useTheme();
   const [mapWfIndex, setMapWfIndex] = useState(null);
   const workflows = data.workflows || [];
@@ -1370,13 +1427,30 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBui
 
   const builds = auditData?.builds || [];
 
+  const handleApplyTemplate = (template) => {
+    const listNames = (template.lists || "").split(",").map(l => l.trim()).filter(Boolean);
+    const newLists = listNames.length
+      ? listNames.map(name => ({ name, statuses: template.statuses || "", customFields: template.custom_fields || "", automations: [] }))
+      : [emptyList()];
+    const newWf = {
+      name: template.workflow_type || template.name,
+      notes: template.build_notes || "",
+      pipeline: [],
+      lists: newLists,
+      status: "Mapping",
+      replaces: "",
+      learnings: { rating: "", whatWorked: "", whatToAvoid: "" },
+    };
+    set({ ...data, workflows: [...workflows, newWf] });
+  };
+
   return (
     <div>
       <Banner emoji="🏗️" title="Map what you're building." body="Add each new mapped workflow space by space." color="#0284C7"/>
 
       {suggestedBuilds.length > 0 && (
         <Card>
-          <SuggestedBuildsPanel builds={suggestedBuilds} selectedWorkflowType={selectedWorkflowType} onSelect={onSelectBuild}/>
+          <SuggestedBuildsPanel builds={suggestedBuilds} onApply={handleApplyTemplate}/>
         </Card>
       )}
 
@@ -1865,7 +1939,7 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
               auditData={data.audit} setAudit={v=>setSD("audit",v)} w={w} isEditing={isEditing}/>
           )}
           {step===3 && <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
-          {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds} selectedWorkflowType={data.intake?.workflowType} onSelectBuild={t=>setSD("intake",{...data.intake,workflowType:t})}/>}
+          {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds}/>}
           {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w} aiSuggestedFields={aiSuggestedFields}/>}
           {step===6 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
           {step===7 && <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>}
