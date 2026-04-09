@@ -7,6 +7,17 @@ export const briefKeys = {
   detail: (id) => [...briefKeys.all, "detail", id],
 };
 
+export function useMatchTemplates() {
+  return useMutation({
+    mutationFn: async (rawPrompt) => {
+      const { data } = await api.post("/v1/workflows/match/", {
+        raw_prompt: rawPrompt,
+      });
+      return data; // { parsed: {...}, matches: [{template, score, match_reasons}] }
+    },
+  });
+}
+
 export function useParsePrompt() {
   return useMutation({
     mutationFn: async (rawPrompt) => {

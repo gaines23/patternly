@@ -556,6 +556,101 @@ export function briefToFormState(brief) {
 }
 
 /**
+ * Maps a WorkflowTemplate into ProjectForm's initialData shape.
+ * Pre-fills Intake and Build layers from the template.
+ * Audit, Delta, Reasoning, and Outcome are left empty for the user to fill.
+ */
+export function templateToFormState(template) {
+  const spaceNames = (template.spaces || "")
+    .split(/,|\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const workflows = spaceNames.map((spaceName, i) => ({
+    name: spaceName,
+    notes: i === 0 ? template.lists || "" : "",
+    pipeline: [],
+    lists: i === 0
+      ? [{
+          name: "Main",
+          space: spaceName,
+          statuses: template.statuses || "",
+          customFields: template.custom_fields || "",
+          automations: [],
+        }]
+      : [],
+  }));
+
+  if (workflows.length === 0) {
+    workflows.push({
+      name: "",
+      notes: template.lists || "",
+      pipeline: [],
+      lists: [{
+        name: "Main",
+        space: "",
+        statuses: template.statuses || "",
+        customFields: template.custom_fields || "",
+        automations: [],
+      }],
+    });
+  }
+
+  return {
+    audit: {
+      hasExisting: null,
+      overallAssessment: "",
+      triedToFix: null,
+      previousFixes: "",
+      builds: [],
+      patternSummary: "",
+    },
+    intake: {
+      rawPrompt: "",
+      industries: template.industries || [],
+      teamSize: "",
+      workflowType: template.workflow_type || "",
+      processFrameworks: template.process_frameworks || [],
+      tools: template.tools || [],
+      painPoints: template.pain_points || [],
+      priorAttempts: "",
+    },
+    build: {
+      buildNotes: template.build_notes || "",
+      workflows,
+    },
+    delta: {
+      userIntent: "",
+      successCriteria: "",
+      actualBuild: "",
+      diverged: null,
+      divergenceReason: "",
+      compromises: "",
+      roadblocks: [],
+    },
+    reasoning: {
+      whyStructure: "",
+      alternatives: "",
+      whyRejected: "",
+      assumptions: "",
+      whenOpposite: "",
+      lessons: "",
+      complexity: template.estimated_complexity || 3,
+    },
+    outcome: {
+      built: null,
+      blockReason: "",
+      changes: "",
+      whatWorked: "",
+      whatFailed: "",
+      satisfaction: 3,
+      recommend: null,
+      revisitWhen: "",
+    },
+  };
+}
+
+/**
  * Format a date string for display.
  */
 export function formatDate(dateStr) {

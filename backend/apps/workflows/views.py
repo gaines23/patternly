@@ -6,11 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .ai_service import FlowpathAIService, ConfigurationError, AIServiceError
-from .models import GeneratedBrief
+from .models import GeneratedBrief, WorkflowTemplate
 from .serializers import (
     GenerateBriefInputSerializer,
     GeneratedBriefSerializer,
     BriefFeedbackSerializer,
+    TemplateMatchInputSerializer,
+    TemplateMatchResultSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -197,3 +199,119 @@ def brief_feedback(request, pk):
     brief.save(update_fields=["user_rating", "user_feedback"])
 
     return Response(GeneratedBriefSerializer(brief).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def match_templates(request):
+    """
+    POST /api/v1/workflows/match/
+
+    Parses a raw user prompt into a structured scenario, then scores all
+    active WorkflowTemplates by metadata overlap and returns the top matches.
+
+    Scoring (max 100):
+      - workflow_type exact match:  40 pts
+      - each shared industry:       15 pts (max 30)
+      - each shared pain_point:     10 pts (max 30)
+      - each shared tool:            5 pts (max 20)
+
+    Body:
+        { "raw_prompt": "We're a 6-person agency using Slack and HubSpot..." }
+
+    Returns:
+        {
+          "parsed": { workflow_type, industries, tools, pain_points, ... },
+          "matches": [ { template, score, match_reasons }, ... ]
+        }
+    """
+    input_serializer = TemplateMatchInputSerializer(data=request.data)
+    if not input_serializer.is_valid():
+        return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    raw_prompt = input_serializer.validated_data["raw_prompt"]
+
+    try:
+        service = FlowpathAIService()
+        scenario = service.parse_scenario(raw_prompt)
+    except ConfigurationError as e:
+        logger.error("AI service not configured: %s", e)
+        return Response(
+            {"error": "AI service is not configured. Set ANTHROPIC_API_KEY in your environment."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except AIServiceError as e:
+        logger.error("AI service error during parse: %s", e)
+        return Response(
+            {"error": f"Prompt parsing failed: {str(e)}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    except Exception as e:
+        logger.exception("Unexpected error in match_templates: %s", e)
+        return Response(
+            {"error": "An unexpected error occurred. Please try again."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    parsed_industries = set(i.lower() for i in (scenario.industries or []))
+    parsed_pain_points = set(p.lower() for p in (scenario.pain_points or []))
+    parsed_tools = set(t.lower() for t in (scenario.tools or []))
+    parsed_workflow_type = (scenario.workflow_type or "").lower()
+
+    templates = WorkflowTemplate.objects.filter(is_active=True)
+    results = []
+
+    for tmpl in templates:
+        score = 0
+        reasons = []
+
+        if parsed_workflow_type and tmpl.workflow_type.lower() == parsed_workflow_type:
+            score += 40
+            reasons.append(f"Workflow type matches: {tmpl.workflow_type}")
+
+        tmpl_industries = set(i.lower() for i in (tmpl.industries or []))
+        shared_industries = parsed_industries & tmpl_industries
+        if shared_industries:
+            pts = min(len(shared_industries) * 15, 30)
+            score += pts
+            reasons.append(f"Industry match: {', '.join(shared_industries)}")
+
+        tmpl_pain_points = set(p.lower() for p in (tmpl.pain_points or []))
+        shared_pain_points = parsed_pain_points & tmpl_pain_points
+        if shared_pain_points:
+            pts = min(len(shared_pain_points) * 10, 30)
+            score += pts
+            reasons.append(
+                f"{len(shared_pain_points)} pain point{'s' if len(shared_pain_points) != 1 else ''} in common: "
+                f"{', '.join(shared_pain_points)}"
+            )
+
+        tmpl_tools = set(t.lower() for t in (tmpl.tools or []))
+        shared_tools = parsed_tools & tmpl_tools
+        if shared_tools:
+            pts = min(len(shared_tools) * 5, 20)
+            score += pts
+            reasons.append(f"Tools overlap: {', '.join(shared_tools)}")
+
+        results.append({
+            "template": tmpl,
+            "score": min(score, 100),
+            "match_reasons": reasons,
+        })
+
+    results.sort(key=lambda x: x["score"], reverse=True)
+    top_matches = [r for r in results[:5] if r["score"] > 0]
+
+    parsed_data = {
+        "workflow_type": scenario.workflow_type,
+        "industries": scenario.industries,
+        "tools": scenario.tools,
+        "pain_points": scenario.pain_points,
+        "process_frameworks": scenario.process_frameworks,
+        "team_size": scenario.team_size,
+    }
+
+    return Response({
+        "parsed": parsed_data,
+        "matches": TemplateMatchResultSerializer(top_matches, many=True).data,
+    })

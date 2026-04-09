@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCreateProject } from "@hooks/useProjects";
-import { formToProjectPayload, briefToFormState, briefToSuggestedAutomations } from "../../utils/transforms";
+import { formToProjectPayload, briefToFormState, briefToSuggestedAutomations, templateToFormState } from "../../utils/transforms";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
 import { useGeneratedBrief, useMarkBriefConverted } from "../../hooks/useWorkflows";
@@ -17,6 +17,7 @@ export default function NewCaseFilePage() {
   const markConverted = useMarkBriefConverted();
 
   const briefId = location.state?.briefId || null;
+  const templateData = location.state?.templateData || null;
   const { data: sourceBrief, isLoading: briefLoading } = useGeneratedBrief(briefId);
 
   const [apiError, setApiError] = useState(null);
@@ -58,7 +59,12 @@ export default function NewCaseFilePage() {
     );
   }
 
-  const initialData = sourceBrief ? briefToFormState(sourceBrief) : undefined;
+  const initialData = sourceBrief
+    ? briefToFormState(sourceBrief)
+    : templateData
+    ? templateToFormState(templateData)
+    : undefined;
+
   const suggestedAutomations = sourceBrief ? briefToSuggestedAutomations(sourceBrief) : [];
 
   const initialName = sourceBrief
@@ -66,6 +72,8 @@ export default function NewCaseFilePage() {
         sourceBrief.parsed_scenario?.client_name,
         sourceBrief.parsed_scenario?.workflow_type,
       ].filter(Boolean).join(" — ")
+    : templateData
+    ? templateData.name
     : "";
 
   return (
@@ -82,6 +90,20 @@ export default function NewCaseFilePage() {
           fontFamily: "'Plus Jakarta Sans', sans-serif",
         }}>
           Pre-filled from your AI recommendation. Fill in the audit, delta, and outcome layers to complete the project.
+        </div>
+      )}
+      {templateData && (
+        <div style={{
+          margin: "24px 32px 0",
+          padding: "12px 16px",
+          background: "#EFF6FF",
+          border: "1px solid #BFDBFE",
+          borderRadius: 10,
+          fontSize: 13,
+          color: "#1D4ED8",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+        }}>
+          Pre-filled from the <strong>{templateData.name}</strong> template. Fill in the audit, delta, and outcome layers to complete the project.
         </div>
       )}
       {apiError && (
