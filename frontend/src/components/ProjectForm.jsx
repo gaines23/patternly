@@ -734,13 +734,19 @@ function StepScopeCreep({ scopeCreep, onScopeCreepChange, isEditing }) {
   );
 }
 
-function StepAudit({ caseName, setCaseName, hideRawPrompt, intakeData, setIntake, deltaData, setDelta, onAiParse, isParsing, parseError }) {
+function StepAudit({ caseName, setCaseName, hideRawPrompt, intakeData, setIntake, deltaData, setDelta, onAiParse, isParsing, parseError, auditData, setAudit, w, isEditing }) {
   const { theme } = useTheme();
 
   const [guidedMode, setGuidedMode] = useState(!(intakeData?.rawPrompt));
   const [g1, setG1] = useState("");
   const [g2, setG2] = useState("");
   const [g3, setG3] = useState("");
+
+  const builds = auditData?.builds || [];
+  const hasExisting = auditData?.hasExisting === "Yes, they have something";
+  const addBuild = () => setAudit({ ...auditData, builds: [...builds, emptyBuild()] });
+  const updBuild = (i,v) => setAudit({ ...auditData, builds: builds.map((b,idx)=>idx===i?v:b) });
+  const remBuild = i => setAudit({ ...auditData, builds: builds.filter((_,idx)=>idx!==i) });
 
   const updateGuided = (field, value) => {
     const next = { g1, g2, g3, [field]: value };
@@ -813,6 +819,44 @@ function StepAudit({ caseName, setCaseName, hideRawPrompt, intakeData, setIntake
             </div>
           )}
           {parseError && <p style={{ margin:"8px 0 0", fontSize:12, color:"#DC2626", fontFamily:F }}>{parseError}</p>}
+        </Card>
+      )}
+
+      {/* ── Existing setup audit ─────────────────────────────────────────── */}
+      <Card>
+        <CardTitle>Does this client have an existing setup?</CardTitle>
+        <TogGroup options={["Yes, they have something","No — starting from scratch"]} value={auditData?.hasExisting} onChange={v=>setAudit({...auditData,hasExisting:v})} color="#7C3AED"/>
+      </Card>
+      {auditData?.hasExisting==="No — starting from scratch" && (
+        <div style={{ padding:24, textAlign:"center", background:"#ECFDF5", border:"1px solid #6EE7B7", borderRadius:12, marginBottom:14 }}>
+          <span style={{ fontSize:28 }}>🌱</span>
+          <p style={{ margin:"8px 0 0", fontSize:14, color:"#065F46", fontFamily:F, fontWeight:600 }}>Greenfield build — move to the next step.</p>
+        </div>
+      )}
+      {hasExisting && (<>
+        <HR label="previous builds — what was in place"/>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
+          <div>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Previous Builds <span style={{ color:theme.textFaint, fontWeight:400 }}>({builds.length})</span></p>
+            <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>What the client had before — broken setups, legacy tools, or workflows being replaced</p>
+          </div>
+          <button onClick={addBuild} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #EA580C", borderRadius:10, color:"#EA580C", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Previous Build</button>
+        </div>
+        {builds.length === 0
+          ? <div style={{ padding:32, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12, marginBottom:14 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>Click "Add Previous Build" to document what was in place.</p></div>
+          : builds.map((b,i) => <BuildCard key={i} item={b} index={i} onChange={v=>updBuild(i,v)} onRemove={()=>remBuild(i)} w={w} defaultOpen={!isEditing}/>)
+        }
+        {builds.length > 0 && (
+          <Card accent="#EA580C">
+            <CardTitle sub="What does the broken state pattern reveal about what they need?">Pattern summary</CardTitle>
+            <TI rows={3} value={auditData.patternSummary} onChange={v=>setAudit({...auditData,patternSummary:v})} placeholder="Core insight from the audit…"/>
+          </Card>
+        )}
+      </>)}
+      {auditData?.hasExisting && (
+        <Card accent="#7C3AED">
+          <CardTitle sub="Your high-level read on the client's current state">Overall assessment</CardTitle>
+          <TI rows={3} value={auditData.overallAssessment||""} onChange={v=>setAudit({...auditData,overallAssessment:v})} placeholder="What's the overall picture? Key risks, strengths, or patterns worth flagging…"/>
         </Card>
       )}
     </div>
@@ -1272,7 +1316,7 @@ function formWfToMapWf(wf) {
   };
 }
 
-function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, isEditing }) {
+function StepBuild({ data, set, w, suggestedAutomations, auditData }) {
   const { theme } = useTheme();
   const [mapWfIndex, setMapWfIndex] = useState(null);
   const workflows = data.workflows || [];
@@ -1280,49 +1324,11 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, is
   const updWf = (i,v) => set({ ...data, workflows: workflows.map((wf,idx)=>idx===i?v:wf) });
   const remWf = i => set({ ...data, workflows: workflows.filter((_,idx)=>idx!==i) });
 
-  const hasExisting = auditData?.hasExisting === "Yes, they have something";
   const builds = auditData?.builds || [];
-  const addBuild = () => setAudit({ ...auditData, builds: [...builds, emptyBuild()] });
-  const updBuild = (i,v) => setAudit({ ...auditData, builds: builds.map((b,idx)=>idx===i?v:b) });
-  const remBuild = i => setAudit({ ...auditData, builds: builds.filter((_,idx)=>idx!==i) });
 
   return (
     <div>
-      <Banner emoji="🏗️" title="Document what was in place, then map what you're building." body="Log the client's previous setups first, then add each new mapped workflow space by space." color="#0284C7"/>
-
-      {/* ── Does this client have an existing setup? ───────────────────────── */}
-      <Card>
-        <CardTitle>Does this client have an existing setup?</CardTitle>
-        <TogGroup options={["Yes, they have something","No — starting from scratch"]} value={auditData?.hasExisting} onChange={v=>setAudit({...auditData,hasExisting:v})} color={BLUE}/>
-      </Card>
-      {auditData?.hasExisting==="No — starting from scratch" && (
-        <div style={{ padding:24, textAlign:"center", background:"#ECFDF5", border:"1px solid #6EE7B7", borderRadius:12, marginBottom:14 }}>
-          <span style={{ fontSize:28 }}>🌱</span>
-          <p style={{ margin:"8px 0 0", fontSize:14, color:"#065F46", fontFamily:F, fontWeight:600 }}>Greenfield build — skip to the new workflow section below.</p>
-        </div>
-      )}
-
-      {/* ── Audit builds (existing broken setups) ──────────────────────────── */}
-      {hasExisting && (<>
-        <HR label="previous builds — what was in place"/>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
-          <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Previous Builds <span style={{ color:theme.textFaint, fontWeight:400 }}>({builds.length})</span></p>
-            <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>What the client had before — broken setups, legacy tools, or workflows being replaced</p>
-          </div>
-          <button onClick={addBuild} style={{ padding:"11px 18px", background:theme.surface, border:"1.5px solid #EA580C", borderRadius:10, color:"#EA580C", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:F, minHeight:44 }}>+ Add Previous Build</button>
-        </div>
-        {builds.length === 0
-          ? <div style={{ padding:32, textAlign:"center", border:`2px dashed ${theme.borderInput}`, borderRadius:12, marginBottom:14 }}><p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>Click "Add Previous Build" to document what was in place.</p></div>
-          : builds.map((b,i) => <BuildCard key={i} item={b} index={i} onChange={v=>updBuild(i,v)} onRemove={()=>remBuild(i)} w={w} defaultOpen={!isEditing}/>)
-        }
-        {builds.length > 0 && (
-          <Card accent="#EA580C">
-            <CardTitle sub="What does the broken state pattern reveal about what they need?">Pattern summary</CardTitle>
-            <TI rows={3} value={auditData.patternSummary} onChange={v=>setAudit({...auditData,patternSummary:v})} placeholder="Core insight from the audit…"/>
-          </Card>
-        )}
-      </>)}
+      <Banner emoji="🏗️" title="Map what you're building." body="Add each new mapped workflow space by space." color="#0284C7"/>
 
       {/* ── Mapped workflows ────────────────────────────────────────────────── */}
       <HR label="mapped workflows — what you're building"/>
@@ -1508,6 +1514,8 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
   const [enteredBy, setEnteredBy] = useState(initialEnteredBy || "");
   const [caseName, setCaseName] = useState(initialName || "");
   const [parseError, setParseError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+  const [showIntro, setShowIntro] = useState(!isEditing);
   const w = useWidth();
   const { theme } = useTheme();
   const parsePromutMutation = useParsePrompt();
@@ -1599,7 +1607,22 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
 
   const setSD = (key, val) => setData(d => ({ ...d, [key]: val }));
 
-  const handleSave = () => onSubmit(data, enteredBy, caseName);
+  const handleSave = () => {
+    if (!caseName.trim()) {
+      setSaveError("A project name is required before saving.");
+      setStep(2);
+      return;
+    }
+    const hasScenario = !!(data.intake?.rawPrompt?.trim());
+    const hasWorkflow = !!(data.build?.workflows?.length);
+    const hasAuditBuild = !!(data.audit?.builds?.length);
+    if (!hasScenario && !hasWorkflow && !hasAuditBuild) {
+      setSaveError("Add a scenario, at least one workflow, or a previous build before saving.");
+      return;
+    }
+    setSaveError(null);
+    onSubmit(data, enteredBy, caseName);
+  };
 
   const { score: confScore, hint: confHint } = computeConfidence(data);
   const confColor = confScore >= 80 ? "#059669" : confScore >= 50 ? "#7C3AED" : "#D97706";
@@ -1618,6 +1641,46 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
   const visibleSections = isEditing ? SECTIONS : SECTIONS.filter(s => s.group !== "The Updates");
   const sidebarGroups = [...new Set(visibleSections.map(s => s.group))];
   const HEADER_H = isMobile ? 92 : 60;
+
+  if (showIntro) return (
+    <div style={{ background:theme.bg, minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 20px" }}>
+      <div style={{ maxWidth:560, width:"100%" }}>
+        <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>New project file</p>
+        <p style={{ margin:"0 0 8px", fontSize:26, fontWeight:800, color:theme.text, fontFamily:F }}>Document a client build</p>
+        <p style={{ margin:"0 0 28px", fontSize:14, color:theme.textSec, fontFamily:F, lineHeight:1.6 }}>This form captures everything about a client engagement — what existed, what was built, and why. Filling it out completely trains the AI to make better recommendations over time.</p>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:28 }}>
+          {[
+            { color:"#7C3AED", label:"Current State",    desc:"Existing setup & audit" },
+            { color:"#7C3AED", label:"Client Profile",   desc:"Industry, team & tools" },
+            { color:"#0284C7", label:"The Build",        desc:"Workflows & what was built" },
+            { color:"#059669", label:"Intent vs Reality",desc:"What diverged and why" },
+            { color:"#059669", label:"Decision Reasoning",desc:"Why you built it this way" },
+            { color:"#059669", label:"Outcome",          desc:"Results and satisfaction" },
+          ].map(({ color, label, desc }) => (
+            <div key={label} style={{ display:"flex", alignItems:"flex-start", gap:10, background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:10, padding:"10px 12px" }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background:color, flexShrink:0, marginTop:5 }}/>
+              <div>
+                <p style={{ margin:0, fontSize:12, fontWeight:700, color:theme.text, fontFamily:F }}>{label}</p>
+                <p style={{ margin:0, fontSize:11, color:theme.textFaint, fontFamily:F }}>{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <button onClick={() => setShowIntro(false)}
+            style={{ padding:"12px 28px", background:"#7C3AED", border:"none", borderRadius:10, color:"#fff", fontSize:14, fontWeight:700, fontFamily:F, cursor:"pointer", boxShadow:"0 2px 10px rgba(124,58,237,0.35)" }}>
+            Start documenting →
+          </button>
+          {onCancel && (
+            <button onClick={onCancel}
+              style={{ padding:"12px 20px", background:"transparent", border:`1.5px solid ${theme.borderInput}`, borderRadius:10, color:theme.textSec, fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer" }}>
+              Cancel
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ background:theme.bg, minHeight:"100vh" }}>
@@ -1668,25 +1731,32 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
         {/* Left sidebar (desktop only) */}
         {!isMobile && (
           <div style={{ width:210, flexShrink:0, position:"sticky", top:HEADER_H, height:`calc(100vh - ${HEADER_H}px)`, overflowY:"auto", borderRight:`1px solid ${theme.border}`, display:"flex", flexDirection:"column", padding:"20px 0 0" }}>
-            {sidebarGroups.map(group => (
-              <div key={group} style={{ marginBottom:8 }}>
-                <p style={{ margin:"0 0 4px", padding:"0 16px", fontSize:10, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{group}</p>
-                {visibleSections.filter(s=>s.group===group).map(s => {
-                  const i = SECTIONS.indexOf(s);
-                  const active = i === step;
-                  return (
-                    <button key={s.id} onClick={()=>setStep(i)}
-                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:active?`${s.color}10`:"transparent", border:"none", borderLeft:active?`3px solid ${s.color}`:"3px solid transparent", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}>
-                      {sectionFilled[i]
-                        ? <span style={{ width:18, height:18, background:"#059669", borderRadius:"50%", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:700, flexShrink:0 }}>✓</span>
-                        : <span style={{ width:18, height:18, borderRadius:"50%", border:`2px solid ${active?s.color:theme.borderInput}`, background:active?`${s.color}15`:"transparent", flexShrink:0, transition:"all 0.15s" }}/>
-                      }
-                      <span style={{ fontSize:12, fontWeight:active?700:500, color:active?s.color:theme.textSec, fontFamily:F, lineHeight:1.3 }}>{s.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+            <div style={{ flex:1 }}>
+              {sidebarGroups.map(group => (
+                <div key={group} style={{ marginBottom:8 }}>
+                  <p style={{ margin:"0 0 4px", padding:"0 16px", fontSize:10, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{group}</p>
+                  {visibleSections.filter(s=>s.group===group).map(s => {
+                    const i = SECTIONS.indexOf(s);
+                    const active = i === step;
+                    return (
+                      <button key={s.id} onClick={()=>setStep(i)}
+                        style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:active?`${s.color}10`:"transparent", border:"none", borderLeft:active?`3px solid ${s.color}`:"3px solid transparent", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}>
+                        {sectionFilled[i]
+                          ? <span style={{ width:18, height:18, background:"#059669", borderRadius:"50%", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:700, flexShrink:0 }}>✓</span>
+                          : <span style={{ width:18, height:18, borderRadius:"50%", border:`2px solid ${active?s.color:theme.borderInput}`, background:active?`${s.color}15`:"transparent", flexShrink:0, transition:"all 0.15s" }}/>
+                        }
+                        <span style={{ fontSize:12, fontWeight:active?700:500, color:active?s.color:theme.textSec, fontFamily:F, lineHeight:1.3 }}>{s.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div style={{ padding:"12px 16px", borderTop:`1px solid ${theme.border}` }}>
+              <p style={{ margin:"0 0 5px", fontSize:10, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>Logged by</p>
+              <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
+                style={{ width:"100%", fontFamily:F, fontSize:13, color:theme.textSec, background:theme.bg, border:`1px solid ${theme.borderInput}`, borderRadius:8, padding:"7px 10px", outline:"none", boxSizing:"border-box" }}/>
+            </div>
           </div>
         )}
 
@@ -1700,7 +1770,7 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
             <p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>{cs.subtitle}</p>
           </div>
 
-          {/* Logged by (mobile) */}
+          {/* Logged by (mobile only — desktop shows this in the sidebar) */}
           {isMobile && (
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:12, padding:"10px 14px" }}>
               <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F, fontWeight:500, flexShrink:0 }}>Logged by</span>
@@ -1717,10 +1787,11 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
               hideRawPrompt={shouldHidePrompt}
               intakeData={data.intake} setIntake={v=>setSD("intake",v)}
               deltaData={data.delta} setDelta={v=>setSD("delta",v)}
-              onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}/>
+              onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
+              auditData={data.audit} setAudit={v=>setSD("audit",v)} w={w} isEditing={isEditing}/>
           )}
           {step===3 && <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
-          {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} setAudit={v=>setSD("audit",v)} isEditing={isEditing}/>}
+          {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit}/>}
           {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w}/>}
           {step===6 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
           {step===7 && <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>}
@@ -1749,6 +1820,8 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
           })()}
 
           {/* Right: Save + Next (or just Save on last) */}
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+          {saveError && <p style={{ margin:0, fontSize:12, color:"#DC2626", fontFamily:F, textAlign:"right" }}>{saveError}</p>}
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             {(isEditing || step===SECTIONS.length-1) && (
               <button onClick={handleSave} disabled={isSaving}
@@ -1762,6 +1835,7 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
                 Continue →
               </button>
             )}
+          </div>
           </div>
         </div>
       </div>
