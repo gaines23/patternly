@@ -9,7 +9,6 @@ import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
 
 // Detail-layer components
 import CaseFileHeader  from "./detail/components/ProjectHeader";
-import CaseFileSidebar from "./detail/components/ProjectSidebar";
 import ShareModal      from "./detail/components/ShareModal";
 import Section         from "./detail/components/Section";
 
@@ -246,10 +245,10 @@ export default function CaseFileDetailPage() {
         }
       `}</style>
 
-      <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+      <div style={{ maxWidth: 1060, margin: "0 auto" }}>
 
         {/* ── Main content column ─────────────────────────────────────────── */}
-        <div id="fp-print-root" style={{ flex: 1, minWidth: 0, maxWidth: 780, padding: "28px 32px 80px" }}>
+        <div id="fp-print-root" style={{ padding: isMobile ? "20px 16px 80px" : "28px 32px 80px" }}>
 
           {/* Print-only: full PDF layout */}
           <div className="fp-print-only">
@@ -316,16 +315,16 @@ export default function CaseFileDetailPage() {
 
               {/* Left sidebar nav (desktop only) */}
               {!isMobile && (
-                <div style={{ width: 200, flexShrink: 0, position: "sticky", top: 24, maxHeight: "calc(100vh - 48px)", overflowY: "auto", borderRight: `1px solid ${theme.border}`, paddingTop: 4, paddingBottom: 24 }}>
+                <div style={{ width: 210, flexShrink: 0, position: "sticky", top: 24, height: "calc(100vh - 48px)", overflowY: "auto", borderRight: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", padding: "20px 0 0" }}>
                   {[...new Set(DETAIL_SECTIONS.map(s => s.group))].map(group => (
                     <div key={group} style={{ marginBottom: 8 }}>
-                      <p style={{ margin: "0 0 4px", padding: "0 14px", fontSize: 10, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.08em" }}>{group}</p>
+                      <p style={{ margin: "0 0 4px", padding: "0 16px", fontSize: 10, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.08em" }}>{group}</p>
                       {DETAIL_SECTIONS.filter(s => s.group === group).map(s => {
                         const i = DETAIL_SECTIONS.indexOf(s);
                         const active = i === activeSection;
                         return (
                           <button key={s.id} onClick={() => setActiveSection(i)}
-                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: active ? `${s.color}10` : "transparent", border: "none", borderLeft: active ? `3px solid ${s.color}` : "3px solid transparent", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
+                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 16px", background: active ? `${s.color}10` : "transparent", border: "none", borderLeft: active ? `3px solid ${s.color}` : "3px solid transparent", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
                             <span style={{ fontSize: 12, fontWeight: active ? 700 : 500, color: active ? s.color : theme.textSec, fontFamily: F, lineHeight: 1.3 }}>{s.label}</span>
                           </button>
                         );
@@ -336,7 +335,7 @@ export default function CaseFileDetailPage() {
               )}
 
               {/* Active section content */}
-              <div style={{ flex: 1, minWidth: 0, paddingLeft: isMobile ? 0 : 24 }}>
+              <div style={{ flex: 1, minWidth: 0, padding: isMobile ? 0 : "24px 32px 120px" }}>
                 {activeSection === 0 && <ProjectUpdatesView projectUpdates={project_updates}    theme={theme} />}
                 {activeSection === 1 && <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} />}
                 {activeSection === 2 && <IntakeSection    intake={intake}       theme={theme} />}
@@ -351,31 +350,13 @@ export default function CaseFileDetailPage() {
           </div>{/* end fp-no-print screen view */}
         </div>
 
-        {/* ── Workflow map — narrow screen modal (< 1300px) ──────────────── */}
-        {mapWfIndex !== null && w < 1300 && build?.workflows?.[mapWfIndex] && (
+        {/* ── Workflow map modal ───────────────────────────────────────────── */}
+        {mapWfIndex !== null && build?.workflows?.[mapWfIndex] && (
           <WorkflowMapPanel
             workflow={build.workflows[mapWfIndex]}
             onClose={() => setMapWfIndex(null)}
             asModal
           />
-        )}
-
-        {/* ── Right sidebar (>= 1300px) ─────────────────────────────────── */}
-        {w >= 1300 && (
-          <div
-            className="fp-no-print"
-            style={{ width: 480, flexShrink: 0, position: "sticky", top: 24, paddingTop: 28, paddingBottom: 24, maxHeight: "calc(100vh - 48px)", overflowY: mapWfIndex !== null ? "hidden" : "auto" }}
-          >
-            {mapWfIndex !== null && build?.workflows?.[mapWfIndex]
-              ? (
-                  <WorkflowMapPanel
-                    workflow={build.workflows[mapWfIndex]}
-                    onClose={() => setMapWfIndex(null)}
-                  />
-                )
-              : <CaseFileSidebar cf={cf} theme={theme} />
-            }
-          </div>
         )}
       </div>
 
