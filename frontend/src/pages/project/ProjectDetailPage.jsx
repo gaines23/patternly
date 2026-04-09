@@ -5,6 +5,7 @@ import { useProject, useDeleteProject, useUpdateProject, useToggleProjectStatus 
 import { useBriefByProject } from "@hooks/useWorkflows";
 import { formToProjectPayload, projectToFormState, briefToSuggestedAutomations } from "@utils/transforms";
 import ProjectForm from "@components/ProjectForm";
+import DeleteConfirmModal from "@components/DeleteConfirmModal";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
 
 // Detail-layer components
@@ -113,6 +114,7 @@ export default function CaseFileDetailPage() {
   // ── UI state ───────────────────────────────────────────────────────────────
   const justCreated = location.state?.justCreated;
   const [showBanner,     setShowBanner]     = useState(!!justCreated);
+  const [deleteTarget,   setDeleteTarget]   = useState(false);
   const [isEditing,      setIsEditing]      = useState(false);
   const [apiError,       setApiError]       = useState(null);
   const [mapWfIndex,     setMapWfIndex]     = useState(null);
@@ -157,8 +159,8 @@ export default function CaseFileDetailPage() {
   const { data: linkedBrief } = useBriefByProject(id);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const handleDelete = async () => {
-    if (!window.confirm("Delete this project? This cannot be undone.")) return;
+  const handleDelete = () => setDeleteTarget(true);
+  const confirmDelete = async () => {
     await deleteMutation.mutateAsync(id);
     navigate("/projects");
   };
@@ -356,6 +358,14 @@ export default function CaseFileDetailPage() {
         />
       )}
       {showShare && <ShareModal cf={cf} onClose={() => setShowShare(false)} />}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          name={cf.name}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(false)}
+          isDeleting={deleteMutation.isPending}
+        />
+      )}
     </>
   );
 }

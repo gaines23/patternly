@@ -5,6 +5,7 @@ import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile, useToggleCaseFileSta
 import { useBriefByCaseFile } from "@hooks/useWorkflows";
 import { formStateToCaseFilePayload, caseFileToFormState, briefToSuggestedAutomations } from "@utils/transforms";
 import CaseFileForm from "@components/CaseFileForm";
+import DeleteConfirmModal from "@components/DeleteConfirmModal";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
 
 // Detail-layer components
@@ -44,6 +45,7 @@ export default function CaseFileDetailPage() {
   const [apiError,     setApiError]     = useState(null);
   const [mapWfIndex,   setMapWfIndex]   = useState(null);
   const [showShare,    setShowShare]    = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(false);
   const [showOptions,  setShowOptions]  = useState(false);
   const [isPrinting,   setIsPrinting]   = useState(false);
   const [w,            setW]            = useState(typeof window !== "undefined" ? window.innerWidth : 900);
@@ -82,8 +84,8 @@ export default function CaseFileDetailPage() {
   const { data: linkedBrief } = useBriefByCaseFile(id);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const handleDelete = async () => {
-    if (!window.confirm("Delete this case file? This cannot be undone.")) return;
+  const handleDelete = () => setDeleteTarget(true);
+  const confirmDelete = async () => {
     await deleteMutation.mutateAsync(id);
     navigate("/case-files");
   };
@@ -313,6 +315,14 @@ export default function CaseFileDetailPage() {
 
       {/* Share modal */}
       {showShare && <ShareModal cf={cf} onClose={() => setShowShare(false)} />}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          name={cf.name}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(false)}
+          isDeleting={deleteMutation.isPending}
+        />
+      )}
     </>
   );
 }

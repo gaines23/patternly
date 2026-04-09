@@ -40,12 +40,8 @@ export default function NewCaseFilePage() {
       navigate(`/projects/${result.id}`, {
         state: { justCreated: true },
       });
-    } catch (err) {
-      const data = err.response?.data;
-      const msg = data
-        ? JSON.stringify(data, null, 2)
-        : "Failed to save. Please check your connection and try again.";
-      setApiError(msg);
+    } catch {
+      setApiError("Something went wrong while saving. Please try again — if the issue continues, check your connection or contact support.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -116,9 +112,8 @@ export default function NewCaseFilePage() {
           fontSize: 13,
           color: "#DC2626",
           fontFamily: "'Plus Jakarta Sans', sans-serif",
-          whiteSpace: "pre-wrap",
         }}>
-          <strong>Save failed:</strong> {apiError}
+          <strong>Heads up —</strong> {apiError}
         </div>
       )}
       <ProjectForm

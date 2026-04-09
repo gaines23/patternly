@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 import { useCaseFiles, useDeleteCaseFile } from "../../hooks/useCaseFiles";
 import { useTheme } from "../../hooks/useTheme";
 import { formatDate, satisfactionLabel } from "../../utils/transforms";
+import DeleteConfirmModal from "../../components/DeleteConfirmModal";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
 export default function CaseFileListPage() {
   const [filters, setFilters] = useState({ search: "", page: 1 });
   const [deleting, setDeleting] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
   const { theme } = useTheme();
 
   const { data, isLoading, isError } = useCaseFiles(filters);
@@ -17,11 +19,12 @@ export default function CaseFileListPage() {
   const caseFiles = data?.results || [];
   const totalCount = data?.count || 0;
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this project file? This cannot be undone.")) return;
-    setDeleting(id);
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id);
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
     } finally {
       setDeleting(null);
     }
@@ -174,7 +177,7 @@ export default function CaseFileListPage() {
                   </button>
                 </Link>
                 <button
-                  onClick={() => handleDelete(cf.id)}
+                  onClick={() => setDeleteTarget({ id: cf.id, name: cf.name || "Untitled" })}
                   disabled={deleting === cf.id}
                   style={{ padding: "5px 10px", background: "transparent", border: "1px solid #FECACA", borderRadius: 6, fontSize: 12, color: "#EF4444", fontFamily: F, cursor: "pointer" }}
                 >
@@ -202,6 +205,14 @@ export default function CaseFileListPage() {
             </div>
           ) : null}
         </div>
+      )}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          name={deleteTarget.name}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+          isDeleting={deleteMutation.isPending}
+        />
       )}
     </div>
   );

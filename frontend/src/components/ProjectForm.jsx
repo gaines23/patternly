@@ -1745,7 +1745,7 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
         .then(res => setSuggestedBuilds(res.matches?.slice(0, 3) || []))
         .catch(() => {});
     } catch {
-      setParseError("Couldn't parse the prompt — check your connection and try again.");
+      setParseError("We weren't able to read your prompt right now. Please try again in a moment.");
     }
   };
 

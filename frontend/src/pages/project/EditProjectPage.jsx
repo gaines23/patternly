@@ -21,9 +21,8 @@ export default function EditCaseFilePage() {
       const payload = formToProjectPayload(formData, enteredBy, caseName || "");
       await updateMutation.mutateAsync(payload);
       navigate(`/projects/${id}`, { state: { justUpdated: true } });
-    } catch (err) {
-      const data = err.response?.data;
-      setApiError(data ? JSON.stringify(data, null, 2) : "Save failed.");
+    } catch {
+      setApiError("Something went wrong while saving. Please try again — if the issue continues, check your connection or contact support.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -71,9 +70,8 @@ export default function EditCaseFilePage() {
           fontSize: 13,
           color: "#DC2626",
           fontFamily: "'Plus Jakarta Sans', sans-serif",
-          whiteSpace: "pre-wrap",
         }}>
-          <strong>Save failed:</strong> {apiError}
+          <strong>Heads up —</strong> {apiError}
         </div>
       )}
       <ProjectForm
