@@ -3,6 +3,48 @@ from django.db import models
 from pgvector.django import VectorField
 
 
+class WorkflowTemplate(models.Model):
+    """
+    A pre-built workflow template used for template matching on the Generate page.
+    Templates are matched against parsed user prompts by metadata scoring
+    (workflow_type, industries, pain_points, tools) rather than AI generation.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+
+    # Matching metadata — scored against parsed scenario
+    workflow_type = models.CharField(max_length=255, db_index=True)
+    industries = models.JSONField(default=list)
+    pain_points = models.JSONField(default=list)
+    tools = models.JSONField(default=list)
+    process_frameworks = models.JSONField(default=list)
+
+    # Build structure — mirrors GeneratedBrief.recommendation fields
+    spaces = models.TextField(blank=True)
+    lists = models.TextField(blank=True)
+    statuses = models.TextField(blank=True)
+    custom_fields = models.TextField(blank=True)
+    automations = models.TextField(blank=True)
+    integrations = models.JSONField(default=list)
+    build_notes = models.TextField(blank=True)
+    estimated_complexity = models.PositiveSmallIntegerField(default=3)
+
+    # Provenance — set when auto-generated from a real build
+    source_project_id = models.UUIDField(null=True, blank=True, unique=True, db_index=True)
+    is_auto_generated = models.BooleanField(default=False)
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "workflow_templates"
+        ordering = ["workflow_type", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.workflow_type})"
+
+
 class WorkflowPattern(models.Model):
     """
     A retrieved and embedded case file chunk used for RAG retrieval.

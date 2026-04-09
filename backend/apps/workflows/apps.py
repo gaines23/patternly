@@ -5,3 +5,6 @@ class WorkflowsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.workflows"
     label = "workflows"
+
+    def ready(self):
+        import apps.workflows.signals  # noqa: F401 — registers signal handlers
