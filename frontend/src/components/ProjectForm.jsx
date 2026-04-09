@@ -10,7 +10,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../hooks/useTheme";
-import { useParsePrompt } from "../hooks/useWorkflows";
+import { useParsePrompt, useMatchTemplates } from "../hooks/useWorkflows";
 import { WorkflowMapPanel } from "./WorkflowMapPanel";
 
 // ── All data constants (same as workflow-intake.jsx) ──────────────────────────
@@ -905,6 +905,50 @@ function AiInfoTip({ hasAiFields }) {
   );
 }
 
+function SuggestedBuildsPanel({ builds, selectedWorkflowType, onSelect }) {
+  const { theme } = useTheme();
+  if (!builds?.length) return null;
+  const color = "#60A5FA";
+  const COMPLEXITY_LABELS = ["", "Very simple", "Simple", "Moderate", "Complex", "Very complex"];
+  return (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
+        <span style={{ fontSize:12, fontWeight:700, color, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Suggested builds</span>
+        <AiBadge/>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {builds.map((result, i) => {
+          const { template, score, match_reasons } = result;
+          const isSelected = selectedWorkflowType === template.workflow_type || selectedWorkflowType === template.name;
+          const scoreColor = score >= 70 ? { bg:"#ECFDF5", border:"#6EE7B7", text:"#059669" }
+            : score >= 40 ? { bg:"#EFF6FF", border:"#BFDBFE", text:"#1D4ED8" }
+            : { bg:theme.surfaceAlt, border:theme.border, text:theme.textFaint };
+          return (
+            <button key={i} type="button" onClick={() => onSelect(template.workflow_type || template.name)}
+              style={{ textAlign:"left", background: isSelected ? theme.blueLight : theme.surface, border:`1.5px solid ${isSelected ? color : theme.borderInput}`, borderRadius:10, padding:"12px 14px", cursor:"pointer", transition:"border-color 0.15s, background 0.15s", width:"100%" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, marginBottom:4 }}>
+                <span style={{ fontSize:13, fontWeight:700, color: isSelected ? color : theme.text, fontFamily:F }}>{template.name}</span>
+                <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", background:scoreColor.bg, border:`1px solid ${scoreColor.border}`, borderRadius:8, color:scoreColor.text, fontFamily:F, flexShrink:0 }}>{score}% match</span>
+              </div>
+              <p style={{ margin:"0 0 6px", fontSize:12, color:theme.textMuted, fontFamily:F, lineHeight:1.45 }}>{template.description}</p>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
+                {(match_reasons || []).slice(0, 3).map((r, j) => (
+                  <span key={j} style={{ fontSize:11, padding:"1px 7px", borderRadius:6, background:theme.surfaceAlt, border:`1px solid ${theme.border}`, color:theme.textMuted, fontFamily:F }}>{r}</span>
+                ))}
+                {template.estimated_complexity && (
+                  <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F, marginLeft:"auto" }}>
+                    {COMPLEXITY_LABELS[template.estimated_complexity] || ""}
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set() }) {
   const ai = (field) => aiSuggestedFields.has(field) || (!hideRawPrompt && AI_FILLABLE_FIELDS.has(field));
   const hasAiFields = aiSuggestedFields.size > 0;
@@ -1316,7 +1360,7 @@ function formWfToMapWf(wf) {
   };
 }
 
-function StepBuild({ data, set, w, suggestedAutomations, auditData }) {
+function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [], selectedWorkflowType, onSelectBuild }) {
   const { theme } = useTheme();
   const [mapWfIndex, setMapWfIndex] = useState(null);
   const workflows = data.workflows || [];
@@ -1329,6 +1373,12 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData }) {
   return (
     <div>
       <Banner emoji="🏗️" title="Map what you're building." body="Add each new mapped workflow space by space." color="#0284C7"/>
+
+      {suggestedBuilds.length > 0 && (
+        <Card>
+          <SuggestedBuildsPanel builds={suggestedBuilds} selectedWorkflowType={selectedWorkflowType} onSelect={onSelectBuild}/>
+        </Card>
+      )}
 
       {/* ── Mapped workflows ────────────────────────────────────────────────── */}
       <HR label="mapped workflows — what you're building"/>
@@ -1353,7 +1403,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData }) {
   );
 }
 
-function StepDelta({ data, set, w }) {
+function StepDelta({ data, set, w, aiSuggestedFields = new Set() }) {
   const { theme } = useTheme();
   const roadblocks = data.roadblocks || [];
   const addRb = () => set({...data, roadblocks:[...roadblocks, emptyRB()]});
@@ -1363,8 +1413,8 @@ function StepDelta({ data, set, w }) {
     <div>
       <Banner emoji="⚖️" title="Where did intent and reality diverge?" body="Capture not just what was built, but the gap between what was asked for and what was achievable." color="#DC2626"/>
       <Card>
-        <CardTitle>User's original intent</CardTitle>
-        <Field label="What did they want in their own words?"><TI rows={3} value={data.userIntent} onChange={v=>set({...data,userIntent:v})} placeholder="The ideal end-state they described…"/></Field>
+        <CardTitle>User's original intent{aiSuggestedFields.has("userIntent") && <AiBadge/>}</CardTitle>
+        <Field label="What did they want in their own words?" aiBadge={aiSuggestedFields.has("userIntent")}><TI rows={3} value={data.userIntent} onChange={v=>set({...data,userIntent:v})} placeholder="The ideal end-state they described…"/></Field>
         <Field label="How would they know it worked?" hint="success criteria"><TI rows={2} value={data.successCriteria} onChange={v=>set({...data,successCriteria:v})} placeholder="e.g. New project appears within 5 min of HubSpot deal closing…"/></Field>
       </Card>
       <Card>
@@ -1519,6 +1569,8 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
   const w = useWidth();
   const { theme } = useTheme();
   const parsePromutMutation = useParsePrompt();
+  const matchTemplatesMutation = useMatchTemplates();
+  const [suggestedBuilds, setSuggestedBuilds] = useState([]);
 
   // Compute which intake fields were pre-filled by AI (brief flow only)
   const [aiSuggestedFields, setAiSuggestedFields] = useState(() => {
@@ -1549,7 +1601,22 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
       if (parsed.workflow_type) { newIntake.workflowType = parsed.workflow_type; newFields.add("workflowType"); }
       if (parsed.tools?.length) { newIntake.tools = parsed.tools; newFields.add("tools"); }
       if (parsed.pain_points?.length) { newIntake.painPoints = parsed.pain_points; newFields.add("painPoints"); }
-      if (parsed.process_frameworks?.length) { newIntake.processFrameworks = parsed.process_frameworks; newFields.add("processFrameworks"); }
+      if (parsed.process_frameworks?.length) {
+        const allFrameworkNames = Object.values(WORKFLOW_PROCESS_MAP).flat().map(p => p.name);
+        const matched = parsed.process_frameworks.map(aiName => {
+          const lower = aiName.toLowerCase();
+          return (
+            allFrameworkNames.find(f => f.toLowerCase() === lower) ||
+            allFrameworkNames.find(f => {
+              const fl = f.toLowerCase();
+              return fl.includes(lower) || lower.includes(fl.split(/[\s/]+/)[0]);
+            }) ||
+            null
+          );
+        }).filter(Boolean);
+        const uniqueFrameworks = [...new Set(matched)];
+        if (uniqueFrameworks.length) { newIntake.processFrameworks = uniqueFrameworks; newFields.add("processFrameworks"); }
+      }
 
       // Pre-fill the existing setup section from AI inference
       const auditUpdates = {};
@@ -1594,8 +1661,15 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
         ...d,
         intake: newIntake,
         audit: { ...d.audit, ...auditUpdates },
+        delta: { ...d.delta, userIntent: d.delta.userIntent || prompt },
       }));
+      newFields.add("userIntent");
       setAiSuggestedFields(newFields);
+
+      // Non-critical: also fetch template suggestions for the suggested builds panel
+      matchTemplatesMutation.mutateAsync(prompt)
+        .then(res => setSuggestedBuilds(res.matches?.slice(0, 3) || []))
+        .catch(() => {});
     } catch {
       setParseError("Couldn't parse the prompt — check your connection and try again.");
     }
@@ -1791,8 +1865,8 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
               auditData={data.audit} setAudit={v=>setSD("audit",v)} w={w} isEditing={isEditing}/>
           )}
           {step===3 && <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
-          {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit}/>}
-          {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w}/>}
+          {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds} selectedWorkflowType={data.intake?.workflowType} onSelectBuild={t=>setSD("intake",{...data.intake,workflowType:t})}/>}
+          {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w} aiSuggestedFields={aiSuggestedFields}/>}
           {step===6 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
           {step===7 && <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>}
         </div>
