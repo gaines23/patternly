@@ -30,7 +30,10 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        is_admin = user.role == "admin" or user.is_staff
+        try:
+            is_admin = getattr(user, "role", None) == "admin" or user.is_staff
+        except AttributeError:
+            is_admin = False
         qs = CaseFile.objects.select_related("logged_by").prefetch_related(
             "audit__builds",
             "intake",
@@ -96,7 +99,10 @@ class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        is_admin = user.role == "admin" or user.is_staff
+        try:
+            is_admin = getattr(user, "role", None) == "admin" or user.is_staff
+        except AttributeError:
+            is_admin = False
         qs = CaseFile.objects.select_related("logged_by").prefetch_related(
             "audit__builds",
             "intake",
