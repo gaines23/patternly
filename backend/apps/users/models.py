@@ -5,6 +5,19 @@ from django.utils import timezone
 from datetime import timedelta
 
 
+ACTION_LOGIN = "login"
+ACTION_LOGIN_FAILED = "login_failed"
+ACTION_PASSWORD_CHANGE = "password_change"
+ACTION_PASSWORD_RESET_REQUEST = "password_reset_request"
+ACTION_PASSWORD_RESET_CONFIRM = "password_reset_confirm"
+ACTION_PROFILE_UPDATE = "profile_update"
+ACTION_INVITE_SENT = "invite_sent"
+ACTION_ACCOUNT_CREATED = "account_created"
+ACTION_CASE_FILE_CREATED = "case_file_created"
+ACTION_CASE_FILE_UPDATED = "case_file_updated"
+ACTION_CASE_FILE_DELETED = "case_file_deleted"
+
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -102,3 +115,42 @@ class Invitation(models.Model):
 
     def __str__(self):
         return f"Invite {self.token} by {self.created_by}"
+
+
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        (ACTION_LOGIN, "Login"),
+        (ACTION_LOGIN_FAILED, "Failed Login"),
+        (ACTION_PASSWORD_CHANGE, "Password Changed"),
+        (ACTION_PASSWORD_RESET_REQUEST, "Password Reset Requested"),
+        (ACTION_PASSWORD_RESET_CONFIRM, "Password Reset Confirmed"),
+        (ACTION_PROFILE_UPDATE, "Profile Updated"),
+        (ACTION_INVITE_SENT, "Invite Sent"),
+        (ACTION_ACCOUNT_CREATED, "Account Created"),
+        (ACTION_CASE_FILE_CREATED, "Case File Created"),
+        (ACTION_CASE_FILE_UPDATED, "Case File Updated"),
+        (ACTION_CASE_FILE_DELETED, "Case File Deleted"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="audit_logs"
+    )
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    details = models.JSONField(default=dict, blank=True)
+    success = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "audit_logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["-created_at"]),
+        ]
+
+    def __str__(self):
+        user_str = self.user.email if self.user else "anonymous"
+        return f"[{self.action}] {user_str} @ {self.created_at}"

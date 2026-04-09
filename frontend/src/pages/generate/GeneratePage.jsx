@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGenerateBrief, useGeneratedBriefs } from "../../hooks/useWorkflows";
+import { useMatchTemplates } from "../../hooks/useWorkflows";
 import { useTheme } from "../../hooks/useTheme";
-import { formatDate } from "../../utils/transforms";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
@@ -13,135 +12,186 @@ const EXAMPLE_PROMPTS = [
   "DTC brand producing 40+ content pieces per month. Currently in Airtable but team finds it too database-y. Need a content calendar that shows what's in production.",
 ];
 
-function RecommendationPanel({ brief, theme }) {
-  const rec = brief.recommendation;
-  const navigate = useNavigate();
-  const [feedbackSent, setFeedbackSent] = useState(false);
-  const [rating, setRating] = useState(0);
+const COMPLEXITY_LABELS = ["", "Very simple", "Simple", "Moderate", "Complex", "Very complex"];
 
-  const sections = [
-    { label: "Spaces", value: rec.spaces, mono: false },
-    { label: "Lists", value: rec.lists, mono: false },
-    { label: "Status Flow", value: rec.statuses, mono: false },
-    { label: "Custom Fields", value: rec.custom_fields, mono: true },
-    { label: "Automations", value: rec.automations, mono: true },
-    { label: "Build Notes", value: rec.build_notes, mono: false },
-  ];
+function ScoreBadge({ score, theme }) {
+  const colour =
+    score >= 70 ? { bg: "#ECFDF5", border: "#6EE7B7", text: "#059669" }
+    : score >= 40 ? { bg: "#EFF6FF", border: "#BFDBFE", text: "#1D4ED8" }
+    : { bg: theme.surfaceAlt, border: theme.border, text: theme.textFaint };
+
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, padding: "3px 10px",
+      background: colour.bg, border: `1px solid ${colour.border}`,
+      borderRadius: 10, color: colour.text, fontFamily: F,
+    }}>
+      {score}% match
+    </span>
+  );
+}
+
+function TemplateCard({ result, isSelected, onSelect, theme }) {
+  const { template, score, match_reasons } = result;
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      style={{
+        border: `1.5px solid ${isSelected ? theme.blue : theme.borderInput}`,
+        borderRadius: 12,
+        background: isSelected ? theme.blueLight : theme.surface,
+        overflow: "hidden",
+        transition: "border-color 0.15s, background 0.15s",
+        cursor: "pointer",
+      }}
+      onClick={() => onSelect(result)}
+    >
+      {/* Card header */}
+      <div style={{ padding: "14px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: theme.text, fontFamily: F }}>
+            {template.name}
+          </p>
+          <ScoreBadge score={score} theme={theme} />
+        </div>
+
+        <p style={{ margin: "0 0 10px", fontSize: 12, color: theme.textMuted, fontFamily: F, lineHeight: 1.5 }}>
+          {template.description}
+        </p>
+
+        {/* Match reasons */}
+        {match_reasons.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+            {match_reasons.map((r, i) => (
+              <span key={i} style={{
+                fontSize: 11, padding: "2px 8px", borderRadius: 8,
+                background: theme.surfaceAlt, border: `1px solid ${theme.border}`,
+                color: theme.textMuted, fontFamily: F,
+              }}>
+                {r}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Complexity + expand toggle */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: theme.textFaint, fontFamily: F }}>COMPLEXITY</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <div key={n} style={{
+                  width: 14, height: 14, borderRadius: 3,
+                  border: `2px solid ${template.estimated_complexity >= n ? theme.blue : theme.borderInput}`,
+                  background: template.estimated_complexity >= n ? theme.blueLight : theme.surface,
+                }} />
+              ))}
+            </div>
+            <span style={{ fontSize: 11, color: theme.textMuted, fontFamily: F }}>
+              {COMPLEXITY_LABELS[template.estimated_complexity]}
+            </span>
+          </div>
+          <button
+            onClick={e => { e.stopPropagation(); setExpanded(x => !x); }}
+            style={{
+              padding: "4px 10px", border: `1px solid ${theme.borderInput}`, borderRadius: 7,
+              background: "transparent", fontSize: 11, color: theme.textMuted, fontFamily: F,
+              cursor: "pointer",
+            }}
+          >
+            {expanded ? "Hide details" : "See details"}
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded build details */}
+      {expanded && (
+        <div style={{ borderTop: `1px solid ${theme.border}`, padding: "14px 16px" }} onClick={e => e.stopPropagation()}>
+          {[
+            { label: "Spaces", value: template.spaces },
+            { label: "Lists", value: template.lists },
+            { label: "Status Flow", value: template.statuses },
+            { label: "Custom Fields", value: template.custom_fields, mono: true },
+            { label: "Automations", value: template.automations, mono: true },
+            { label: "Build Notes", value: template.build_notes },
+          ].map(({ label, value, mono }) => value ? (
+            <div key={label} style={{ marginBottom: 12 }}>
+              <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</p>
+              {mono ? (
+                <pre style={{ margin: 0, fontSize: 12, color: theme.textSec, fontFamily: "monospace", background: theme.codeBg, padding: "8px 10px", borderRadius: 7, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{value}</pre>
+              ) : (
+                <p style={{ margin: 0, fontSize: 13, color: theme.textSec, fontFamily: F, lineHeight: 1.5 }}>{value}</p>
+              )}
+            </div>
+          ) : null)}
+
+          {template.integrations?.length > 0 && (
+            <div>
+              <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>Integrations</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {template.integrations.map(t => (
+                  <span key={t} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, color: theme.blue, fontFamily: F, fontWeight: 500 }}>{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatchResultsPanel({ result, theme }) {
+  const navigate = useNavigate();
+  const [selectedId, setSelectedId] = useState(result.matches[0]?.template?.id || null);
+
+  const selectedMatch = result.matches.find(m => m.template.id === selectedId) || result.matches[0];
 
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: theme.blue, fontFamily: F }}>
-              Recommendation ready
-            </span>
-            {brief.confidence_score && (
-              <span style={{ fontSize: 11, padding: "2px 8px", background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 10, color: "#059669", fontFamily: F, fontWeight: 600 }}>
-                {Math.round(brief.confidence_score * 100)}% confidence
-              </span>
-            )}
-          </div>
-          {brief.source_case_file_ids?.length > 0 && (
+          <p style={{ margin: "0 0 3px", fontSize: 13, fontWeight: 700, color: theme.blue, fontFamily: F }}>
+            {result.matches.length} template{result.matches.length !== 1 ? "s" : ""} matched
+          </p>
+          {result.parsed?.workflow_type && (
             <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>
-              Based on {brief.source_case_file_ids.length} similar past build{brief.source_case_file_ids.length !== 1 ? "s" : ""}
+              Detected: {result.parsed.workflow_type}
+              {result.parsed.industries?.length > 0 && ` · ${result.parsed.industries.join(", ")}`}
             </p>
           )}
         </div>
-        <button
-          onClick={() => navigate("/case-files/new", { state: { briefId: brief.id } })}
-          style={{ padding: "9px 18px", background: theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}
-        >
-          Log this as a case file →
-        </button>
+        {selectedMatch && (
+          <button
+            onClick={() => navigate("/projects/new", { state: { templateData: selectedMatch.template } })}
+            style={{ padding: "9px 18px", background: theme.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}
+          >
+            Use this template →
+          </button>
+        )}
       </div>
 
-      {/* Proactive warnings */}
-      {brief.proactive_warnings?.length > 0 && (
-        <div style={{ padding: "14px 16px", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, marginBottom: 20 }}>
-          <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#EA580C", fontFamily: F }}>
-            ⚠️ Known issues with this tool stack
+      {/* Template cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {result.matches.map(m => (
+          <TemplateCard
+            key={m.template.id}
+            result={m}
+            isSelected={m.template.id === selectedId}
+            onSelect={m => setSelectedId(m.template.id)}
+            theme={theme}
+          />
+        ))}
+      </div>
+
+      {result.matches.length === 0 && (
+        <div style={{ padding: "24px 20px", textAlign: "center", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12 }}>
+          <p style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 600, color: theme.textSec, fontFamily: F }}>No templates matched</p>
+          <p style={{ margin: 0, fontSize: 13, color: theme.textMuted, fontFamily: F }}>
+            Try describing your workflow type or industry more specifically.
           </p>
-          {brief.proactive_warnings.map((w, i) => (
-            <div key={i} style={{ marginBottom: i < brief.proactive_warnings.length - 1 ? 10 : 0 }}>
-              <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: "#92400E", fontFamily: F }}>{w.tool}</p>
-              <p style={{ margin: "0 0 2px", fontSize: 12, color: "#B45309", fontFamily: F }}>{w.warning}</p>
-              {w.workaround && (
-                <p style={{ margin: 0, fontSize: 12, color: theme.textMuted, fontFamily: F }}>
-                  Workaround: {w.workaround}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Recommendation sections */}
-      {sections.map(({ label, value, mono }) => value ? (
-        <div key={label} style={{ marginBottom: 16, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "14px 16px" }}>
-          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</p>
-          {mono ? (
-            <pre style={{ margin: 0, fontSize: 13, color: theme.textSec, fontFamily: "monospace", background: theme.codeBg, padding: "10px 12px", borderRadius: 8, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{value}</pre>
-          ) : (
-            <p style={{ margin: 0, fontSize: 14, color: theme.textSec, fontFamily: F, lineHeight: 1.6 }}>{value}</p>
-          )}
-        </div>
-      ) : null)}
-
-      {/* Reasoning */}
-      {rec.reasoning && (
-        <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#059669", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Why this structure</p>
-          <p style={{ margin: 0, fontSize: 13, color: "#065F46", fontFamily: F, lineHeight: 1.7 }}>{rec.reasoning}</p>
-        </div>
-      )}
-
-      {/* Integrations */}
-      {rec.integrations?.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>Integrations to connect</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-            {rec.integrations.map(t => (
-              <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, color: theme.blue, fontFamily: F, fontWeight: 500 }}>{t}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Complexity */}
-      {rec.estimated_complexity && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: theme.textFaint, fontFamily: F }}>COMPLEXITY</span>
-          <div style={{ display: "flex", gap: 4 }}>
-            {[1, 2, 3, 4, 5].map(n => (
-              <div key={n} style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${rec.estimated_complexity >= n ? theme.blue : theme.borderInput}`, background: rec.estimated_complexity >= n ? theme.blueLight : theme.surface }} />
-            ))}
-          </div>
-          <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
-            {["", "Very simple", "Simple", "Moderate", "Complex", "Very complex"][rec.estimated_complexity]}
-          </span>
-        </div>
-      )}
-
-      {/* Rating */}
-      {!feedbackSent ? (
-        <div style={{ padding: "16px 18px", background: theme.surfaceAlt, border: `1px solid ${theme.border}`, borderRadius: 10 }}>
-          <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: theme.textSec, fontFamily: F }}>
-            Was this recommendation useful?
-          </p>
-          <div style={{ display: "flex", gap: 6 }}>
-            {[1, 2, 3, 4, 5].map(n => (
-              <button key={n} onClick={() => { setRating(n); setFeedbackSent(true); }}
-                style={{ padding: "8px 14px", border: `1.5px solid ${rating === n ? theme.blue : theme.borderInput}`, borderRadius: 8, background: rating === n ? theme.blueLight : theme.surface, color: rating === n ? theme.blue : theme.textFaint, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: F }}>
-                {"★".repeat(n)}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div style={{ padding: "12px 16px", background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 10, fontSize: 13, color: "#059669", fontFamily: F }}>
-          Thanks for the feedback — it improves future recommendations.
         </div>
       )}
     </div>
@@ -150,27 +200,21 @@ function RecommendationPanel({ brief, theme }) {
 
 export default function GeneratePage() {
   const [prompt, setPrompt] = useState("");
-  const [currentBrief, setCurrentBrief] = useState(null);
+  const [matchResult, setMatchResult] = useState(null);
   const [focused, setFocused] = useState(false);
   const { theme } = useTheme();
 
-  const generateMutation = useGenerateBrief();
-  const { data: pastBriefs } = useGeneratedBriefs();
+  const matchMutation = useMatchTemplates();
 
-  const handleGenerate = async () => {
+  const handleMatch = async () => {
     if (!prompt.trim() || prompt.trim().length < 20) return;
-    setCurrentBrief(null);
+    setMatchResult(null);
     try {
-      const brief = await generateMutation.mutateAsync(prompt);
-      setCurrentBrief(brief);
-    } catch (err) {
+      const result = await matchMutation.mutateAsync(prompt);
+      setMatchResult(result);
+    } catch {
       // error handled via mutation state
     }
-  };
-
-  const handleExample = (example) => {
-    setPrompt(example);
-    setCurrentBrief(null);
   };
 
   return (
@@ -180,14 +224,14 @@ export default function GeneratePage() {
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <div style={{ width: 36, height: 36, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✨</div>
-          <h1 style={{ margin: 0, fontSize: 24, fontFamily: "'Fraunces', serif" }}>Generate Workflow</h1>
+          <h1 style={{ margin: 0, fontSize: 24, fontFamily: "'Fraunces', serif" }}>Find a Workflow Template</h1>
         </div>
         <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F, maxWidth: 600 }}>
-          Describe your team and what you're trying to solve. Flowpath will analyse past builds and recommend the optimal ClickUp setup.
+          Describe your team and what you're trying to solve. Flowpath will match you to the best pre-built workflow template.
         </p>
       </div>
 
-      <div className={currentBrief ? "fp-two-col" : ""} style={{ display: "grid", gridTemplateColumns: currentBrief ? "1fr 1fr" : "1fr", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: matchResult ? "1fr 1fr" : "1fr", gap: 24 }}>
 
         {/* Left: Input */}
         <div>
@@ -209,45 +253,45 @@ Example: We're a 9-person marketing agency managing 15 clients. We use Slack and
                 {prompt.length < 20 ? `${20 - prompt.length} more characters needed` : `${prompt.length} characters`}
               </span>
               <button
-                onClick={handleGenerate}
-                disabled={generateMutation.isPending || prompt.trim().length < 20}
-                style={{ padding: "9px 22px", background: generateMutation.isPending || prompt.trim().length < 20 ? theme.borderInput : theme.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: generateMutation.isPending || prompt.trim().length < 20 ? "not-allowed" : "pointer", transition: "background 0.15s" }}
+                onClick={handleMatch}
+                disabled={matchMutation.isPending || prompt.trim().length < 20}
+                style={{ padding: "9px 22px", background: matchMutation.isPending || prompt.trim().length < 20 ? theme.borderInput : theme.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: matchMutation.isPending || prompt.trim().length < 20 ? "not-allowed" : "pointer", transition: "background 0.15s" }}
               >
-                {generateMutation.isPending ? "Analysing…" : "Generate →"}
+                {matchMutation.isPending ? "Matching…" : "Find templates →"}
               </button>
             </div>
           </div>
 
           {/* Error */}
-          {generateMutation.isError && (
+          {matchMutation.isError && (
             <div style={{ padding: "12px 14px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 9, marginBottom: 16, fontSize: 13, color: "#DC2626", fontFamily: F }}>
-              {generateMutation.error?.response?.data?.error || "Generation failed. Check that ANTHROPIC_API_KEY is set."}
+              {matchMutation.error?.response?.data?.error || "Matching failed. Check that ANTHROPIC_API_KEY is set."}
             </div>
           )}
 
           {/* Loading state */}
-          {generateMutation.isPending && (
+          {matchMutation.isPending && (
             <div style={{ padding: "24px 20px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, textAlign: "center", marginBottom: 16 }}>
               <div style={{ marginBottom: 12 }}>
-                {["Parsing your scenario…", "Retrieving similar past builds…", "Generating recommendation…"].map((step, i) => (
+                {["Parsing your scenario…", "Scoring templates…"].map((step, i) => (
                   <p key={i} style={{ margin: "4px 0", fontSize: 13, color: i === 0 ? theme.blue : theme.textFaint, fontFamily: F }}>
                     {i === 0 ? "⟳ " : "○ "}{step}
                   </p>
                 ))}
               </div>
-              <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>This takes 5–15 seconds</p>
+              <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>This takes a few seconds</p>
             </div>
           )}
 
           {/* Example prompts */}
-          {!generateMutation.isPending && !currentBrief && (
+          {!matchMutation.isPending && !matchResult && (
             <div>
               <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                 Try an example
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {EXAMPLE_PROMPTS.map((ex, i) => (
-                  <button key={i} onClick={() => handleExample(ex)}
+                  <button key={i} onClick={() => { setPrompt(ex); setMatchResult(null); }}
                     style={{ padding: "10px 14px", background: theme.surface, border: `1px solid ${theme.borderInput}`, borderRadius: 9, cursor: "pointer", textAlign: "left", fontSize: 12, color: theme.textMuted, fontFamily: F, lineHeight: 1.5, transition: "border-color 0.15s" }}
                     onMouseEnter={e => e.currentTarget.style.borderColor = theme.blue}
                     onMouseLeave={e => e.currentTarget.style.borderColor = theme.borderInput}
@@ -258,35 +302,12 @@ Example: We're a 9-person marketing agency managing 15 clients. We use Slack and
               </div>
             </div>
           )}
-
-          {/* Past generated briefs */}
-          {pastBriefs?.results?.length > 0 && !currentBrief && (
-            <div style={{ marginTop: 28 }}>
-              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                Recent generations
-              </p>
-              {pastBriefs.results.slice(0, 5).map(b => (
-                <button key={b.id} onClick={() => setCurrentBrief(b)}
-                  style={{ width: "100%", padding: "10px 14px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 9, cursor: "pointer", textAlign: "left", marginBottom: 6, transition: "border-color 0.15s" }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = theme.blue}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
-                >
-                  <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: theme.textSec, fontFamily: F }}>
-                    {b.parsed_scenario?.workflow_type || "Untitled scenario"}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 11, color: theme.textFaint, fontFamily: F }}>
-                    {b.parsed_scenario?.industry} · {formatDate(b.created_at)}
-                  </p>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Right: Recommendation */}
-        {currentBrief && (
+        {/* Right: Match results */}
+        {matchResult && (
           <div style={{ background: theme.surfaceAlt, borderRadius: 12, padding: "20px", border: `1px solid ${theme.borderInput}` }}>
-            <RecommendationPanel brief={currentBrief} theme={theme} />
+            <MatchResultsPanel result={matchResult} theme={theme} />
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Invitation, PasswordResetToken
+from .models import User, Invitation, PasswordResetToken, AuditLog
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -64,3 +64,30 @@ class InviteSerializer(serializers.ModelSerializer):
 
     def get_is_valid(self, obj):
         return obj.is_valid()
+
+
+class UserAdminSerializer(serializers.ModelSerializer):
+    """Used by admins to list/update users. Never exposes password."""
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name", "full_name", "role", "is_active", "created_at"]
+        read_only_fields = ["id", "email", "full_name", "created_at"]
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_email = serializers.SerializerMethodField()
+    action_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            "id", "user_email", "action", "action_display",
+            "ip_address", "user_agent", "details", "success", "created_at",
+        ]
+
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user else None
+
+    def get_action_display(self, obj):
+        return obj.get_action_display()

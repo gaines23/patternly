@@ -1,0 +1,148 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "../api/client";
+
+// ── Keys ──────────────────────────────────────────────────────────────────────
+export const projectKeys = {
+  all:      ["projects"],
+  lists:    () => [...projectKeys.all, "list"],
+  list:     (filters) => [...projectKeys.lists(), filters],
+  details:  () => [...projectKeys.all, "detail"],
+  detail:   (id) => [...projectKeys.details(), id],
+  stats:    () => [...projectKeys.all, "stats"],
+  warnings: (tools) => [...projectKeys.all, "warnings", tools],
+};
+
+// ── Fetch all projects (paginated, filterable) ────────────────────────────────
+export function useProjects(filters = {}) {
+  return useQuery({
+    queryKey: projectKeys.list(filters),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.industry)         params.set("industry",         filters.industry);
+      if (filters.tool)             params.set("tool",             filters.tool);
+      if (filters.workflow_type)    params.set("workflow_type",    filters.workflow_type);
+      if (filters.min_satisfaction) params.set("min_satisfaction", filters.min_satisfaction);
+      if (filters.search)           params.set("search",           filters.search);
+      if (filters.status)           params.set("status",           filters.status);
+      if (filters.page)             params.set("page",             filters.page);
+      const { data } = await api.get(`/v1/briefs/?${params}`);
+      return data;
+    },
+  });
+}
+
+// ── Fetch single project ──────────────────────────────────────────────────────
+export function useProject(id) {
+  return useQuery({
+    queryKey: projectKeys.detail(id),
+    queryFn: async () => {
+      const { data } = await api.get(`/v1/briefs/${id}/`);
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+// ── Create project ────────────────────────────────────────────────────────────
+export function useCreateProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => {
+      const { data } = await api.post("/v1/briefs/", payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: projectKeys.stats() });
+    },
+  });
+}
+
+// ── Update project ────────────────────────────────────────────────────────────
+export function useUpdateProject(id) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => {
+      const { data } = await api.put(`/v1/briefs/${id}/`, payload);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(projectKeys.detail(id), data);
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+  });
+}
+
+// ── Delete project ────────────────────────────────────────────────────────────
+export function useDeleteProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => {
+      await api.delete(`/v1/briefs/${id}/`);
+      return id;
+    },
+    onSuccess: (id) => {
+      queryClient.removeQueries({ queryKey: projectKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+  });
+}
+
+// ── Toggle project status (open ↔ closed) ────────────────────────────────────
+export function useToggleProjectStatus(id) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/v1/briefs/${id}/status/`);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(projectKeys.detail(id), (old) =>
+        old ? { ...old, status: data.status, closed_at: data.closed_at } : old
+      );
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+  });
+}
+
+// ── Toggle shareable link ─────────────────────────────────────────────────────
+export function useShareProject(id) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/v1/briefs/${id}/share/`);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(projectKeys.detail(id), (old) =>
+        old ? { ...old, share_enabled: data.share_enabled, share_token: data.share_token } : old
+      );
+    },
+  });
+}
+
+// ── Dashboard stats ───────────────────────────────────────────────────────────
+export function useProjectStats() {
+  return useQuery({
+    queryKey: projectKeys.stats(),
+    queryFn: async () => {
+      const { data } = await api.get("/v1/briefs/stats/");
+      return data;
+    },
+  });
+}
+
+// ── Proactive roadblock warnings ──────────────────────────────────────────────
+export function useRoadblockWarnings(tools = []) {
+  return useQuery({
+    queryKey: projectKeys.warnings(tools),
+    queryFn: async () => {
+      if (!tools.length) return { warnings: [] };
+      const { data } = await api.get(
+        `/v1/briefs/roadblocks/warnings/?tools=${tools.join(",")}`
+      );
+      return data;
+    },
+    enabled: tools.length > 0,
+  });
+}

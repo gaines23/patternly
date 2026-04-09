@@ -7,6 +7,17 @@ export const briefKeys = {
   detail: (id) => [...briefKeys.all, "detail", id],
 };
 
+export function useMatchTemplates() {
+  return useMutation({
+    mutationFn: async (rawPrompt) => {
+      const { data } = await api.post("/v1/workflows/match/", {
+        raw_prompt: rawPrompt,
+      });
+      return data; // { parsed: {...}, matches: [{template, score, match_reasons}] }
+    },
+  });
+}
+
 export function useParsePrompt() {
   return useMutation({
     mutationFn: async (rawPrompt) => {
@@ -54,14 +65,14 @@ export function useGeneratedBrief(id) {
   });
 }
 
-export function useBriefByCaseFile(caseFileId) {
+export function useBriefByProject(projectId) {
   return useQuery({
-    queryKey: [...briefKeys.all, "byCaseFile", caseFileId],
+    queryKey: [...briefKeys.all, "byProject", projectId],
     queryFn: async () => {
-      const { data } = await api.get(`/v1/workflows/briefs/?case_file_id=${caseFileId}`);
+      const { data } = await api.get(`/v1/workflows/briefs/?case_file_id=${projectId}`);
       return data[0] || null;
     },
-    enabled: !!caseFileId,
+    enabled: !!projectId,
   });
 }
 

@@ -6,8 +6,8 @@ import { useTheme } from "../../hooks/useTheme";
 const NAV = [
   { to: "/dashboard",    label: "Dashboard",     icon: "◈" },
   { to: "/generate",     label: "Generate",       icon: "✨" },
-  { to: "/case-files",   label: "Case Files",     icon: "◎" },
-  { to: "/case-files/new", label: "New Case File", icon: "+" },
+  { to: "/projects",     label: "Projects",       icon: "◎" },
+  { to: "/projects/new", label: "New Project",    icon: "+" },
 ];
 
 const F = "'Plus Jakarta Sans', sans-serif";
@@ -64,7 +64,7 @@ export default function AppLayout({ children }) {
 
   const isActive = (to) =>
     to === "/dashboard" ? location.pathname === "/dashboard"
-    : to === "/case-files" ? location.pathname === "/case-files"
+    : to === "/projects" ? location.pathname === "/projects"
     : location.pathname.startsWith(to);
 
   const NavLink = ({ item }) => (

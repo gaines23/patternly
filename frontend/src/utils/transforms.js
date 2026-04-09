@@ -2,7 +2,7 @@
  * Transforms the local React form state (from workflow-intake.jsx)
  * into the shape expected by POST /api/v1/briefs/
  */
-export function formStateToCaseFilePayload(formData, loggedByName = "", name = "") {
+export function formToProjectPayload(formData, loggedByName = "", name = "") {
   const { audit, intake, build, delta, reasoning, outcome, projectUpdates } = formData;
 
   return {
@@ -58,6 +58,9 @@ export function formStateToCaseFilePayload(formData, loggedByName = "", name = "
       workflows: (build.workflows || []).map(wf => ({
         name: wf.name,
         notes: wf.notes,
+        status: wf.status || "Mapping",
+        replaces: wf.replaces || "",
+        learnings: wf.learnings || { rating: "", whatWorked: "", whatToAvoid: "" },
         pipeline: (wf.pipeline || []).filter(p => p.trim()),
         lists: (wf.lists || []).map(l => ({
           name: l.name,
@@ -72,6 +75,7 @@ export function formStateToCaseFilePayload(formData, loggedByName = "", name = "
             triggers: (a.triggers || []).map(t => ({ type: t.type, detail: t.detail })),
             actions: (a.actions || []).map(ac => ({ type: ac.type, detail: ac.detail })),
             instructions: a.instructions,
+            map_description: a.map_description || "",
             use_agent: !!(a.instructions && a.instructions.trim().length > 0),
           })),
         })),
@@ -152,7 +156,7 @@ export function formStateToCaseFilePayload(formData, loggedByName = "", name = "
 /**
  * Transforms API response back into form state shape for editing.
  */
-export function caseFileToFormState(caseFile) {
+export function projectToFormState(caseFile) {
   const { audit, intake, build, delta, reasoning, outcome, project_updates } = caseFile;
 
   return {
@@ -201,6 +205,9 @@ export function caseFileToFormState(caseFile) {
       workflows: (build?.workflows || []).map(wf => ({
         name: wf.name || "",
         notes: wf.notes || "",
+        status: wf.status || "Mapping",
+        replaces: wf.replaces || "",
+        learnings: wf.learnings || { rating: "", whatWorked: "", whatToAvoid: "" },
         pipeline: (wf.pipeline || []).map(p => p || ""),
         lists: (wf.lists || []).map(l => ({
           name: l.name || "",
@@ -215,6 +222,7 @@ export function caseFileToFormState(caseFile) {
             triggers: (a.triggers || []).map(t => ({ type: t.type || "", detail: t.detail || "" })),
             actions: (a.actions || []).map(ac => ({ type: ac.type || "", detail: ac.detail || "" })),
             instructions: a.instructions || "",
+            map_description: a.map_description || "",
             use_agent: a.use_agent ?? !!(a.instructions && a.instructions.trim().length > 0),
           })),
         })),
@@ -290,7 +298,7 @@ export function caseFileToFormState(caseFile) {
 
 // ── Automation type inference helpers ────────────────────────────────────────
 
-// Mirror the constants from CaseFileForm so inference can exact-match against them
+// Mirror the constants from ProjectForm so inference can exact-match against them
 const _TRIGGER_LIST = [
   "Task Created","Task Status Changed","Task Completed","Task Moved","Task Assigned","Task Unassigned",
   "Task Due Date Arrives","Task Start Date Arrives","Task Due Date Changed","Task Priority Changed",
@@ -415,7 +423,7 @@ function inferActionType(text) {
 }
 
 /**
- * Maps a GeneratedBrief (from AI output) into CaseFileForm's initialData shape.
+ * Maps a GeneratedBrief (from AI output) into ProjectForm's initialData shape.
  * Pre-fills Intake, Build, and Reasoning layers from parsed_scenario + recommendation.
  * Audit, Delta, and Outcome are left empty for the user to fill manually.
  */
@@ -533,6 +541,101 @@ export function briefToFormState(brief) {
       whenOpposite: "",
       lessons: "",
       complexity: rec.estimated_complexity || 3,
+    },
+    outcome: {
+      built: null,
+      blockReason: "",
+      changes: "",
+      whatWorked: "",
+      whatFailed: "",
+      satisfaction: 3,
+      recommend: null,
+      revisitWhen: "",
+    },
+  };
+}
+
+/**
+ * Maps a WorkflowTemplate into ProjectForm's initialData shape.
+ * Pre-fills Intake and Build layers from the template.
+ * Audit, Delta, Reasoning, and Outcome are left empty for the user to fill.
+ */
+export function templateToFormState(template) {
+  const spaceNames = (template.spaces || "")
+    .split(/,|\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const workflows = spaceNames.map((spaceName, i) => ({
+    name: spaceName,
+    notes: i === 0 ? template.lists || "" : "",
+    pipeline: [],
+    lists: i === 0
+      ? [{
+          name: "Main",
+          space: spaceName,
+          statuses: template.statuses || "",
+          customFields: template.custom_fields || "",
+          automations: [],
+        }]
+      : [],
+  }));
+
+  if (workflows.length === 0) {
+    workflows.push({
+      name: "",
+      notes: template.lists || "",
+      pipeline: [],
+      lists: [{
+        name: "Main",
+        space: "",
+        statuses: template.statuses || "",
+        customFields: template.custom_fields || "",
+        automations: [],
+      }],
+    });
+  }
+
+  return {
+    audit: {
+      hasExisting: null,
+      overallAssessment: "",
+      triedToFix: null,
+      previousFixes: "",
+      builds: [],
+      patternSummary: "",
+    },
+    intake: {
+      rawPrompt: "",
+      industries: template.industries || [],
+      teamSize: "",
+      workflowType: template.workflow_type || "",
+      processFrameworks: template.process_frameworks || [],
+      tools: template.tools || [],
+      painPoints: template.pain_points || [],
+      priorAttempts: "",
+    },
+    build: {
+      buildNotes: template.build_notes || "",
+      workflows,
+    },
+    delta: {
+      userIntent: "",
+      successCriteria: "",
+      actualBuild: "",
+      diverged: null,
+      divergenceReason: "",
+      compromises: "",
+      roadblocks: [],
+    },
+    reasoning: {
+      whyStructure: "",
+      alternatives: "",
+      whyRejected: "",
+      assumptions: "",
+      whenOpposite: "",
+      lessons: "",
+      complexity: template.estimated_complexity || 3,
     },
     outcome: {
       built: null,

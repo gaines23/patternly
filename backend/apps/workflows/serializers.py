@@ -1,10 +1,34 @@
 from rest_framework import serializers
-from .models import GeneratedBrief, WorkflowPattern
+from .models import GeneratedBrief, WorkflowPattern, WorkflowTemplate
 
 
 class GenerateBriefInputSerializer(serializers.Serializer):
     """Input for POST /api/v1/workflows/generate/"""
     raw_prompt = serializers.CharField(min_length=20, max_length=5000)
+
+
+class TemplateMatchInputSerializer(serializers.Serializer):
+    """Input for POST /api/v1/workflows/match/"""
+    raw_prompt = serializers.CharField(min_length=20, max_length=5000)
+
+
+class WorkflowTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkflowTemplate
+        fields = [
+            "id", "name", "description", "workflow_type", "industries",
+            "pain_points", "tools", "process_frameworks", "spaces", "lists",
+            "statuses", "custom_fields", "automations", "integrations",
+            "build_notes", "estimated_complexity",
+            "is_auto_generated", "source_project_id",
+        ]
+
+
+class TemplateMatchResultSerializer(serializers.Serializer):
+    """One matched template with its score breakdown."""
+    template = WorkflowTemplateSerializer()
+    score = serializers.IntegerField()
+    match_reasons = serializers.ListField(child=serializers.CharField())
 
 
 class GeneratedBriefSerializer(serializers.ModelSerializer):

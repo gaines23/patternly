@@ -11,6 +11,10 @@ from .serializers import (
     CaseFileWriteSerializer,
     PublicCaseFileSerializer,
 )
+from apps.users.audit import log_action
+from apps.users.models import (
+    ACTION_CASE_FILE_CREATED, ACTION_CASE_FILE_UPDATED, ACTION_CASE_FILE_DELETED,
+)
 
 
 class CaseFileListCreateView(generics.ListCreateAPIView):
@@ -25,6 +29,8 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
     ordering = ["-created_at"]
 
     def get_queryset(self):
+        user = self.request.user
+        is_admin = user.role == "admin" or user.is_staff
         qs = CaseFile.objects.select_related("logged_by").prefetch_related(
             "audit__builds",
             "intake",
@@ -33,6 +39,9 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
             "reasoning",
             "outcome",
         )
+        # Admins see all; everyone else only sees their own files
+        if not is_admin:
+            qs = qs.filter(logged_by=user)
         # Optional filters via query params
         industry = self.request.query_params.get("industry")
         tool = self.request.query_params.get("tool")
@@ -66,6 +75,12 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
         )
         serializer.is_valid(raise_exception=True)
         case_file = serializer.save()
+        log_action(
+            user=request.user,
+            action=ACTION_CASE_FILE_CREATED,
+            request=request,
+            details={"case_file_id": str(case_file.id)},
+        )
         # Return the full detail on creation
         out = CaseFileDetailSerializer(case_file)
         return Response(out.data, status=status.HTTP_201_CREATED)
@@ -74,13 +89,15 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
 class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /api/v1/briefs/<id>/   → full case file with all layers
-    PUT    /api/v1/briefs/<id>/   → update
-    DELETE /api/v1/briefs/<id>/   → delete
+    PUT    /api/v1/briefs/<id>/   → update (owner or admin only)
+    DELETE /api/v1/briefs/<id>/   → delete (owner or admin only)
     """
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return CaseFile.objects.select_related("logged_by").prefetch_related(
+        user = self.request.user
+        is_admin = user.role == "admin" or user.is_staff
+        qs = CaseFile.objects.select_related("logged_by").prefetch_related(
             "audit__builds",
             "intake",
             "build",
@@ -88,11 +105,32 @@ class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
             "reasoning",
             "outcome",
         )
+        if not is_admin:
+            qs = qs.filter(logged_by=user)
+        return qs
 
     def get_serializer_class(self):
         if self.request.method in ["PUT", "PATCH"]:
             return CaseFileWriteSerializer
         return CaseFileDetailSerializer
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        log_action(
+            user=self.request.user,
+            action=ACTION_CASE_FILE_UPDATED,
+            request=self.request,
+            details={"case_file_id": str(instance.id)},
+        )
+
+    def perform_destroy(self, instance):
+        log_action(
+            user=self.request.user,
+            action=ACTION_CASE_FILE_DELETED,
+            request=self.request,
+            details={"case_file_id": str(instance.id)},
+        )
+        instance.delete()
 
 
 @api_view(["POST"])

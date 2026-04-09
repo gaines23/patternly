@@ -138,7 +138,7 @@ export const CLICKUP_ACTIONS = [
 ];
 
 const PHASES = [
-  {id:"situation", label:"The Situation", short:"Situation", color:"#7C3AED"},
+  {id:"situation", label:"The Project",   short:"Project",  color:"#7C3AED"},
   {id:"build",     label:"The Build",     short:"Build",     color:"#0284C7"},
   {id:"outcome",   label:"The Outcome",   short:"Outcome",   color:"#059669"},
 ];

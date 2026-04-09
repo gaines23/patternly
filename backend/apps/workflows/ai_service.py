@@ -99,7 +99,7 @@ Return ONLY valid JSON, no markdown fences, no explanation. Schema:
   "workflow_type": "string — e.g. 'Client Project Management', 'Sprint Planning'",
   "tools": ["array of tool names mentioned — e.g. Slack, HubSpot, GitHub"],
   "pain_points": ["array of pain points — e.g. Visibility, Handoffs, Reporting"],
-  "process_frameworks": ["array of frameworks mentioned — e.g. Agile / Scrum, OKRs"],
+  "process_frameworks": ["suggest process frameworks this team would benefit from — include relevant ones even if not explicitly mentioned. Use exact names from this list: Kanban, SOPs, RACI Matrix, Phase Gate, Waterfall, Agile / Scrum, PMBOK, Milestones & Deliverables, OKRs, KPIs, Change Management, Risk Register, BPM, Value Stream Mapping, Lean / Six Sigma, Critical Path Method, Program Delivery. For teams with no workflow/broken comms/missed deadlines: Kanban, SOPs, RACI Matrix. For event and project tracking: Phase Gate, Milestones & Deliverables. For teams needing clear accountability: RACI Matrix, OKRs. For intake or intake process gaps: BPM, SOPs."],
   "key_requirements": ["array of 3-5 specific things they need the workflow to do"],
   "has_existing_setup": "boolean — true if the client already has something in place (ClickUp, Asana, spreadsheets, any prior tool or process), false if they are starting from scratch",
   "existing_tools": ["array of tools/systems the client is currently using or migrating away from — e.g. Asana, Monday.com, Google Sheets, a custom spreadsheet"],
