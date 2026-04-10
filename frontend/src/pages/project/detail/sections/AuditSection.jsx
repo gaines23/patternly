@@ -10,7 +10,7 @@ import CurrentBuildCard from "../components/CurrentBuildCard";
  *   audit  — cf.audit object
  *   theme  — theme object from useTheme()
  */
-export default function AuditSection({ audit, theme }) {
+export default function AuditSection({ audit, theme, layerTodos = [] }) {
   if (!audit) return null;
 
   return (
@@ -18,6 +18,7 @@ export default function AuditSection({ audit, theme }) {
       title="What's in place now?"
       subtitle="Document the client's current setup and what's breaking"
       color="#7C3AED"
+      layerTodos={layerTodos}
     >
       <DetailRow label="Has existing setup" value={audit.has_existing === true ? "Yes" : audit.has_existing === false ? "No — greenfield" : "—"} />
       <DetailRow label="Overall assessment " value={audit.overall_assessment} fullWidth />

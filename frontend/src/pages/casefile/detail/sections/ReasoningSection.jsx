@@ -10,7 +10,7 @@ import DetailRow from "../components/DetailRow";
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
  */
-export default function ReasoningSection({ reasoning, isPrinting, theme }) {
+export default function ReasoningSection({ reasoning, isPrinting, theme, layerTodos = [] }) {
   if (!reasoning) return null;
 
   return (
@@ -18,6 +18,7 @@ export default function ReasoningSection({ reasoning, isPrinting, theme }) {
       title="Decision Reasoning"
       subtitle="Record the reasoning behind every major decision"
       color="#059669"
+      layerTodos={layerTodos}
       collapsible
       forceOpen={isPrinting}
     >

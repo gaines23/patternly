@@ -11,7 +11,7 @@ import TagList from "../components/TagList";
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
  */
-export default function IntakeSection({ intake, theme }) {
+export default function IntakeSection({ intake, theme, layerTodos = [] }) {
   if (!intake) return null;
 
   return (
@@ -19,6 +19,7 @@ export default function IntakeSection({ intake, theme }) {
       title="Who's the client?"
       subtitle="Capture the scenario, industry, team, and tools"
       color="#7C3AED"
+      layerTodos={layerTodos}
     >
       <DetailRow label="Team size" value={intake.team_size} />
       <DetailRow label="Workflow type" value={intake.workflow_type} />

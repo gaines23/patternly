@@ -11,7 +11,7 @@ import CurrentBuildCard from "../components/CurrentBuildCard";
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
  */
-export default function AuditSection({ audit, isPrinting, theme }) {
+export default function AuditSection({ audit, isPrinting, theme, layerTodos = [] }) {
   if (!audit) return null;
 
   return (
@@ -19,6 +19,7 @@ export default function AuditSection({ audit, isPrinting, theme }) {
       title="What's in place now?"
       subtitle="Document the client's current setup and what's breaking"
       color="#7C3AED"
+      layerTodos={layerTodos}
       collapsible
       forceOpen={isPrinting}
     >

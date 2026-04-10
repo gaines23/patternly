@@ -11,7 +11,7 @@ import SatisfactionStars from "../components/SatisfactionStars";
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
  */
-export default function OutcomeSection({ outcome, isPrinting, theme }) {
+export default function OutcomeSection({ outcome, isPrinting, theme, layerTodos = [] }) {
   if (!outcome) return null;
 
   return (
@@ -19,6 +19,7 @@ export default function OutcomeSection({ outcome, isPrinting, theme }) {
       title="Outcome"
       subtitle="Capture the post-build result and long-term usage signal"
       color="#059669"
+      layerTodos={layerTodos}
       collapsible
       forceOpen={isPrinting}
     >

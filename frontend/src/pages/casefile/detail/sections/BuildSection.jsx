@@ -18,7 +18,7 @@ import ViewAutoCard from "../components/ViewAutoCard";
  *   mapWfIndex     — currently-selected workflow index for the map panel (or null)
  *   setMapWfIndex  — setter to toggle the workflow map
  */
-export default function BuildSection({ build, isPrinting, theme, mapWfIndex, setMapWfIndex }) {
+export default function BuildSection({ build, isPrinting, theme, mapWfIndex, setMapWfIndex, layerTodos = [] }) {
   if (!build) return null;
 
   return (
@@ -26,6 +26,7 @@ export default function BuildSection({ build, isPrinting, theme, mapWfIndex, set
       title="Build Documentation"
       subtitle="Document everything that was built"
       color="#0284C7"
+      layerTodos={layerTodos}
       collapsible
       forceOpen={isPrinting}
     >

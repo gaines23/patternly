@@ -11,7 +11,7 @@ import TagList from "../components/TagList";
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
  */
-export default function IntakeSection({ intake, isPrinting, theme }) {
+export default function IntakeSection({ intake, isPrinting, theme, layerTodos = [] }) {
   if (!intake) return null;
 
   return (
@@ -19,6 +19,7 @@ export default function IntakeSection({ intake, isPrinting, theme }) {
       title="Who's the client?"
       subtitle="Capture the scenario, industry, team, and tools"
       color="#7C3AED"
+      layerTodos={layerTodos}
       collapsible
       forceOpen={isPrinting}
     >

@@ -11,7 +11,7 @@ import SatisfactionStars from "../components/SatisfactionStars";
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
  */
-export default function OutcomeSection({ outcome, theme }) {
+export default function OutcomeSection({ outcome, theme, layerTodos = [] }) {
   if (!outcome) return null;
 
   return (
@@ -19,6 +19,7 @@ export default function OutcomeSection({ outcome, theme }) {
       title="Outcome"
       subtitle="Capture the post-build result and long-term usage signal"
       color="#059669"
+      layerTodos={layerTodos}
     >
       <DetailRow label="Did they build it" value={outcome.built ? outcome.built.charAt(0).toUpperCase() + outcome.built.slice(1) : null} />
       <DetailRow label="Block reason" value={outcome.block_reason} fullWidth />

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@hooks/useTheme";
 import { useProject, useDeleteProject, useUpdateProject, useToggleProjectStatus } from "@hooks/useProjects";
 import { useBriefByProject } from "@hooks/useWorkflows";
+import { useTodos } from "@hooks/useTodos";
 import { formToProjectPayload, projectToFormState, briefToSuggestedAutomations } from "@utils/transforms";
 import ProjectForm from "@components/ProjectForm";
 import DeleteConfirmModal from "@components/DeleteConfirmModal";
@@ -157,6 +158,13 @@ export default function CaseFileDetailPage() {
   const updateMutation  = useUpdateProject(id);
   const statusMutation  = useToggleProjectStatus(id);
   const { data: linkedBrief } = useBriefByProject(id);
+  const { todos: caseFileTodos } = useTodos({ case_file_id: id });
+  const todosByLayer = caseFileTodos.reduce((acc, t) => {
+    if (t.layer_reference) {
+      acc[t.layer_reference] = [...(acc[t.layer_reference] || []), t];
+    }
+    return acc;
+  }, {});
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleDelete = () => setDeleteTarget(true);
@@ -336,12 +344,12 @@ export default function CaseFileDetailPage() {
             <div id="fp-print-root" style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: isMobile ? "20px 16px" : "28px 32px" }}>
               {activeSection === 0 && <ProjectUpdatesView projectUpdates={project_updates}    theme={theme} />}
               {activeSection === 1 && <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} />}
-              {activeSection === 2 && <IntakeSection    intake={intake}       theme={theme} />}
-              {activeSection === 3 && <AuditSection     audit={audit}         theme={theme} />}
-              {activeSection === 4 && <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} />}
-              {activeSection === 5 && <DeltaSection     delta={delta}         theme={theme} />}
-              {activeSection === 6 && <ReasoningSection reasoning={reasoning} theme={theme} />}
-              {activeSection === 7 && <OutcomeSection   outcome={outcome}     theme={theme} />}
+              {activeSection === 2 && <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} />}
+              {activeSection === 3 && <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} />}
+              {activeSection === 4 && <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} />}
+              {activeSection === 5 && <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} />}
+              {activeSection === 6 && <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} />}
+              {activeSection === 7 && <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} />}
             </div>
 
           </div>

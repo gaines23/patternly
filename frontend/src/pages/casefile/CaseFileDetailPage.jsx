@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@hooks/useTheme";
 import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile, useToggleCaseFileStatus } from "@hooks/useCaseFiles";
 import { useBriefByCaseFile } from "@hooks/useWorkflows";
+import { useTodos } from "@hooks/useTodos";
 import { formStateToCaseFilePayload, caseFileToFormState, briefToSuggestedAutomations } from "@utils/transforms";
 import CaseFileForm from "@components/CaseFileForm";
 import DeleteConfirmModal from "@components/DeleteConfirmModal";
@@ -82,6 +83,13 @@ export default function CaseFileDetailPage() {
   const updateMutation  = useUpdateCaseFile(id);
   const statusMutation  = useToggleCaseFileStatus(id);
   const { data: linkedBrief } = useBriefByCaseFile(id);
+  const { todos: caseFileTodos } = useTodos({ case_file_id: id });
+  const todosByLayer = caseFileTodos.reduce((acc, t) => {
+    if (t.layer_reference) {
+      acc[t.layer_reference] = [...(acc[t.layer_reference] || []), t];
+    }
+    return acc;
+  }, {});
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleDelete = () => setDeleteTarget(true);
@@ -275,12 +283,12 @@ export default function CaseFileDetailPage() {
             </div>
 
             {/* ── Six data layers ──────────────────────────────────────────── */}
-            <AuditSection     audit={audit}         isPrinting={isPrinting} theme={theme} />
-            <IntakeSection    intake={intake}        isPrinting={isPrinting} theme={theme} />
-            <BuildSection     build={build}          isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} />
-            <DeltaSection     delta={delta}          isPrinting={isPrinting} theme={theme} />
-            <ReasoningSection reasoning={reasoning}  isPrinting={isPrinting} theme={theme} />
-            <OutcomeSection   outcome={outcome}      isPrinting={isPrinting} theme={theme} />
+            <AuditSection     audit={audit}         isPrinting={isPrinting} theme={theme} layerTodos={todosByLayer.audit        || []} />
+            <IntakeSection    intake={intake}        isPrinting={isPrinting} theme={theme} layerTodos={todosByLayer.intake       || []} />
+            <BuildSection     build={build}          isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} />
+            <DeltaSection     delta={delta}          isPrinting={isPrinting} theme={theme} layerTodos={todosByLayer.delta        || []} />
+            <ReasoningSection reasoning={reasoning}  isPrinting={isPrinting} theme={theme} layerTodos={todosByLayer.reasoning    || []} />
+            <OutcomeSection   outcome={outcome}      isPrinting={isPrinting} theme={theme} layerTodos={todosByLayer.outcome      || []} />
 
           </div>{/* end fp-no-print screen view */}
         </div>
