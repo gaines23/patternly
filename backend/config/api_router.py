@@ -15,4 +15,5 @@ urlpatterns = [
     path("users/", include("apps.users.urls")),
     path("workflows/", include("apps.workflows.urls")),
     path("briefs/", include("apps.briefs.urls")),
+    path("todos/", include("apps.tasks.urls")),
 ]

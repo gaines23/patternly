@@ -7,6 +7,7 @@ const NAV = [
   { to: "/dashboard",    label: "Dashboard",     icon: "◈" },
   { to: "/generate",     label: "Generate",       icon: "✨" },
   { to: "/projects",     label: "Projects",       icon: "◎" },
+  { to: "/tasks",        label: "Tasks",          icon: "✓" },
   { to: "/projects/new", label: "New Project",    icon: "+" },
 ];
 
@@ -65,6 +66,7 @@ export default function AppLayout({ children }) {
   const isActive = (to) =>
     to === "/dashboard" ? location.pathname === "/dashboard"
     : to === "/projects" ? location.pathname === "/projects"
+    : to === "/tasks"    ? location.pathname === "/tasks"
     : location.pathname.startsWith(to);
 
   const NavLink = ({ item }) => (
