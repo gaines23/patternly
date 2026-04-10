@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import { useTheme } from "../../hooks/useTheme";
@@ -59,10 +58,10 @@ function TodoModal({ initial, onClose, onSave, isSaving }) {
   const [form, setForm] = useState({
     title: initial?.title || "",
     description: initial?.description || "",
-    case_file_id: initial?.case_file_id || "",
+    case_file: initial?.case_file || "",
     case_file_name: initial?.case_file_name || "",
     layer_reference: initial?.layer_reference || "",
-    assigned_to_id: initial?.assigned_to_id || "",
+    assigned_to: initial?.assigned_to || "",
     assigned_to_name: initial?.assigned_to_name || "",
     priority: initial?.priority || "medium",
     status: initial?.status || "open",
@@ -74,13 +73,13 @@ function TodoModal({ initial, onClose, onSave, isSaving }) {
 
   const handleProjectChange = (e) => {
     const selected = projects.find((p) => p.id === e.target.value);
-    set("case_file_id", e.target.value);
+    set("case_file", e.target.value);
     set("case_file_name", selected?.name || selected?.workflow_type || "");
   };
 
   const handleAssigneeChange = (e) => {
     const selected = (members || []).find((m) => m.id === e.target.value);
-    set("assigned_to_id", e.target.value);
+    set("assigned_to", e.target.value);
     set("assigned_to_name", selected
       ? `${selected.first_name} ${selected.last_name}`.trim() || selected.email
       : "");
@@ -193,7 +192,7 @@ function TodoModal({ initial, onClose, onSave, isSaving }) {
             {/* Row 2: Client Project — full width */}
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Client Project</label>
-              <select value={form.case_file_id} onChange={handleProjectChange}
+              <select value={form.case_file} onChange={handleProjectChange}
                 style={{ ...inputStyle, cursor: "pointer" }} onFocus={focusOn} onBlur={focusOff}>
                 <option value="">— No project —</option>
                 {projects.map((p) => (
@@ -234,7 +233,7 @@ function TodoModal({ initial, onClose, onSave, isSaving }) {
             {isAdmin && (
               <div>
                 <label style={labelStyle}>Assignee</label>
-                <select value={form.assigned_to_id} onChange={handleAssigneeChange}
+                <select value={form.assigned_to} onChange={handleAssigneeChange}
                   style={{ ...inputStyle, cursor: "pointer" }} onFocus={focusOn} onBlur={focusOff}>
                   <option value="">— Unassigned —</option>
                   {(members || []).map((m) => (
@@ -324,7 +323,7 @@ function TaskRow({ todo, onEdit, onDelete, onToggleDone, theme }) {
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = theme.border; }}
     >
       {/* Checkbox — stop propagation so clicking it doesn't open the modal */}
-      <div style={{ paddingTop: 1 }}>
+      <div style={{ paddingTop: 1, margin: "auto" }}>
         <button
           onClick={(e) => { e.stopPropagation(); onToggleDone(todo); }}
           title={isDone ? "Mark open" : "Mark done"}
@@ -343,53 +342,51 @@ function TaskRow({ todo, onEdit, onDelete, onToggleDone, theme }) {
 
       {/* Content */}
       <div style={{ minWidth: 0 }}>
+        {/* Title */}
         <p style={{
-          margin: "0 0 4px", fontSize: 14, fontWeight: 600,
+          margin: "0 0 5px", fontSize: 14, fontWeight: 600,
           color: theme.text, fontFamily: F,
           textDecoration: isDone ? "line-through" : "none",
         }}>
           {todo.title}
         </p>
 
-        {/* Meta row */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        {/* Meta row — single line, dot-separated */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
           {todo.case_file_name && (
-            <span style={{ fontSize: 12, color: theme.blue, fontFamily: F }}>
-              ◎ {todo.case_file_name}
+            <span style={{ fontSize: 12, color: theme.blue, fontFamily: F, fontWeight: 500 }}>
+              {todo.case_file_name}
             </span>
           )}
           {todo.layer_reference && (
-            <span style={{
-              fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 8,
-              background: theme.surfaceAlt, border: `1px solid ${theme.border}`,
-              color: theme.textMuted, fontFamily: F, letterSpacing: "0.04em",
-            }}>
-              {LAYER_LABELS[todo.layer_reference]} Layer
-            </span>
-          )}
-          {todo.assigned_to_name && (
-            <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
-              → {todo.assigned_to_name}
-            </span>
+            <>
+              {todo.case_file_name && <span style={{ color: theme.textFaint, fontSize: 11 }}>·</span>}
+              <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>
+                {LAYER_LABELS[todo.layer_reference]} Layer
+              </span>
+            </>
           )}
           {todo.due_date && (
-            <span style={{ fontSize: 12, color: isOverdue ? "#EF4444" : theme.textFaint, fontFamily: F, fontWeight: isOverdue ? 600 : 400 }}>
-              {isOverdue ? "⚠ " : ""}{formatDate(todo.due_date)}
-            </span>
+            <>
+              {(todo.case_file_name || todo.layer_reference) && <span style={{ color: theme.textFaint, fontSize: 11 }}>·</span>}
+              <span style={{ fontSize: 12, fontWeight: isOverdue ? 600 : 400, fontFamily: F, color: isOverdue ? "#EF4444" : theme.textFaint }}>
+                {isOverdue ? "⚠ " : ""}{formatDate(todo.due_date)}
+              </span>
+            </>
           )}
-          <Pill cfg={STATUS_CONFIG[todo.status] || STATUS_CONFIG.open} />
+          {todo.assigned_to_name && (
+            <>
+              <span style={{ color: theme.textFaint, fontSize: 11 }}>·</span>
+              <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>{todo.assigned_to_name}</span>
+            </>
+          )}
+          <Pill cfg={STATUS_CONFIG[todo.status] || STATUS_CONFIG.open} style={{ marginLeft: 2 }} />
           <Pill cfg={PRIORITY_CONFIG[todo.priority] || PRIORITY_CONFIG.medium} />
         </div>
-
-        {todo.description && (
-          <p style={{ margin: "6px 0 0", fontSize: 12, color: theme.textMuted, fontFamily: F, lineHeight: 1.5 }}>
-            {todo.description}
-          </p>
-        )}
       </div>
 
       {/* Delete — stop propagation so it doesn't open the modal */}
-      <div style={{ flexShrink: 0, paddingTop: 1 }}>
+      <div style={{ flexShrink: 0, paddingTop: 1, margin: "auto" }}>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(todo.id); }}
           style={{ padding: "4px 10px", background: "transparent", border: "1px solid #FECACA", borderRadius: 6, fontSize: 12, color: "#EF4444", fontFamily: F, cursor: "pointer" }}
