@@ -398,7 +398,7 @@ Produce a structured summary with these sections:
 
 **{Workflow Name}**
 Description: 1-2 sentence summary of what the workflow does and its purpose.
-Status Flow: List the status progression (e.g. To Do → In Progress → Review → Done)
+Status Flow: List the status progression (e.g. To Do -> In Progress -> Review -> Done)
 Automations:
 1. First automation description
 2. Second automation description
@@ -411,6 +411,8 @@ Repeat for each workflow. Keep descriptions brief and actionable. Do NOT include
 
 Be concise and actionable. Write for a project manager or stakeholder audience.
 Do NOT use markdown headings (no #, ##, or ###). Use **bold** for section titles and date headers instead.
+Do NOT use horizontal rules (---) to separate sections. Use blank lines instead.
+Use -> instead of arrow characters for status flows (e.g. "To Do -> In Progress -> Done").
 All dates must be formatted as MM/DD/YYYY.
 If a section has no data, say "No data logged." rather than omitting it."""
 
@@ -432,6 +434,8 @@ Produce a structured summary with these sections:
 
 Be concise and actionable. Write for a project manager or stakeholder audience.
 Do NOT use markdown headings (no #, ##, or ###). Use **bold** for section titles and date headers instead.
+Do NOT use horizontal rules (---) to separate sections. Use blank lines instead.
+Use -> instead of arrow characters for status flows.
 All dates must be formatted as MM/DD/YYYY.
 If a section has no data, say "No data logged." rather than omitting it."""
 
