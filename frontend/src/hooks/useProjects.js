@@ -10,6 +10,7 @@ export const projectKeys = {
   detail:   (id) => [...projectKeys.details(), id],
   stats:    () => [...projectKeys.all, "stats"],
   warnings: (tools) => [...projectKeys.all, "warnings", tools],
+  summary:  (id, dates) => [...projectKeys.all, "summary", id, dates],
 };
 
 // ── Fetch all projects (paginated, filterable) ────────────────────────────────
@@ -129,6 +130,23 @@ export function useProjectStats() {
       const { data } = await api.get("/v1/briefs/stats/");
       return data;
     },
+  });
+}
+
+// ── Project summary (AI-generated) ───────────────────────────────────────────
+export function useProjectSummary(id, { summaryType = "full", startDate, endDate, enabled = false } = {}) {
+  return useQuery({
+    queryKey: projectKeys.summary(id, { summaryType, startDate, endDate }),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("type", summaryType);
+      if (startDate) params.set("start_date", startDate);
+      if (endDate)   params.set("end_date", endDate);
+      const { data } = await api.get(`/v1/briefs/${id}/summary/?${params}`);
+      return data;
+    },
+    enabled: !!id && enabled,
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
   });
 }
 

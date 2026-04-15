@@ -21,6 +21,7 @@ import BuildSection     from "./detail/sections/BuildSection";
 import DeltaSection     from "./detail/sections/DeltaSection";
 import ReasoningSection from "./detail/sections/ReasoningSection";
 import OutcomeSection   from "./detail/sections/OutcomeSection";
+import SummarySection   from "./detail/sections/SummarySection";
 
 // Print layout
 import PrintView from "./detail/print/PrintView";
@@ -30,37 +31,66 @@ import { F } from "./detail/constants";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ProjectUpdatesView({ projectUpdates, theme }) {
+function ProjectUpdatesView({ projectUpdates, theme, caseFileId }) {
+  const [view, setView] = useState("notes"); // "notes" | "summary"
+
+  const toggleBtn = (
+    <button
+      onClick={(e) => { e.stopPropagation(); setView(v => v === "notes" ? "summary" : "notes"); }}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        padding: "4px 12px", borderRadius: 6, cursor: "pointer",
+        background: view === "summary" ? "#8B5CF6" : "transparent",
+        border: `1px solid ${view === "summary" ? "#8B5CF6" : "#8B5CF660"}`,
+        color: view === "summary" ? "#fff" : "#8B5CF6",
+        fontSize: 11, fontWeight: 700, fontFamily: F,
+        transition: "all 0.15s",
+      }}
+    >
+      {view === "summary" ? "← Back to Notes" : "AI Summary"}
+    </button>
+  );
+
   return (
-    <Section title="Project Updates" subtitle="Timestamped notes and attachments" color="#0284C7">
-      {!projectUpdates?.length
-        ? <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, fontStyle: "italic", margin: 0 }}>No updates logged.</p>
-        : <div>{projectUpdates.map((pu, i) => {
-          const dateLabel = pu.created_at
-            ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
-            : "—";
-          return (
-            <div key={pu.id || i} style={{ border: "1.5px solid #BAE6FD", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F0F9FF", borderBottom: "1px solid #BAE6FD" }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>{dateLabel}</span>
-                {pu.attachments?.length > 0 && (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>📎 {pu.attachments.length}</span>
-                )}
+    <Section title="Project Updates" subtitle="Timestamped notes and attachments" color="#0284C7" headerRight={toggleBtn}>
+      {view === "summary" ? (
+        <SummarySection
+          caseFileId={caseFileId}
+          summaryType="updates"
+          title="Project Updates Summary"
+          subtitle="AI summary of updates and scope creep"
+          color="#8B5CF6"
+          embedded
+        />
+      ) : (
+        !projectUpdates?.length
+          ? <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, fontStyle: "italic", margin: 0 }}>No updates logged.</p>
+          : <div>{projectUpdates.map((pu, i) => {
+            const dateLabel = pu.created_at
+              ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
+              : "—";
+            return (
+              <div key={pu.id || i} style={{ border: "1.5px solid #BAE6FD", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F0F9FF", borderBottom: "1px solid #BAE6FD" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>{dateLabel}</span>
+                  {pu.attachments?.length > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>📎 {pu.attachments.length}</span>
+                  )}
+                </div>
+                <div style={{ padding: "12px 14px" }}>
+                  {pu.content && <p style={{ margin: 0, fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{pu.content}</p>}
+                  {pu.attachments?.length > 0 && (
+                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {pu.attachments.map((att, ai) => att.url && (
+                        <span key={ai} style={{ fontSize: 12, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "3px 10px", fontFamily: F, fontWeight: 500 }}>{att.name || att.url}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div style={{ padding: "12px 14px" }}>
-                {pu.content && <p style={{ margin: 0, fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{pu.content}</p>}
-                {pu.attachments?.length > 0 && (
-                  <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {pu.attachments.map((att, ai) => att.url && (
-                      <span key={ai} style={{ fontSize: 12, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "3px 10px", fontFamily: F, fontWeight: 500 }}>{att.name || att.url}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}</div>
-      }
+            );
+          })}</div>
+      )}
     </Section>
   );
 }
@@ -96,8 +126,9 @@ function ScopeCreepView({ scopeCreep, theme }) {
 }
 
 const DETAIL_SECTIONS = [
-  { id:"projectUpdates", label:"Project Updates",      subtitle:"Timestamped notes and attachments",              color:"#0284C7", group:"The Updates"  },
-  { id:"scopeCreep",     label:"Scope Creep",           subtitle:"Unplanned additions to the build",               color:"#D97706", group:"The Updates"  },
+  { id:"fullSummary",     label:"Full Project Summary",   subtitle:"AI summary of the full project",                  color:"#6366F1", group:"The Updates"  },
+  { id:"projectUpdates",  label:"Project Updates",       subtitle:"Timestamped notes and attachments",               color:"#0284C7", group:"The Updates"  },
+  { id:"scopeCreep",      label:"Scope Creep",           subtitle:"Unplanned additions to the build",               color:"#D97706", group:"The Updates"  },
   { id:"intake",         label:"Who's the client?",    subtitle:"Scenario, industry, team, and tools",            color:"#7C3AED", group:"The Project"   },
   { id:"audit",          label:"What's in place now?", subtitle:"Current setup and what's breaking",              color:"#7C3AED", group:"The Build"     },
   { id:"build",          label:"The Build",            subtitle:"Everything that was built",                      color:"#0284C7", group:"The Build"     },
@@ -342,14 +373,15 @@ export default function CaseFileDetailPage() {
 
             {/* Active section content — only this scrolls */}
             <div id="fp-print-root" style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: isMobile ? "20px 16px" : "28px 32px" }}>
-              {activeSection === 0 && <ProjectUpdatesView projectUpdates={project_updates}    theme={theme} />}
-              {activeSection === 1 && <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} />}
-              {activeSection === 2 && <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} />}
-              {activeSection === 3 && <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} />}
-              {activeSection === 4 && <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} />}
-              {activeSection === 5 && <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} />}
-              {activeSection === 6 && <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} />}
-              {activeSection === 7 && <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} />}
+              {activeSection === 0 && <SummarySection    caseFileId={id} summaryType="full" title="Full Project Summary" subtitle="AI summary of the full project for reporting" color="#6366F1" workflows={build?.workflows} onOpenMap={setMapWfIndex} />}
+              {activeSection === 1 && <ProjectUpdatesView projectUpdates={project_updates} theme={theme} caseFileId={id} />}
+              {activeSection === 2 && <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} />}
+              {activeSection === 3 && <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} />}
+              {activeSection === 4 && <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} />}
+              {activeSection === 5 && <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} />}
+              {activeSection === 6 && <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} />}
+              {activeSection === 7 && <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} />}
+              {activeSection === 8 && <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} />}
             </div>
 
           </div>

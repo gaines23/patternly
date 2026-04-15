@@ -28,7 +28,7 @@ const PRIORITY_COLORS = {
  *   filled      — filled green checkmark (true) vs outlined ring (false) as indicator dot
  *   layerTodos  — array of Todo objects linked to this layer
  */
-export default function Section({ title, subtitle, color, children, collapsible = false, forceOpen = false, filled = true, layerTodos = [] }) {
+export default function Section({ title, subtitle, color, children, collapsible = false, forceOpen = false, filled = true, layerTodos = [], headerRight = null }) {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const isOpen = !collapsible || open || forceOpen;
@@ -79,8 +79,9 @@ export default function Section({ title, subtitle, color, children, collapsible 
           </div>
         </div>
 
-        {/* Right: task badge + collapse arrow */}
+        {/* Right: custom header action + task badge + collapse arrow */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          {headerRight}
           {hasTasks && (
             <div style={{ position: "relative" }} ref={popoverRef}>
               <button
