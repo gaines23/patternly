@@ -141,6 +141,7 @@ class PublicCaseFileSerializer(CaseFileDetailSerializer):
             "satisfaction_score", "roadblock_count", "built_outcome",
             "status", "closed_at",
             "created_at", "updated_at",
+            "updates_summary", "updates_summary_generated_at",
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
         ]

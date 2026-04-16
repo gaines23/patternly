@@ -26,7 +26,7 @@ export default function CaseFileSidebar({ cf, theme }) {
 
         {!project_updates?.length
           ? <p style={{ fontSize: 12, color: theme.borderInput, fontFamily: F, textAlign: "center", padding: "12px 0", margin: 0 }}>No updates logged</p>
-          : project_updates.map((pu, i) => {
+          : [...project_updates].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")).map((pu, i) => {
               const dateLabel = pu.created_at
                 ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
                 : "—";
