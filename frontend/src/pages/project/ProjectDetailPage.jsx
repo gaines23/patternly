@@ -69,7 +69,7 @@ function ProjectUpdatesView({ projectUpdates, theme, caseFileId, projectName, pr
       ) : (
         !projectUpdates?.length
           ? <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, fontStyle: "italic", margin: 0 }}>No updates logged.</p>
-          : <div>{projectUpdates.map((pu, i) => {
+          : <div>{[...projectUpdates].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")).map((pu, i) => {
             const dateLabel = pu.created_at
               ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
               : "—";
