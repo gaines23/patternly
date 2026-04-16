@@ -60,10 +60,33 @@ export default function PrintView({ cf }) {
         </div>
       )}
 
+      {/* Progress Overview & Key Updates (AI summary) */}
+      {cf.updates_summary && (
+        <PrintSection title="Progress Overview" subtitle="AI-generated summary of updates and scope changes" color="#6366F1">
+          <div style={{ fontSize: 13, color: "#374151", fontFamily: PF, lineHeight: 1.8 }}>
+            {cf.updates_summary.split("\n").map((line, li) => {
+              const trimmed = line.trim();
+              if (trimmed === "") return <div key={li} style={{ height: 8 }} />;
+              const boldMatch = trimmed.match(/^\*\*(.+?)\*\*$/);
+              if (boldMatch) {
+                return <p key={li} style={{ margin: "14px 0 4px", fontSize: 14, fontWeight: 700, color: "#1F2937", fontFamily: PF }}>{boldMatch[1]}</p>;
+              }
+              const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+              const rendered = parts.map((part, pi) => {
+                const m = part.match(/^\*\*(.*?)\*\*$/);
+                if (m) return <strong key={pi}>{m[1]}</strong>;
+                return <span key={pi}>{part}</span>;
+              });
+              return <p key={li} style={{ margin: "2px 0", fontSize: 13, color: "#374151", fontFamily: PF, lineHeight: 1.7 }}>{rendered}</p>;
+            })}
+          </div>
+        </PrintSection>
+      )}
+
       {/* Project Updates */}
       {project_updates?.length > 0 && (
         <PrintSection title="Project Updates" color="#0284C7">
-          {project_updates.map((pu, i) => {
+          {[...project_updates].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")).map((pu, i) => {
             const dateLabel = pu.created_at
               ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
               : "—";

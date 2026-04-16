@@ -83,9 +83,19 @@ class CaseFile(models.Model):
     )
     closed_at = models.DateTimeField(null=True, blank=True)
 
-    # Shareable client brief
+    # Shareable full brief (internal)
     share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     share_enabled = models.BooleanField(default=False)
+
+    # Shareable client brief (progress overview only)
+    client_share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    client_share_enabled = models.BooleanField(default=False)
+
+    # Cached AI-generated summaries
+    full_summary = models.TextField(blank=True)
+    full_summary_generated_at = models.DateTimeField(null=True, blank=True)
+    updates_summary = models.TextField(blank=True)
+    updates_summary_generated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "case_files"

@@ -19,6 +19,7 @@ import EditProjectPage from "./pages/project/EditProjectPage";
 import GeneratePage from "./pages/generate/GeneratePage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import SharedBriefPage from "./pages/shared/SharedBriefPage";
+import ClientBriefPage from "./pages/shared/ClientBriefPage";
 import TasksPage from "./pages/tasks/TasksPage";
 
 function Protected({ children }) {
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/brief/:shareToken" element={<SharedBriefPage />} />
+          <Route path="/client-brief/:shareToken" element={<ClientBriefPage />} />
 
           <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
           <Route path="/generate" element={<Protected><GeneratePage /></Protected>} />

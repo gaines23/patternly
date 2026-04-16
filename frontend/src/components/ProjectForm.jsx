@@ -284,6 +284,7 @@ function Chip({ label, active, color=BLUE, onClick }) {
 export function ChipGroup({ options, selected, onChange, color=BLUE }) {
   const { theme } = useTheme();
   const toggle = item => onChange(selected.includes(item)?selected.filter(i=>i!==item):[...selected,item]);
+  const allOptions = [...options, ...selected.filter(s => !options.includes(s))];
   return (
     <div>
       {selected.length>0 && (
@@ -292,7 +293,7 @@ export function ChipGroup({ options, selected, onChange, color=BLUE }) {
           {selected.map(s=><span key={s} onClick={()=>toggle(s)} style={{ fontSize:12, color, background:theme.surface, border:`1px solid ${color}40`, borderRadius:12, padding:"3px 10px", cursor:"pointer", fontFamily:F, fontWeight:500 }}>{s} ×</span>)}
         </div>
       )}
-      <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>{options.map(o=><Chip key={o} label={o} active={selected.includes(o)} color={color} onClick={()=>toggle(o)}/>)}</div>
+      <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>{allOptions.map(o=><Chip key={o} label={o} active={selected.includes(o)} color={color} onClick={()=>toggle(o)}/>)}</div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ export const projectKeys = {
   detail:   (id) => [...projectKeys.details(), id],
   stats:    () => [...projectKeys.all, "stats"],
   warnings: (tools) => [...projectKeys.all, "warnings", tools],
+  summary:  (id, dates) => [...projectKeys.all, "summary", id, dates],
 };
 
 // ── Fetch all projects (paginated, filterable) ────────────────────────────────
@@ -121,6 +122,22 @@ export function useShareProject(id) {
   });
 }
 
+// ── Toggle client share link ──────────────────────────────────────────────
+export function useClientShareProject(id) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/v1/briefs/${id}/client-share/`);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(projectKeys.detail(id), (old) =>
+        old ? { ...old, client_share_enabled: data.client_share_enabled, client_share_token: data.client_share_token } : old
+      );
+    },
+  });
+}
+
 // ── Dashboard stats ───────────────────────────────────────────────────────────
 export function useProjectStats() {
   return useQuery({
@@ -129,6 +146,26 @@ export function useProjectStats() {
       const { data } = await api.get("/v1/briefs/stats/");
       return data;
     },
+  });
+}
+
+// ── Project summary (AI-generated) ───────────────────────────────────────────
+export function useProjectSummary(id, { summaryType = "full", startDate, endDate, enabled = false } = {}) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: projectKeys.summary(id, { summaryType, startDate, endDate }),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("type", summaryType);
+      if (startDate) params.set("start_date", startDate);
+      if (endDate)   params.set("end_date", endDate);
+      const { data } = await api.get(`/v1/briefs/${id}/summary/?${params}`);
+      // Refresh project detail cache so saved summary fields stay in sync
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(id) });
+      return data;
+    },
+    enabled: !!id && enabled,
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
   });
 }
 
