@@ -41,9 +41,8 @@ COPY nginx.railway.conf /etc/nginx/nginx.conf.template
 ENV PORT=80
 ENV BACKEND_URL=http://api:8000
 ENV BACKEND_HOST=api
-ENV DNS_RESOLVER=127.0.0.11
 
 EXPOSE 80
 
 # Render the nginx template with env vars at startup, then start nginx
-CMD ["/bin/sh", "-c", "envsubst '$PORT $BACKEND_URL $BACKEND_HOST $DNS_RESOLVER' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "envsubst '$PORT $BACKEND_URL $BACKEND_HOST' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

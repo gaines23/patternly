@@ -434,7 +434,7 @@ def stats(request):
 
 # ── Project Summary (AI-powered) ────────────────────────────────────────────
 
-FULL_SUMMARY_SYSTEM_PROMPT = """You are a project reporting assistant for a workflow consulting tool called Flowpath.
+FULL_SUMMARY_SYSTEM_PROMPT = """You are a project reporting assistant for a workflow consulting tool called Patternly.
 Your job is to produce clear, professional summaries of the full project for reporting purposes.
 
 You will receive:
@@ -468,7 +468,7 @@ Use -> instead of arrow characters for status flows (e.g. "To Do -> In Progress 
 All dates must be formatted as MM/DD/YYYY.
 If a section has no data, say "No data logged." rather than omitting it."""
 
-UPDATES_SUMMARY_SYSTEM_PROMPT = """You are a project reporting assistant for a workflow consulting tool called Flowpath.
+UPDATES_SUMMARY_SYSTEM_PROMPT = """You are a project reporting assistant for a workflow consulting tool called Patternly.
 Your job is to produce clear, professional summaries of project updates and scope changes for reporting purposes.
 
 You will receive:

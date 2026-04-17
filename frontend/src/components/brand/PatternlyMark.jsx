@@ -82,7 +82,3 @@ export function PatternlyWordmark({ tagline = "Spot the pattern. Skip the meetin
     </div>
   );
 }
-
-// Backward-compatible aliases
-export const FlowpathMark = PatternlyMark;
-export const FlowpathWordmark = PatternlyWordmark;

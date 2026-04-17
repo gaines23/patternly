@@ -47,7 +47,7 @@ class TestLayerModels:
         from django.contrib.auth import get_user_model
         User = get_user_model()
         self.user = User.objects.create_user(
-            email="layer_test@flowpath.dev",
+            email="layer_test@patternly.dev",
             password="pass123",
         )
         self.cf = CaseFile.objects.create(logged_by=self.user)

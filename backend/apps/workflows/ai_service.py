@@ -1,5 +1,5 @@
 """
-flowpath.apps.workflows.ai_service
+patternly.apps.workflows.ai_service
 ------------------------------------
 Phase 2 AI engine. Handles:
   1. Parsing a raw user prompt into a structured scenario
@@ -146,12 +146,12 @@ def _strip_json_fences(text: str) -> str:
 
 # ── Core service ──────────────────────────────────────────────────────────────
 
-class FlowpathAIService:
+class PatternlyAIService:
     """
     Orchestrates the full AI recommendation pipeline.
 
     Usage:
-        service = FlowpathAIService()
+        service = PatternlyAIService()
         brief = service.generate_brief("We're a 6-person agency using Slack and HubSpot...")
     """
 

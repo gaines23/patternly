@@ -1,13 +1,13 @@
 """
-management command: seed_flowpath
+management command: seed_patternly
 
 Creates realistic seed case files for development and demo purposes.
 Covers 6 different industries and workflow types so the AI recommendation
 engine has meaningful data to retrieve from on first boot.
 
 Usage:
-    python manage.py seed_flowpath
-    python manage.py seed_flowpath --clear   # wipe existing data first
+    python manage.py seed_patternly
+    python manage.py seed_patternly --clear   # wipe existing data first
 """
 import random
 from django.core.management.base import BaseCommand
@@ -549,7 +549,7 @@ SEED_DATA = [
 
 
 class Command(BaseCommand):
-    help = "Seeds Flowpath with realistic demo case files for development and testing."
+    help = "Seeds Patternly with realistic demo case files for development and testing."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -560,8 +560,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--user-email",
             type=str,
-            default="admin@flowpath.dev",
-            help="Email of the user to attribute seed data to (default: admin@flowpath.dev).",
+            default="admin@patternly.dev",
+            help="Email of the user to attribute seed data to (default: admin@patternly.dev).",
         )
 
     def handle(self, *args, **options):
@@ -574,14 +574,14 @@ class Command(BaseCommand):
         user, created = User.objects.get_or_create(
             email=options["user_email"],
             defaults={
-                "first_name": "Flowpath",
+                "first_name": "Patternly",
                 "last_name": "Demo",
                 "role": "admin",
                 "is_staff": True,
             },
         )
         if created:
-            user.set_password("flowpath-demo-2024")
+            user.set_password("patternly-demo-2024")
             user.save()
             self.stdout.write(f"Created demo user: {user.email}")
 
@@ -600,7 +600,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"\n✓ Seeded {created_count} case files. "
-                f"Demo user: {user.email} / flowpath-demo-2024"
+                f"Demo user: {user.email} / patternly-demo-2024"
             )
         )
 

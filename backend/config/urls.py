@@ -4,7 +4,7 @@ from django.http import JsonResponse
 
 
 def health_check(request):
-    return JsonResponse({"status": "ok", "service": "flowpath-api"})
+    return JsonResponse({"status": "ok", "service": "patternly-api"})
 
 
 urlpatterns = [

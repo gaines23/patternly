@@ -1,4 +1,4 @@
-# flowpath
+# Patternly
 
 Workflow Intelligence Platform — AI-powered ClickUp workflow documentation, recommendation, and prediction engine.
 
@@ -25,8 +25,8 @@ Workflow Intelligence Platform — AI-powered ClickUp workflow documentation, re
 ### 1. Clone and configure
 
 ```bash
-git clone <your-repo-url> flowpath
-cd flowpath
+git clone <your-repo-url> patternly
+cd patternly
 cp .env.example .env
 ```
 
@@ -64,7 +64,7 @@ docker compose exec api python manage.py createsuperuser
 | http://localhost/api/health/ | API health check |
 | http://localhost/admin/ | Django admin |
 | http://localhost:5173 | Vite direct (hot reload) |
-| localhost:5432 | PostgreSQL (user: flowpath) |
+| localhost:5432 | PostgreSQL (user: patternly) |
 
 ---
 
@@ -90,7 +90,7 @@ make restart     # Rebuild and restart
 ## Project Structure
 
 ```
-flowpath/
+patternly/
 ├── docker-compose.yml
 ├── Makefile
 ├── .env.example
@@ -200,8 +200,8 @@ docker compose exec api pytest apps/briefs/tests/test_api.py::TestCaseFileCreate
 
 | Variable | Description | Default |
 |---|---|---|
-| `POSTGRES_DB` | Database name | `flowpath` |
-| `POSTGRES_USER` | DB user | `flowpath` |
+| `POSTGRES_DB` | Database name | `patternly` |
+| `POSTGRES_USER` | DB user | `patternly` |
 | `POSTGRES_PASSWORD` | DB password | *(set this)* |
 | `SECRET_KEY` | Django secret key | *(generate + set)* |
 | `DEBUG` | Debug mode | `True` |
