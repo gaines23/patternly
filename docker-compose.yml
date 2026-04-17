@@ -2,19 +2,19 @@ services:
   # ── PostgreSQL + pgvector ─────────────────────────────────────────────────
   db:
     image: pgvector/pgvector:pg16
-    container_name: flowpath_db
+    container_name: patternly_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-flowpath}
-      POSTGRES_USER: ${POSTGRES_USER:-flowpath}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flowpath_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-patternly}
+      POSTGRES_USER: ${POSTGRES_USER:-patternly}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-patternly_dev_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
     ports:
       - "5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flowpath} -d ${POSTGRES_DB:-flowpath}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-patternly} -d ${POSTGRES_DB:-patternly}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -25,12 +25,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: development
-    container_name: flowpath_api
+    container_name: patternly_api
     restart: unless-stopped
     command: python manage.py runserver 0.0.0.0:8000
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.local
-      DATABASE_URL: postgres://${POSTGRES_USER:-flowpath}:${POSTGRES_PASSWORD:-flowpath_dev_password}@db:5432/${POSTGRES_DB:-flowpath}
+      DATABASE_URL: postgres://${POSTGRES_USER:-patternly}:${POSTGRES_PASSWORD:-patternly_dev_password}@db:5432/${POSTGRES_DB:-patternly}
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       DEBUG: "True"
       ALLOWED_HOSTS: "localhost,127.0.0.1,api"
@@ -56,7 +56,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: development
-    container_name: flowpath_frontend
+    container_name: patternly_frontend
     restart: unless-stopped
     environment:
       VITE_API_URL: http://localhost/api
@@ -71,7 +71,7 @@ services:
   # ── Nginx reverse proxy ───────────────────────────────────────────────────
   nginx:
     image: nginx:1.25-alpine
-    container_name: flowpath_nginx
+    container_name: patternly_nginx
     restart: unless-stopped
     ports:
       - "80:80"

@@ -15,7 +15,7 @@ def api_client():
 def user(db):
     """A standard authenticated user."""
     return User.objects.create_user(
-        email="test@flowpath.dev",
+        email="test@patternly.dev",
         password="testpass123",
         first_name="Test",
         last_name="User",
@@ -27,7 +27,7 @@ def user(db):
 def admin_user(db):
     """A superuser."""
     return User.objects.create_superuser(
-        email="admin@flowpath.dev",
+        email="admin@patternly.dev",
         password="adminpass123",
     )
 

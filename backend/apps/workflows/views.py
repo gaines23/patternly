@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .ai_service import FlowpathAIService, ConfigurationError, AIServiceError
+from .ai_service import PatternlyAIService, ConfigurationError, AIServiceError
 from .models import GeneratedBrief, WorkflowTemplate
 from .serializers import (
     GenerateBriefInputSerializer,
@@ -39,7 +39,7 @@ def generate_brief(request):
     raw_prompt = input_serializer.validated_data["raw_prompt"]
 
     try:
-        service = FlowpathAIService()
+        service = PatternlyAIService()
         brief = service.generate_brief(raw_prompt)
         return Response(
             GeneratedBriefSerializer(brief).data,
@@ -87,7 +87,7 @@ def parse_prompt(request):
         return Response({"error": "raw_prompt is required."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        service = FlowpathAIService()
+        service = PatternlyAIService()
         scenario = service.parse_scenario(raw_prompt)
         return Response({
             "industries": scenario.industries,
@@ -232,7 +232,7 @@ def match_templates(request):
     raw_prompt = input_serializer.validated_data["raw_prompt"]
 
     try:
-        service = FlowpathAIService()
+        service = PatternlyAIService()
         scenario = service.parse_scenario(raw_prompt)
     except ConfigurationError as e:
         logger.error("AI service not configured: %s", e)

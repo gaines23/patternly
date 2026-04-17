@@ -1,4 +1,4 @@
-# ── Flowpath Developer Commands ───────────────────────────────────────────────
+# ── Patternly Developer Commands ───────────────────────────────────────────────
 # Usage: make <command>
 
 .PHONY: help up down build logs shell db-shell migrate migrations superuser \
@@ -14,7 +14,7 @@ FE           = $(COMPOSE) exec frontend
 # ── Default ───────────────────────────────────────────────────────────────────
 help:
 	@echo ""
-	@echo "  Flowpath — available commands"
+	@echo "  Patternly — available commands"
 	@echo ""
 	@echo "  Stack"
 	@echo "    make up          Start all services (detached)"
@@ -77,7 +77,7 @@ superuser:
 	$(API) python manage.py createsuperuser
 
 db-shell:
-	$(COMPOSE) exec db psql -U flowpath -d flowpath
+	$(COMPOSE) exec db psql -U patternly -d patternly
 
 reset-db:
 	@echo "⚠️  This will DELETE all data. Press Ctrl+C to cancel."
@@ -120,10 +120,10 @@ fe-lint:
 
 # ── AI / Data ─────────────────────────────────────────────────────────────────
 seed:
-	$(API) python manage.py seed_flowpath
+	$(API) python manage.py seed_patternly
 
 seed-clear:
-	$(API) python manage.py seed_flowpath --clear
+	$(API) python manage.py seed_patternly --clear
 
 embed:
 	$(API) python manage.py build_embeddings

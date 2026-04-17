@@ -226,7 +226,7 @@ class Command(BaseCommand):
 
         total = qs.count()
         if total == 0:
-            self.stdout.write("No case files found. Run 'python manage.py seed_flowpath' first.")
+            self.stdout.write("No case files found. Run 'python manage.py seed_patternly' first.")
             return
 
         self.stdout.write(f"Processing {total} case file(s)...")

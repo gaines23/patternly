@@ -15,7 +15,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: production
-    container_name: flowpath_api
+    container_name: patternly_api
     restart: unless-stopped
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
@@ -42,7 +42,7 @@ services:
       args:
         # /api is same-origin — nginx proxies it to the api service internally
         VITE_API_URL: /api
-    container_name: flowpath_frontend
+    container_name: patternly_frontend
     restart: unless-stopped
     ports:
       - "80:80"

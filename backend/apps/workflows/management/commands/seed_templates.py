@@ -2,7 +2,7 @@
 management command: seed_templates
 
 Populates WorkflowTemplate with pre-built templates covering the most common
-workflow types seen in Flowpath builds. Run once on first boot or after a
+workflow types seen in Patternly builds. Run once on first boot or after a
 database reset.
 
 Usage:

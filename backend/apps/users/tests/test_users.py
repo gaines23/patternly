@@ -12,12 +12,12 @@ class TestUserModel:
 
     def test_create_user(self):
         user = User.objects.create_user(
-            email="jane@flowpath.dev",
+            email="jane@patternly.dev",
             password="securepass99",
             first_name="Jane",
             last_name="Doe",
         )
-        assert user.email == "jane@flowpath.dev"
+        assert user.email == "jane@patternly.dev"
         assert user.check_password("securepass99")
         assert not user.is_staff
         assert not user.is_superuser
@@ -26,7 +26,7 @@ class TestUserModel:
 
     def test_full_name_property(self):
         user = User.objects.create_user(
-            email="john@flowpath.dev",
+            email="john@patternly.dev",
             password="pass",
             first_name="John",
             last_name="Smith",
@@ -34,15 +34,15 @@ class TestUserModel:
         assert user.full_name == "John Smith"
 
     def test_full_name_fallback_to_email(self):
-        user = User.objects.create_user(email="noname@flowpath.dev", password="pass")
-        assert user.full_name == "noname@flowpath.dev"
+        user = User.objects.create_user(email="noname@patternly.dev", password="pass")
+        assert user.full_name == "noname@patternly.dev"
 
     def test_str_returns_email(self, user):
         assert str(user) == user.email
 
     def test_create_superuser(self):
         admin = User.objects.create_superuser(
-            email="admin@flowpath.dev",
+            email="admin@patternly.dev",
             password="adminpass",
         )
         assert admin.is_staff
@@ -61,14 +61,14 @@ class TestAuthEndpoints:
     def test_register(self, api_client):
         url = reverse("user_register")
         payload = {
-            "email": "new@flowpath.dev",
+            "email": "new@patternly.dev",
             "password": "strongpass99",
             "first_name": "New",
             "last_name": "User",
         }
         response = api_client.post(url, payload, format="json")
         assert response.status_code == 201
-        assert User.objects.filter(email="new@flowpath.dev").exists()
+        assert User.objects.filter(email="new@patternly.dev").exists()
 
     def test_register_duplicate_email(self, api_client, user):
         url = reverse("user_register")
@@ -78,7 +78,7 @@ class TestAuthEndpoints:
 
     def test_register_short_password(self, api_client):
         url = reverse("user_register")
-        payload = {"email": "short@flowpath.dev", "password": "abc"}
+        payload = {"email": "short@patternly.dev", "password": "abc"}
         response = api_client.post(url, payload, format="json")
         assert response.status_code == 400
 
