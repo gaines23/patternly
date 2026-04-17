@@ -74,6 +74,7 @@ function PatternlyMark({ size = 32 }) {
       <circle cx="15" cy="35" r="2.8" fill="#F5D76E" />
       <circle cx="15" cy="22" r="2.8" fill="#F5D76E" />
       <circle cx="15" cy="9" r="2.8" fill="#F5D76E" />
+      <circle cx="25" cy="9" r="2.8" fill="#F5D76E" />
       <circle cx="31.5" cy="15.5" r="2.8" fill="#F5D76E" />
       <circle cx="25" cy="22" r="2.8" fill="#F5D76E" />
     </svg>

@@ -63,9 +63,12 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-            <PatternlyMark />
-            <span style={{ fontSize: 28, fontWeight: 500, color: theme.text, fontFamily: F, letterSpacing: "-0.03em" }}>Patternly</span>
+          <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <PatternlyMark />
+              <span style={{ fontSize: 28, fontWeight: 500, color: theme.text, fontFamily: F, letterSpacing: "-0.03em" }}>Patternly</span>
+            </div>
+            <p style={{ margin: 0, fontSize: 13, color: theme.textFaint, fontFamily: F }}>Spot the pattern. Skip the meeting</p>
           </div>
         </div>
 

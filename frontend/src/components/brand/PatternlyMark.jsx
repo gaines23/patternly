@@ -39,6 +39,7 @@ export function PatternlyMark({ size = 44 }) {
       <circle cx="15" cy="35" r="2.8" fill="#F5D76E" />
       <circle cx="15" cy="22" r="2.8" fill="#F5D76E" />
       <circle cx="15" cy="9" r="2.8" fill="#F5D76E" />
+      <circle cx="25" cy="9" r="2.8" fill="#F5D76E" />
       <circle cx="31.5" cy="15.5" r="2.8" fill="#F5D76E" />
       <circle cx="25" cy="22" r="2.8" fill="#F5D76E" />
     </svg>
@@ -49,7 +50,7 @@ export function PatternlyMark({ size = 44 }) {
  * Full logo lockup: icon + "Patternly" wordmark + optional tagline.
  * Use in auth pages and any marketing/onboarding surfaces.
  */
-export function PatternlyWordmark({ tagline, size = 44 }) {
+export function PatternlyWordmark({ tagline = "Spot the pattern. Skip the meeting", size = 44 }) {
   const { theme } = useTheme();
 
   return (
