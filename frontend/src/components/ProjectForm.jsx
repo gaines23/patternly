@@ -738,11 +738,7 @@ function StepScopeCreep({ scopeCreep, onScopeCreepChange, isEditing }) {
 
 function StepAudit({ caseName, setCaseName, hideRawPrompt, intakeData, setIntake, deltaData, setDelta, onAiParse, isParsing, parseError, auditData, setAudit, w, isEditing }) {
   const { theme } = useTheme();
-
-  const [guidedMode, setGuidedMode] = useState(!(intakeData?.rawPrompt));
-  const [g1, setG1] = useState("");
-  const [g2, setG2] = useState("");
-  const [g3, setG3] = useState("");
+  const [promptFocused, setPromptFocused] = useState(false);
 
   const builds = auditData?.builds || [];
   const hasExisting = auditData?.hasExisting === "Yes, they have something";
@@ -750,78 +746,146 @@ function StepAudit({ caseName, setCaseName, hideRawPrompt, intakeData, setIntake
   const updBuild = (i,v) => setAudit({ ...auditData, builds: builds.map((b,idx)=>idx===i?v:b) });
   const remBuild = i => setAudit({ ...auditData, builds: builds.filter((_,idx)=>idx!==i) });
 
-  const updateGuided = (field, value) => {
-    const next = { g1, g2, g3, [field]: value };
-    if (field === "g1") setG1(value);
-    if (field === "g2") setG2(value);
-    if (field === "g3") setG3(value);
-    const assembled = assembleGuidedPrompt(next.g1, next.g2, next.g3);
-    setIntake({ ...intakeData, rawPrompt: assembled });
-    if (setDelta && field === "g3") {
-      setDelta({ ...deltaData, successCriteria: value });
+  const canParse = !hideRawPrompt && (intakeData?.rawPrompt||"").trim().length > 20 && !!onAiParse;
+  const promptVal = intakeData?.rawPrompt || "";
+  const promptLower = promptVal.toLowerCase();
+
+  // Real-time checklist — detects what the user has mentioned
+  const CHECKLIST = [
+    { key: "client",   label: "Who is the client",        hint: "company name, type, or industry",   check: () => promptVal.trim().length > 10 },
+    { key: "team",     label: "Team size or structure",    hint: "e.g. '6-person team', 'small team'", check: () => /\d+[\s-]*(person|people|team|member|employee|staff)/i.test(promptVal) || /small|large|growing|solo/i.test(promptVal) },
+    { key: "tools",    label: "Tools currently in use",    hint: "e.g. Slack, HubSpot, ClickUp",     check: () => TOOLS.some(t => promptLower.includes(t.toLowerCase())) },
+    { key: "pain",     label: "Pain points or problems",   hint: "what's breaking or frustrating",    check: () => /break|fail|frustrat|problem|issue|manual|slow|miss|losing|pain|struggle|chaotic|siloed|disconnect/i.test(promptVal) },
+    { key: "goal",     label: "Goal or desired outcome",   hint: "what success looks like",           check: () => /want|need|goal|hope|looking for|success|automat|streamline|centralize|should|ideal|wish|replace/i.test(promptVal) },
+    { key: "existing", label: "Existing setup status",     hint: "have a system or starting fresh",   check: () => /existing|current|already|using|set up|setup|in place|no system|from scratch|nothing|greenfield/i.test(promptVal) },
+  ];
+  const checkedCount = CHECKLIST.filter(c => c.check()).length;
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey && canParse) {
+      e.preventDefault();
+      onAiParse();
     }
   };
 
-  const switchToGuided = () => { setG1(""); setG2(""); setG3(""); setIntake({ ...intakeData, rawPrompt:"" }); setGuidedMode(true); };
-  const switchToRaw = () => setGuidedMode(false);
-  const canParse = !hideRawPrompt && (intakeData?.rawPrompt||"").trim().length > 20 && !!onAiParse;
+  const applyQuickAction = (text) => {
+    const next = promptVal ? promptVal.trimEnd() + "\n\n" + text : text;
+    setIntake({ ...intakeData, rawPrompt: next });
+  };
 
   return (
     <div>
-      <Banner emoji="🔍" title="Before we recommend anything, let's understand what already exists." body="Documenting the current state — and exactly why it's failing — is the most important input for an accurate recommendation." color="#7C3AED"/>
       <Card accent="#7C3AED">
         <CardTitle sub="Give this project file a short, memorable name">Project name</CardTitle>
         <TI value={caseName} onChange={setCaseName} placeholder="e.g. Company/Client Name"/>
       </Card>
+
       {!hideRawPrompt && (
-        <Card accent="#7c3aed">
-          {guidedMode ? (<>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
-              <div>
-                <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>Tell me about the client</p>
-                <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Answer 3 quick questions — AI will fill the rest</p>
-              </div>
-              <button type="button" onClick={switchToRaw}
-                style={{ fontSize:11, color:theme.textFaint, background:"none", border:`1px solid ${theme.borderInput}`, borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
-                Paste raw text
+        <div style={{ border:`1px solid #60A5FA30`, borderRadius:14, padding:0, overflow:"hidden", marginBottom:14 }}>
+          {/* AI Assistant header */}
+          <div style={{ display:"flex", alignItems:"center", gap:12, padding:"16px 20px", borderBottom:`1px solid #60A5FA30` }}>
+            <div style={{ width:36, height:36, borderRadius:"50%", background:"#60A5FA", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 2v4M10 14v4M2 10h4M14 10h4M4.93 4.93l2.83 2.83M12.24 12.24l2.83 2.83M15.07 4.93l-2.83 2.83M7.76 12.24l-2.83 2.83"/>
+              </svg>
+            </div>
+            <div>
+              <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>AI Assistant <span style={{ fontSize:10, fontWeight:700, color:"#60A5FA", background:"#60A5FA18", border:"1px solid #60A5FA30", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>AI</span></p>
+              <p style={{ margin:0, fontSize:12, color:theme.textFaint, fontFamily:F }}>Describe the client and their situation — AI will extract all the details</p>
+            </div>
+          </div>
+
+          {/* Prompt textarea */}
+          <div style={{ padding:"16px 20px" }}>
+            <textarea
+              value={promptVal}
+              onChange={e => setIntake({ ...intakeData, rawPrompt: e.target.value })}
+              onFocus={() => setPromptFocused(true)}
+              onBlur={() => setPromptFocused(false)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your prompt here... (Press Enter to send, Shift+Enter for new line)"
+              rows={5}
+              style={{
+                width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:14, color:theme.text,
+                background:theme.bg, border:`1.5px solid ${promptFocused ? "#60A5FA" : theme.borderInput}`,
+                borderRadius:10, padding:"12px 14px", outline:"none", resize:"vertical", lineHeight:1.6,
+                transition:"border-color 0.15s, box-shadow 0.15s",
+                boxShadow: promptFocused ? "0 0 0 3px #60A5FA18" : "none",
+              }}
+            />
+
+            {/* Hint + Send button */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
+              <span style={{ fontSize:12, color: promptVal.trim().length > 0 ? "#60A5FA" : theme.textFaint, fontFamily:F, fontWeight: promptVal.trim().length > 0 ? 600 : 400 }}>
+                {promptVal.trim().length > 0 ? `✦ ${checkedCount}/${CHECKLIST.length} details detected` : "Describe the client's situation, tools, and goals"}
+              </span>
+              <button type="button" onClick={onAiParse} disabled={!canParse || isParsing}
+                style={{
+                  display:"flex", alignItems:"center", gap:6, padding:"8px 18px", borderRadius:8,
+                  fontSize:13, fontWeight:700, fontFamily:F, border:"none", cursor: canParse && !isParsing ? "pointer" : "not-allowed",
+                  background: canParse ? "#60A5FA" : theme.borderInput, color: canParse ? "#fff" : theme.textFaint,
+                  opacity: isParsing ? 0.7 : 1, transition:"all 0.15s",
+                }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2L7 9M14 2l-5 12-2-5-5-2 12-5z"/>
+                </svg>
+                {isParsing ? "Parsing…" : "Send"}
               </button>
             </div>
-            {GUIDED_QUESTIONS.map(({ key, q, placeholder }, idx) => {
-              const val = { g1, g2, g3 }[key];
-              return (
-                <div key={key} style={{ marginBottom:16 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                    <span style={{ width:22, height:22, borderRadius:"50%", background:"#7c3aed12", border:"1.5px solid #7C3AED", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#7C3AED", fontFamily:F, flexShrink:0 }}>{idx+1}</span>
-                    <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{q}</span>
+            {parseError && <p style={{ margin:"8px 0 0", fontSize:12, color:"#DC2626", fontFamily:F }}>{parseError}</p>}
+          </div>
+
+          {/* Quick actions */}
+          <div style={{ padding:"0 20px 16px", display:"flex", flexWrap:"wrap", gap:8, alignItems:"center" }}>
+            <span style={{ fontSize:12, fontWeight:600, color:theme.textFaint, fontFamily:F }}>Quick actions:</span>
+            {[
+              { label: "Client Overview", text: "The client is a [industry] company with [X] team members. They currently use [tools]." },
+              { label: "Pain Points", text: "Their main problems are: [describe what's breaking, what's manual, what's frustrating]." },
+              { label: "Current Setup", text: "They currently have [tool/system] set up for [purpose], but it's [what's wrong with it]." },
+              { label: "Goals", text: "The client wants to [desired outcome]. Success looks like [measurable result]." },
+            ].map(qa => (
+              <button key={qa.label} type="button" onClick={() => applyQuickAction(qa.text)}
+                style={{
+                  padding:"5px 12px", borderRadius:8, fontSize:12, fontWeight:500, fontFamily:F,
+                  background:"#60A5FA08", border:"1px solid #60A5FA30", color:theme.textSec,
+                  cursor:"pointer", transition:"all 0.12s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#60A5FA18"; e.currentTarget.style.borderColor = "#60A5FA"; e.currentTarget.style.color = "#60A5FA"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#60A5FA08"; e.currentTarget.style.borderColor = "#60A5FA30"; e.currentTarget.style.color = theme.textSec; }}>
+                {qa.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Checklist */}
+          <div style={{ padding:"14px 20px", borderTop:`1px solid #60A5FA30`, background:"#60A5FA08" }}>
+            <p style={{ margin:"0 0 10px", fontSize:11, fontWeight:700, color:"#60A5FA", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>
+              ✦ Information checklist — {checkedCount}/{CHECKLIST.length} detected
+            </p>
+            <div style={{ display:"grid", gridTemplateColumns: w >= 560 ? "1fr 1fr" : "1fr", gap:"6px 16px" }}>
+              {CHECKLIST.map(c => {
+                const done = c.check();
+                return (
+                  <div key={c.key} style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                    <span style={{
+                      width:18, height:18, borderRadius:5, flexShrink:0, marginTop:1,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      border: done ? "2px solid #60A5FA" : `2px solid ${theme.borderInput}`,
+                      background: done ? "#60A5FA" : "transparent",
+                      fontSize:10, color:"#fff", fontWeight:700, transition:"all 0.2s",
+                    }}>
+                      {done ? "✓" : ""}
+                    </span>
+                    <div>
+                      <span style={{ fontSize:12, fontWeight: done ? 600 : 500, color: done ? "#60A5FA" : theme.textMuted, fontFamily:F }}>{c.label}</span>
+                      {!done && <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F, marginLeft:4 }}>— {c.hint}</span>}
+                    </div>
                   </div>
-                  <TI value={val} onChange={v=>updateGuided(key, v)} placeholder={placeholder} rows={2}/>
-                </div>
-              );
-            })}
-          </>) : (<>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-              <div>
-                <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>Raw scenario prompt</p>
-                <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Paste exactly as the client described it — don't clean it up</p>
-              </div>
-              <button type="button" onClick={switchToGuided}
-                style={{ fontSize:11, color:"#60A5FA", background:"#60A5FA10", border:"1px solid #60A5FA30", borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
-                Use guided form
-              </button>
+                );
+              })}
             </div>
-            <TI rows={4} value={intakeData?.rawPrompt||""} onChange={v=>setIntake({...intakeData,rawPrompt:v})} placeholder="e.g. We're a 6-person marketing agency managing 12 clients. We use Slack and HubSpot but nothing talks to each other…"/>
-          </>)}
-          {canParse && (
-            <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
-              <button type="button" onClick={onAiParse} disabled={isParsing}
-                style={{ padding:"9px 16px", borderRadius:8, fontSize:13, fontWeight:700, fontFamily:F, cursor:isParsing?"not-allowed":"pointer", background:"#60A5FA", color:"#fff", border:"none", opacity:isParsing?0.7:1, transition:"opacity 0.15s" }}>
-                {isParsing ? "Parsing…" : "✦ Let AI parse this"}
-              </button>
-              <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F }}>Auto-fills industry, tools, and pain points</span>
-            </div>
-          )}
-          {parseError && <p style={{ margin:"8px 0 0", fontSize:12, color:"#DC2626", fontFamily:F }}>{parseError}</p>}
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* ── Existing setup audit ─────────────────────────────────────────── */}
