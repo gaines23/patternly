@@ -168,7 +168,7 @@ function RoadblockTypesChart({ types = [], loading, theme }) {
   });
 
   const allKeys = [...topTools, ...(data.some((r) => r["Other"]) ? ["Other"] : [])];
-  const COLORS = ["#2563EB", "#059669", "#D97706", "#7C3AED", "#0891B2", "#DB2777", "#65A30D", "#9CA3AF"];
+  const COLORS = ["#9B93E8", "#059669", "#D97706", "#7C3AED", "#0891B2", "#DB2777", "#65A30D", "#9CA3AF"];
   const tickWidth = 148;
 
   return (
@@ -300,7 +300,7 @@ function SatBarChart({ data, height = 200, tickWidth = 130, theme }) {
   );
 }
 
-const PIE_COLORS = ["#2563EB", "#059669", "#D97706", "#EA580C", "#7C3AED", "#0891B2", "#DB2777", "#65A30D"];
+const PIE_COLORS = ["#9B93E8", "#059669", "#D97706", "#EA580C", "#7C3AED", "#0891B2", "#DB2777", "#65A30D"];
 
 function IndustryPieChart({ data, loading, theme }) {
   if (loading) return <Skeleton theme={theme} />;
@@ -527,9 +527,9 @@ export default function DashboardPage() {
                   {cf.satisfaction_score && <SatisfactionDot score={cf.satisfaction_score} theme={theme} />}
                   <span style={{
                     fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 10,
-                    background: cf.status === "closed" ? "#ECFDF5" : "#EFF6FF",
-                    border: `1px solid ${cf.status === "closed" ? "#6EE7B7" : "#BFDBFE"}`,
-                    color: cf.status === "closed" ? "#065F46" : "#1D4ED8",
+                    background: cf.status === "closed" ? "#ECFDF5" : "#EEEAF8",
+                    border: `1px solid ${cf.status === "closed" ? "#6EE7B7" : "#C8C2E8"}`,
+                    color: cf.status === "closed" ? "#065F46" : "#7B72B8",
                     fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em",
                     whiteSpace: "nowrap",
                   }}>

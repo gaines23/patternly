@@ -81,7 +81,7 @@ function ListNode({ data }) {
                 borderRadius: 4, padding: "1px 6px", fontFamily: F,
               }}>{s}</span>
               {i < statusChips.length - 1 && (
-                <span style={{ fontSize: 9, color: "#93C5FD" }}>›</span>
+                <span style={{ fontSize: 9, color: "#B8B0D9" }}>›</span>
               )}
             </span>
           ))}
@@ -102,7 +102,7 @@ function AutomationNode({ data }) {
   const accent        = isThirdParty ? "#7C3AED" : "#0284C7";
   const bg            = isThirdParty ? "#F5F3FF" : "#F0F9FF";
   const border        = isThirdParty ? "#DDD6FE" : "#BAE6FD";
-  const chipBg        = isThirdParty ? "#EDE9FE" : "#EFF6FF";
+  const chipBg        = isThirdParty ? "#EDE9FE" : "#EEEAF8";
   const chipBorder    = isThirdParty ? "#C4B5FD" : "#BAE6FD";
   const platformLabel = isThirdParty ? (auto.third_party_platform || "3rd Party") : "ClickUp";
   return (
@@ -177,7 +177,7 @@ function TriggerNode({ data }) {
   const { t } = data;
   return (
     <div style={{
-      background: "#EFF6FF", border: "1.5px solid #BAE6FD",
+      background: "#EEEAF8", border: "1.5px solid #BAE6FD",
       borderRadius: 8, padding: "8px 12px", minWidth: 150, maxWidth: 210,
     }}>
       <Handle type="target" position={Position.Top}    style={{ background: "#0284C7" }} />
@@ -188,7 +188,7 @@ function TriggerNode({ data }) {
       }}>Trigger</p>
       <span style={{
         fontSize: 11, fontWeight: 600, color: "#0284C7",
-        background: "#EFF6FF", border: "1px solid #BAE6FD",
+        background: "#EEEAF8", border: "1px solid #BAE6FD",
         borderRadius: 4, padding: "1px 6px", fontFamily: F,
       }}>{t.type}</span>
       {t.detail && (
@@ -338,8 +338,8 @@ function buildGraph(wf) {
         edges.push({
           id: `e-${autoId}-${tId}`,
           source: autoId, target: tId,
-          type: "smoothstep", style: { stroke: "#60A5FA", strokeWidth: 1.5 },
-          ...(ti === Math.floor(validTriggers.length / 2) ? edgeLabel("when", "#3B82F6") : {}),
+          type: "smoothstep", style: { stroke: "#B8B0D9", strokeWidth: 1.5 },
+          ...(ti === Math.floor(validTriggers.length / 2) ? edgeLabel("when", "#9B93E8") : {}),
         });
       });
 
@@ -545,7 +545,7 @@ export function WorkflowMapPanel({ workflow, onClose, asModal = false }) {
           { color: "#0284C7",   label: "List" },
           { color: "#0284C780", label: "Pipeline auto" },
           { color: "#D9770680", label: "Standalone auto", dashed: true },
-          { color: "#60A5FA",   label: "When (trigger)" },
+          { color: "#B8B0D9",   label: "When (trigger)" },
           { color: "#34D399",   label: "Then (action)" },
           { color: "#DDD6FE",   label: "Description" },
         ].map(({ color, label, dashed }) => (

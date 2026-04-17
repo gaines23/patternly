@@ -44,7 +44,7 @@ export default function ShareModal({ cf, onClose }) {
     >
       <div
         style={{
-          background: theme.surface, borderRadius: 16, padding: "28px 32px",
+          background: theme.surfaceRaised, borderRadius: 16, padding: "28px 32px",
           maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
         }}
         onClick={e => e.stopPropagation()}

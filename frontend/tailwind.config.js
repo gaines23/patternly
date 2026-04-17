@@ -8,13 +8,13 @@ export default {
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
-      // Mirror Flowpath design tokens so Tailwind classes stay in sync
+      // Mirror Patternly design tokens so Tailwind classes stay in sync
       colors: {
         fp: {
-          blue:         "#2563EB",
-          "blue-light": "#EFF6FF",
-          "blue-border":"#BFDBFE",
-          "blue-subtle":"#93C5FD",
+          blue:         "#9B93E8",
+          "blue-light": "#EEEAF8",
+          "blue-border":"#C8C2E8",
+          "blue-subtle":"#B8B0D9",
           bg:           "#F9FAFB",
           surface:      "#FFFFFF",
           border:       "#F0F0F0",
@@ -37,7 +37,7 @@ export default {
       boxShadow: {
         card:     "0 1px 4px rgba(0,0,0,0.06)",
         "card-lg":"0 2px 12px rgba(0,0,0,0.08)",
-        focus:    "0 0 0 3px #EFF6FF",
+        focus:    "0 0 0 3px #EEEAF8",
       },
     },
   },

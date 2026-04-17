@@ -7,7 +7,7 @@ import { F, BLUE } from "../constants";
  *
  * Props:
  *   items — string[]
- *   color — pill accent color (default Flowpath blue)
+ *   color — pill accent color (default Patternly periwinkle)
  */
 export default function TagList({ items, color = BLUE }) {
   const { theme } = useTheme();

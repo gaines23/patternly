@@ -1,5 +1,5 @@
 /**
- * Flowpath shared UI component library.
+ * Patternly shared UI component library.
  *
  * Import from "@components/ui" anywhere in the app:
  *   import { Card, Button, Input, Badge, Alert } from "@components/ui";

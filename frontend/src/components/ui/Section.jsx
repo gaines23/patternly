@@ -23,7 +23,7 @@ const F = "'Plus Jakarta Sans', sans-serif";
  */
 export default function Section({
   title,
-  color = "#2563EB",
+  color = "#9B93E8",
   headerBg,
   defaultOpen = true,
   collapsible = true,

@@ -3,20 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../hooks/useTheme";
 import publicApi from "../../api/publicClient";
 
-const F = "'Plus Jakarta Sans', sans-serif";
+import { PatternlyMark } from "@components/brand/PatternlyMark";
 
-function FlowpathMark({ blue }) {
-  return (
-    <svg width="44" height="44" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="36" height="36" rx="9" fill={blue} />
-      <circle cx="9" cy="20" r="4.5" fill="white" />
-      <circle cx="18" cy="13" r="3" fill="white" fillOpacity="0.55" />
-      <circle cx="27" cy="20" r="4.5" fill="white" />
-      <circle cx="27" cy="20" r="1.8" fill={blue} />
-      <path d="M13 17.5 Q18 9 23 17.5" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
-    </svg>
-  );
-}
+const F = "'Plus Jakarta Sans', sans-serif";
 
 export default function ForgotPasswordPage() {
   const { theme } = useTheme();
@@ -65,13 +54,12 @@ export default function ForgotPasswordPage() {
       <div style={{ width: "100%", maxWidth: 400 }}>
 
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-            <FlowpathMark blue={theme.blue} />
-            <div>
-              <span style={{ fontSize: 22, fontWeight: 800, color: theme.text, fontFamily: F, letterSpacing: "-0.04em" }}>flow</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: theme.blue, fontFamily: F, letterSpacing: "-0.04em" }}>path</span>
+          <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <PatternlyMark />
+              <span style={{ fontSize: 28, fontWeight: 600, color: "#9B93E8", fontFamily: F, letterSpacing: "-0.03em" }}>Patternly</span>
             </div>
-            <p style={{ margin: 0, fontSize: 13, color: theme.textFaint, fontFamily: F }}>Workflow Intelligence</p>
+            <p style={{ margin: 0, fontSize: 13, color: "#6E68A0", fontFamily: F }}>Spot the pattern. Skip the meeting</p>
           </div>
         </div>
 

@@ -2,7 +2,7 @@ import { createTheme } from "@mui/material/styles";
 import { themes } from "./theme";
 
 /**
- * Build a MUI theme that mirrors Flowpath's existing design tokens.
+ * Build a MUI theme that mirrors Patternly's existing design tokens.
  * Pass the current mode ("light" | "dark") from useTheme() so MUI stays
  * in sync with the existing data-theme toggle.
  */
@@ -19,7 +19,7 @@ export function createMuiTheme(mode = "light") {
       },
       background: {
         default: t.bg,
-        paper:   t.surface,
+        paper:   t.surfaceRaised,
       },
       text: {
         primary:   t.text,
@@ -82,7 +82,7 @@ export function createMuiTheme(mode = "light") {
           },
           containedPrimary: {
             background: t.blue,
-            "&:hover": { background: mode === "dark" ? "#3B82F6" : "#1D4ED8" },
+            "&:hover": { background: mode === "dark" ? "#8B82C8" : "#7B72B8" },
           },
         },
       },

@@ -101,7 +101,7 @@ export default function TodoModal({ initial, onClose, onSave, isSaving }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, height: "100vh", background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, overflowY: "auto" }}>
-      <div style={{ background: theme.surface, borderRadius: 16, width: "100%", maxWidth: 600, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.25)" }}>
+      <div style={{ background: theme.surfaceRaised, borderRadius: 16, width: "100%", maxWidth: 600, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.25)" }}>
 
         {/* Header */}
         <div style={{ padding: "22px 28px 18px", borderBottom: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

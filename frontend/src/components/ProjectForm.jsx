@@ -1,7 +1,7 @@
 /**
  * CaseFileForm.jsx
  *
- * The full 6-step Flowpath intake form.
+ * The full 6-step Patternly intake form.
  * Receives onSubmit(formData, enteredBy) and isSaving props.
  * Internally manages all form state; calls onSubmit when user hits "Save Project".
  *
@@ -162,7 +162,7 @@ const DEFAULT_STATE = {
 
 //  ── Primitive UI components (self-contained, no external deps) ────────────────
 const F = "'Plus Jakarta Sans', sans-serif";
-const BLUE = "#2563EB";
+const BLUE = "#9B93E8";
 
 function useWidth() {
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 800);
@@ -176,7 +176,7 @@ function useWidth() {
 
 function AiBadge() {
   return (
-    <span style={{ fontSize:10, fontWeight:700, fontFamily:F, color:"#60A5FA", background:"#60A5FA18", border:"1px solid #60A5FA30", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>
+    <span style={{ fontSize:10, fontWeight:700, fontFamily:F, color:"#9B93E8", background:"#9B93E818", border:"1px solid #9B93E830", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>
       AI
     </span>
   );
@@ -314,7 +314,8 @@ function TogGroup({ options, value, onChange, color=BLUE }) {
 function Card({ children, accent, style }) {
   const { theme } = useTheme();
   return (
-    <div style={{ background:theme.surface, border:accent?`1px solid ${accent}20`:`1px solid ${theme.border}`, borderRadius:12, padding:"18px 18px", marginBottom:12, borderLeft:accent?`3px solid ${accent}`:undefined, ...style }}>
+    <div style={{ borderTop:`1px solid ${theme.border}`, padding:"18px 0", ...style }}>
+      {/* {accent && <div style={{ width:3, height:18, borderRadius:2, background:accent, marginBottom:12 }} />} */}
       {children}
     </div>
   );
@@ -737,11 +738,7 @@ function StepScopeCreep({ scopeCreep, onScopeCreepChange, isEditing }) {
 
 function StepAudit({ caseName, setCaseName, hideRawPrompt, intakeData, setIntake, deltaData, setDelta, onAiParse, isParsing, parseError, auditData, setAudit, w, isEditing }) {
   const { theme } = useTheme();
-
-  const [guidedMode, setGuidedMode] = useState(!(intakeData?.rawPrompt));
-  const [g1, setG1] = useState("");
-  const [g2, setG2] = useState("");
-  const [g3, setG3] = useState("");
+  const [promptFocused, setPromptFocused] = useState(false);
 
   const builds = auditData?.builds || [];
   const hasExisting = auditData?.hasExisting === "Yes, they have something";
@@ -749,78 +746,146 @@ function StepAudit({ caseName, setCaseName, hideRawPrompt, intakeData, setIntake
   const updBuild = (i,v) => setAudit({ ...auditData, builds: builds.map((b,idx)=>idx===i?v:b) });
   const remBuild = i => setAudit({ ...auditData, builds: builds.filter((_,idx)=>idx!==i) });
 
-  const updateGuided = (field, value) => {
-    const next = { g1, g2, g3, [field]: value };
-    if (field === "g1") setG1(value);
-    if (field === "g2") setG2(value);
-    if (field === "g3") setG3(value);
-    const assembled = assembleGuidedPrompt(next.g1, next.g2, next.g3);
-    setIntake({ ...intakeData, rawPrompt: assembled });
-    if (setDelta && field === "g3") {
-      setDelta({ ...deltaData, successCriteria: value });
+  const canParse = !hideRawPrompt && (intakeData?.rawPrompt||"").trim().length > 20 && !!onAiParse;
+  const promptVal = intakeData?.rawPrompt || "";
+  const promptLower = promptVal.toLowerCase();
+
+  // Real-time checklist — detects what the user has mentioned
+  const CHECKLIST = [
+    { key: "client",   label: "Who is the client",        hint: "company name, type, or industry",   check: () => promptVal.trim().length > 10 },
+    { key: "team",     label: "Team size or structure",    hint: "e.g. '6-person team', 'small team'", check: () => /\d+[\s-]*(person|people|team|member|employee|staff)/i.test(promptVal) || /small|large|growing|solo/i.test(promptVal) },
+    { key: "tools",    label: "Tools currently in use",    hint: "e.g. Slack, HubSpot, ClickUp",     check: () => TOOLS.some(t => promptLower.includes(t.toLowerCase())) },
+    { key: "pain",     label: "Pain points or problems",   hint: "what's breaking or frustrating",    check: () => /break|fail|frustrat|problem|issue|manual|slow|miss|losing|pain|struggle|chaotic|siloed|disconnect/i.test(promptVal) },
+    { key: "goal",     label: "Goal or desired outcome",   hint: "what success looks like",           check: () => /want|need|goal|hope|looking for|success|automat|streamline|centralize|should|ideal|wish|replace/i.test(promptVal) },
+    { key: "existing", label: "Existing setup status",     hint: "have a system or starting fresh",   check: () => /existing|current|already|using|set up|setup|in place|no system|from scratch|nothing|greenfield/i.test(promptVal) },
+  ];
+  const checkedCount = CHECKLIST.filter(c => c.check()).length;
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey && canParse) {
+      e.preventDefault();
+      onAiParse();
     }
   };
 
-  const switchToGuided = () => { setG1(""); setG2(""); setG3(""); setIntake({ ...intakeData, rawPrompt:"" }); setGuidedMode(true); };
-  const switchToRaw = () => setGuidedMode(false);
-  const canParse = !hideRawPrompt && (intakeData?.rawPrompt||"").trim().length > 20 && !!onAiParse;
+  const applyQuickAction = (text) => {
+    const next = promptVal ? promptVal.trimEnd() + "\n\n" + text : text;
+    setIntake({ ...intakeData, rawPrompt: next });
+  };
 
   return (
     <div>
-      <Banner emoji="🔍" title="Before we recommend anything, let's understand what already exists." body="Documenting the current state — and exactly why it's failing — is the most important input for an accurate recommendation." color="#7C3AED"/>
       <Card accent="#7C3AED">
         <CardTitle sub="Give this project file a short, memorable name">Project name</CardTitle>
         <TI value={caseName} onChange={setCaseName} placeholder="e.g. Company/Client Name"/>
       </Card>
+
       {!hideRawPrompt && (
-        <Card accent="#7c3aed">
-          {guidedMode ? (<>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
-              <div>
-                <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>Tell me about the client</p>
-                <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Answer 3 quick questions — AI will fill the rest</p>
-              </div>
-              <button type="button" onClick={switchToRaw}
-                style={{ fontSize:11, color:theme.textFaint, background:"none", border:`1px solid ${theme.borderInput}`, borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
-                Paste raw text
+        <div style={{ border:`1px solid #9B93E830`, borderRadius:14, padding:0, overflow:"hidden", marginBottom:14 }}>
+          {/* AI Assistant header */}
+          <div style={{ display:"flex", alignItems:"center", gap:12, padding:"16px 20px", borderBottom:`1px solid #9B93E830` }}>
+            <div style={{ width:36, height:36, borderRadius:"50%", background:"#9B93E8", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 2v4M10 14v4M2 10h4M14 10h4M4.93 4.93l2.83 2.83M12.24 12.24l2.83 2.83M15.07 4.93l-2.83 2.83M7.76 12.24l-2.83 2.83"/>
+              </svg>
+            </div>
+            <div>
+              <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>AI Assistant <span style={{ fontSize:10, fontWeight:700, color:"#9B93E8", background:"#9B93E818", border:"1px solid #9B93E830", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>AI</span></p>
+              <p style={{ margin:0, fontSize:12, color:theme.textFaint, fontFamily:F }}>Describe the client and their situation — AI will extract all the details</p>
+            </div>
+          </div>
+
+          {/* Prompt textarea */}
+          <div style={{ padding:"16px 20px" }}>
+            <textarea
+              value={promptVal}
+              onChange={e => setIntake({ ...intakeData, rawPrompt: e.target.value })}
+              onFocus={() => setPromptFocused(true)}
+              onBlur={() => setPromptFocused(false)}
+              onKeyDown={handleKeyDown}
+              placeholder="e.g. We're a 12-person marketing agency using ClickUp and HubSpot. Our project handoffs keep falling through the cracks and nothing is automated — we need a system that connects intake to delivery so clients stop slipping through."
+              rows={5}
+              style={{
+                width:"100%", boxSizing:"border-box", fontFamily:F, fontSize:14, color:theme.text,
+                background:theme.bg, border:`1.5px solid ${promptFocused ? "#9B93E8" : theme.borderInput}`,
+                borderRadius:10, padding:"12px 14px", outline:"none", resize:"vertical", lineHeight:1.6,
+                transition:"border-color 0.15s, box-shadow 0.15s",
+                boxShadow: promptFocused ? "0 0 0 3px #9B93E818" : "none",
+              }}
+            />
+
+            {/* Hint + Send button */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
+              <span style={{ fontSize:12, color: promptVal.trim().length > 0 ? "#9B93E8" : theme.textFaint, fontFamily:F, fontWeight: promptVal.trim().length > 0 ? 600 : 400 }}>
+                {promptVal.trim().length > 0 ? `✦ ${checkedCount}/${CHECKLIST.length} details detected` : "Describe the client's situation, tools, and goals"}
+              </span>
+              <button type="button" onClick={onAiParse} disabled={!canParse || isParsing}
+                style={{
+                  display:"flex", alignItems:"center", gap:6, padding:"8px 18px", borderRadius:8,
+                  fontSize:13, fontWeight:700, fontFamily:F, border:"none", cursor: canParse && !isParsing ? "pointer" : "not-allowed",
+                  background: canParse ? "#9B93E8" : theme.borderInput, color: canParse ? "#fff" : theme.textFaint,
+                  opacity: isParsing ? 0.7 : 1, transition:"all 0.15s",
+                }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2L7 9M14 2l-5 12-2-5-5-2 12-5z"/>
+                </svg>
+                {isParsing ? "Parsing…" : "Send"}
               </button>
             </div>
-            {GUIDED_QUESTIONS.map(({ key, q, placeholder }, idx) => {
-              const val = { g1, g2, g3 }[key];
-              return (
-                <div key={key} style={{ marginBottom:16 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                    <span style={{ width:22, height:22, borderRadius:"50%", background:"#7c3aed12", border:"1.5px solid #7C3AED", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#7C3AED", fontFamily:F, flexShrink:0 }}>{idx+1}</span>
-                    <span style={{ fontSize:13, fontWeight:600, color:theme.text, fontFamily:F }}>{q}</span>
+            {parseError && <p style={{ margin:"8px 0 0", fontSize:12, color:"#DC2626", fontFamily:F }}>{parseError}</p>}
+          </div>
+
+          {/* Quick actions */}
+          <div style={{ padding:"0 20px 16px", display:"flex", flexWrap:"wrap", gap:8, alignItems:"center" }}>
+            <span style={{ fontSize:12, fontWeight:600, color:theme.textFaint, fontFamily:F }}>Quick actions:</span>
+            {[
+              { label: "Client Overview", text: "The client is a [industry] company with [X] team members. They currently use [tools]." },
+              { label: "Pain Points", text: "Their main problems are: [describe what's breaking, what's manual, what's frustrating]." },
+              { label: "Current Setup", text: "They currently have [tool/system] set up for [purpose], but it's [what's wrong with it]." },
+              { label: "Goals", text: "The client wants to [desired outcome]. Success looks like [measurable result]." },
+            ].map(qa => (
+              <button key={qa.label} type="button" onClick={() => applyQuickAction(qa.text)}
+                style={{
+                  padding:"5px 12px", borderRadius:8, fontSize:12, fontWeight:500, fontFamily:F,
+                  background:"#9B93E808", border:"1px solid #9B93E830", color:theme.textSec,
+                  cursor:"pointer", transition:"all 0.12s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#9B93E818"; e.currentTarget.style.borderColor = "#9B93E8"; e.currentTarget.style.color = "#9B93E8"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#9B93E808"; e.currentTarget.style.borderColor = "#9B93E830"; e.currentTarget.style.color = theme.textSec; }}>
+                {qa.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Checklist */}
+          <div style={{ padding:"14px 20px", borderTop:`1px solid #9B93E830`, background:"#9B93E808" }}>
+            <p style={{ margin:"0 0 10px", fontSize:11, fontWeight:700, color:"#9B93E8", fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>
+              ✦ Information checklist — {checkedCount}/{CHECKLIST.length} detected
+            </p>
+            <div style={{ display:"grid", gridTemplateColumns: w >= 560 ? "1fr 1fr" : "1fr", gap:"6px 16px" }}>
+              {CHECKLIST.map(c => {
+                const done = c.check();
+                return (
+                  <div key={c.key} style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                    <span style={{
+                      width:18, height:18, borderRadius:5, flexShrink:0, marginTop:1,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      border: done ? "2px solid #9B93E8" : `2px solid ${theme.borderInput}`,
+                      background: done ? "#9B93E8" : "transparent",
+                      fontSize:10, color:"#fff", fontWeight:700, transition:"all 0.2s",
+                    }}>
+                      {done ? "✓" : ""}
+                    </span>
+                    <div>
+                      <span style={{ fontSize:12, fontWeight: done ? 600 : 500, color: done ? "#9B93E8" : theme.textMuted, fontFamily:F }}>{c.label}</span>
+                      {!done && <span style={{ fontSize:11, color:theme.textFaint, fontFamily:F, marginLeft:4 }}>— {c.hint}</span>}
+                    </div>
                   </div>
-                  <TI value={val} onChange={v=>updateGuided(key, v)} placeholder={placeholder} rows={2}/>
-                </div>
-              );
-            })}
-          </>) : (<>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-              <div>
-                <p style={{ margin:0, fontSize:15, fontWeight:700, color:theme.text, fontFamily:F }}>Raw scenario prompt</p>
-                <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Paste exactly as the client described it — don't clean it up</p>
-              </div>
-              <button type="button" onClick={switchToGuided}
-                style={{ fontSize:11, color:"#60A5FA", background:"#60A5FA10", border:"1px solid #60A5FA30", borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
-                Use guided form
-              </button>
+                );
+              })}
             </div>
-            <TI rows={4} value={intakeData?.rawPrompt||""} onChange={v=>setIntake({...intakeData,rawPrompt:v})} placeholder="e.g. We're a 6-person marketing agency managing 12 clients. We use Slack and HubSpot but nothing talks to each other…"/>
-          </>)}
-          {canParse && (
-            <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
-              <button type="button" onClick={onAiParse} disabled={isParsing}
-                style={{ padding:"9px 16px", borderRadius:8, fontSize:13, fontWeight:700, fontFamily:F, cursor:isParsing?"not-allowed":"pointer", background:"#60A5FA", color:"#fff", border:"none", opacity:isParsing?0.7:1, transition:"opacity 0.15s" }}>
-                {isParsing ? "Parsing…" : "✦ Let AI parse this"}
-              </button>
-              <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F }}>Auto-fills industry, tools, and pain points</span>
-            </div>
-          )}
-          {parseError && <p style={{ margin:"8px 0 0", fontSize:12, color:"#DC2626", fontFamily:F }}>{parseError}</p>}
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* ── Existing setup audit ─────────────────────────────────────────── */}
@@ -883,7 +948,7 @@ const AI_FILLABLE_FIELDS = new Set(["teamSize", "workflowType", "industries", "p
 function AiInfoTip({ hasAiFields }) {
   const [hovered, setHovered] = useState(false);
   const { theme } = useTheme();
-  const color = "#60A5FA";
+  const color = "#9B93E8";
   const tip = hasAiFields
     ? { title:"AI pre-filled these fields", body:"Review each suggestion below — correct anything that looks off before saving." }
     : { title:"AI can pre-fill these fields", body:"Go back to Current State, fill out the guided form, and click 'Let AI parse this' to auto-fill the highlighted fields below." };
@@ -910,7 +975,7 @@ function SuggestedBuildsPanel({ builds, onApply }) {
   const { theme } = useTheme();
   const [previewIdx, setPreviewIdx] = useState(null);
   if (!builds?.length) return null;
-  const color = "#60A5FA";
+  const color = "#9B93E8";
   const COMPLEXITY_LABELS = ["", "Very simple", "Simple", "Moderate", "Complex", "Very complex"];
   const preview = previewIdx !== null ? builds[previewIdx] : null;
 
@@ -927,7 +992,7 @@ function SuggestedBuildsPanel({ builds, onApply }) {
           const { template, score, match_reasons } = result;
           const isActive = previewIdx === i;
           const scoreColor = score >= 70 ? { bg:"#ECFDF5", border:"#6EE7B7", text:"#059669" }
-            : score >= 40 ? { bg:"#EFF6FF", border:"#BFDBFE", text:"#1D4ED8" }
+            : score >= 40 ? { bg:"#EEEAF8", border:"#C8C2E8", text:"#7B72B8" }
             : { bg:theme.surfaceAlt, border:theme.border, text:theme.textFaint };
           return (
             <button key={i} type="button" onClick={() => setPreviewIdx(isActive ? null : i)}
@@ -1033,7 +1098,7 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
         <CardTitle>Tools & pain points</CardTitle>
         <Field label="Tools currently in use" hint="select all" aiBadge={ai("tools")}><ChipGroup options={TOOLS} selected={data.tools} onChange={v=>set({...data,tools:v})} color={BLUE}/></Field>
         <HR label="pain points"/>
-        <Field label="Core pain points" aiBadge={ai("painPoints")}><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#60A5FA"/></Field>
+        <Field label="Core pain points" aiBadge={ai("painPoints")}><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#9B93E8"/></Field>
         <HR/>
         <Field label="What have they already tried that didn't work?" hint="optional"><TI rows={2} value={data.priorAttempts} onChange={v=>set({...data,priorAttempts:v})} placeholder="Previous tools, failed automations…"/></Field>
       </Card>
@@ -1458,7 +1523,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBui
       {/* ── Mapped workflows ────────────────────────────────────────────────── */}
       <HR label="mapped workflows — what you're building"/>
       {workflows.length === 0 ? (
-        <div style={{ padding:"40px 24px", textAlign:"center", background:theme.surface, border:"1.5px dashed #BFDBFE", borderRadius:14, marginBottom:14 }}>
+        <div style={{ padding:"40px 24px", textAlign:"center", background:theme.surface, border:"1.5px dashed #C8C2E8", borderRadius:14, marginBottom:14 }}>
           <p style={{ margin:"0 0 16px", fontSize:14, color:theme.textMuted, fontFamily:F }}>No workflows yet. Add one to start mapping the build.</p>
           <button type="button" onClick={addWf} style={{ padding:"10px 24px", background:"#0284C7", border:"none", borderRadius:10, color:"#fff", fontSize:13, fontWeight:700, fontFamily:F, cursor:"pointer" }}>+ Add first workflow</button>
         </div>
@@ -1466,7 +1531,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBui
         {workflows.map((wf,i) => (
           <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds} isMapActive={mapWfIndex===i} onToggleMap={()=>setMapWfIndex(mapWfIndex===i?null:i)}/>
         ))}
-        <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #BFDBFE", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
+        <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #C8C2E8", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
           + Add another workflow
         </button>
       </>)}
@@ -1788,7 +1853,7 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
   ];
 
   const visibleSections = isEditing ? SECTIONS : SECTIONS.filter(s => s.group !== "The Updates");
-  const sidebarGroups = [...new Set(visibleSections.map(s => s.group))];
+
 
   if (showIntro) return (
     <div style={{ background:theme.bg, minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 20px" }}>
@@ -1855,9 +1920,50 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
             </div>
           </div>
 
-          {/* Mobile: horizontal scrollable section tabs */}
-          {isMobile && (
-            <div style={{ display:"flex", gap:0, overflowX:"auto", scrollbarWidth:"none", borderTop:`1px solid ${theme.border}` }}>
+          {/* ── Step progress bar (desktop) ────────────────────────────────── */}
+          {!isMobile && (
+            <div style={{ display:"flex", alignItems:"flex-start", borderTop:`1px solid ${theme.border}`, padding:"12px 0 8px" }}>
+              {visibleSections.flatMap((s, idx) => {
+                const i = SECTIONS.indexOf(s);
+                const filled = sectionFilled[i];
+                const active = i === step;
+                const isLast = idx === visibleSections.length - 1;
+                const items = [
+                  <div key={`dot-${s.id}`}
+                    onClick={() => setStep(i)}
+                    style={{ display:"flex", flexDirection:"column", alignItems:"center", cursor:"pointer", flexShrink:0 }}>
+                    <div style={{
+                      width:26, height:26, borderRadius:"50%",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      background: filled ? "#059669" : active ? `${s.color}15` : theme.surface,
+                      border: filled ? "2px solid #059669" : active ? `2px solid ${s.color}` : `2px solid ${theme.borderInput}`,
+                      transition:"all 0.2s",
+                    }}>
+                      {filled
+                        ? <span style={{ color:"#fff", fontSize:11, fontWeight:700, lineHeight:1 }}>✓</span>
+                        : <span style={{ color: active ? s.color : theme.textFaint, fontSize:10, fontWeight:700, fontFamily:F, lineHeight:1 }}>{idx+1}</span>}
+                    </div>
+                    <span style={{
+                      marginTop:4, fontSize:12, fontWeight: active ? 700 : 500,
+                      color: filled ? "#059669" : active ? s.color : theme.textFaint,
+                      fontFamily:F, whiteSpace:"nowrap", textAlign:"center",
+                    }}>{s.label}</span>
+                  </div>
+                ];
+                if (!isLast) items.push(
+                  <div key={`line-${s.id}`} style={{ flex:1, height:2, marginTop:13, background: filled ? "#059669" : theme.borderInput, transition:"background 0.3s" }} />
+                );
+                return items;
+              })}
+            </div>
+          )}
+
+          {/* Mobile: progress strip + horizontal scrollable section tabs */}
+          {isMobile && (<>
+            <div style={{ height:3, background:theme.borderInput, borderTop:`1px solid ${theme.border}` }}>
+              <div style={{ height:"100%", width:`${Math.round((visibleSections.filter(s => sectionFilled[SECTIONS.indexOf(s)]).length / visibleSections.length) * 100)}%`, background:"#059669", borderRadius:2, transition:"width 0.4s ease" }} />
+            </div>
+            <div style={{ display:"flex", gap:0, overflowX:"auto", scrollbarWidth:"none" }}>
               {visibleSections.map((s)=>{
                 const i = SECTIONS.indexOf(s);
                 return (
@@ -1869,81 +1975,43 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
                 );
               })}
             </div>
-          )}
+          </>)}
         </div>
       </div>
 
-      {/* ── Body: sidebar + content ──────────────────────────────────────── */}
+      {/* ── Body: content ──────────────────────────────────────────────── */}
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
-      <div style={{ maxWidth:1060, margin:"0 auto", width:"100%", display:"flex" }}>
-
-        {/* Left sidebar (desktop only) */}
-        {!isMobile && (
-          <div style={{ width:210, flexShrink:0, overflowY:"auto", borderRight:`1px solid ${theme.border}`, display:"flex", flexDirection:"column", padding:"20px 0 0" }}>
-            <div style={{ flex:1 }}>
-              {sidebarGroups.map(group => (
-                <div key={group} style={{ marginBottom:8 }}>
-                  <p style={{ margin:"0 0 4px", padding:"0 16px", fontSize:10, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{group}</p>
-                  {visibleSections.filter(s=>s.group===group).map(s => {
-                    const i = SECTIONS.indexOf(s);
-                    const active = i === step;
-                    return (
-                      <button key={s.id} onClick={()=>setStep(i)}
-                        style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:active?`${s.color}10`:"transparent", border:"none", borderLeft:active?`3px solid ${s.color}`:"3px solid transparent", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}>
-                        {sectionFilled[i]
-                          ? <span style={{ width:18, height:18, background:"#059669", borderRadius:"50%", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:700, flexShrink:0 }}>✓</span>
-                          : <span style={{ width:18, height:18, borderRadius:"50%", border:`2px solid ${active?s.color:theme.borderInput}`, background:active?`${s.color}15`:"transparent", flexShrink:0, transition:"all 0.15s" }}/>
-                        }
-                        <span style={{ fontSize:12, fontWeight:active?700:500, color:active?s.color:theme.textSec, fontFamily:F, lineHeight:1.3 }}>{s.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-            <div style={{ padding:"12px 16px", borderTop:`1px solid ${theme.border}` }}>
-              <p style={{ margin:"0 0 5px", fontSize:10, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>Logged by</p>
-              <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
-                style={{ width:"100%", fontFamily:F, fontSize:13, color:theme.textSec, background:theme.bg, border:`1px solid ${theme.borderInput}`, borderRadius:8, padding:"7px 10px", outline:"none", boxSizing:"border-box" }}/>
-            </div>
-          </div>
-        )}
+      <div style={{ maxWidth:900, margin:"0 auto", width:"100%", display:"flex" }}>
 
         {/* Content area */}
         <div style={{ flex:1, minWidth:0, overflowY:"auto", padding:`24px ${px}px 24px` }}>
+          <div style={{ background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:14, padding: isMobile ? "20px 16px" : "28px 28px" }}>
 
-          {/* Section heading */}
-          <div style={{ marginBottom:24 }}>
-            <p style={{ margin:"0 0 2px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{cs.group}</p>
-            <p style={{ margin:"0 0 4px", fontSize:20, fontWeight:700, color:cs.color, fontFamily:F }}>{cs.label}</p>
-            <p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>{cs.subtitle}</p>
-          </div>
-
-          {/* Logged by (mobile only — desktop shows this in the sidebar) */}
-          {isMobile && (
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:12, padding:"10px 14px" }}>
-              <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F, fontWeight:500, flexShrink:0 }}>Logged by</span>
-              <input value={enteredBy} onChange={e=>setEnteredBy(e.target.value)} placeholder="Your name"
-                style={{ flex:1, fontFamily:F, fontSize:14, color:theme.textSec, background:"transparent", border:"none", outline:"none" }}/>
+            {/* Section heading */}
+            <div style={{ marginBottom:20 }}>
+              <p style={{ margin:"0 0 2px", fontSize:11, fontWeight:700, color:theme.textFaint, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.08em" }}>{cs.group}</p>
+              <p style={{ margin:"0 0 4px", fontSize:20, fontWeight:700, color:cs.color, fontFamily:F }}>{cs.label}</p>
+              <p style={{ margin:0, fontSize:13, color:theme.textFaint, fontFamily:F }}>{cs.subtitle}</p>
             </div>
-          )}
 
-          {/* ── Section content ──────────────────────────────────────────── */}
-          {step===0 && <StepProjectUpdates projectUpdates={data.projectUpdates||[]} onProjectUpdatesChange={v=>setSD("projectUpdates",v)} isEditing={isEditing}/>}
-          {step===1 && <StepScopeCreep scopeCreep={data.delta?.scopeCreep||[]} onScopeCreepChange={v=>setData(d=>({...d,delta:{...d.delta,scopeCreep:v}}))} isEditing={isEditing}/>}
-          {step===2 && (
-            <StepAudit caseName={caseName} setCaseName={setCaseName}
-              hideRawPrompt={shouldHidePrompt}
-              intakeData={data.intake} setIntake={v=>setSD("intake",v)}
-              deltaData={data.delta} setDelta={v=>setSD("delta",v)}
-              onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
-              auditData={data.audit} setAudit={v=>setSD("audit",v)} w={w} isEditing={isEditing}/>
-          )}
-          {step===3 && <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
-          {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds}/>}
-          {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w} aiSuggestedFields={aiSuggestedFields}/>}
-          {step===6 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
-          {step===7 && <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>}
+            {/* ── Section content ──────────────────────────────────────────── */}
+            {step===0 && <StepProjectUpdates projectUpdates={data.projectUpdates||[]} onProjectUpdatesChange={v=>setSD("projectUpdates",v)} isEditing={isEditing}/>}
+            {step===1 && <StepScopeCreep scopeCreep={data.delta?.scopeCreep||[]} onScopeCreepChange={v=>setData(d=>({...d,delta:{...d.delta,scopeCreep:v}}))} isEditing={isEditing}/>}
+            {step===2 && (
+              <StepAudit caseName={caseName} setCaseName={setCaseName}
+                hideRawPrompt={shouldHidePrompt}
+                intakeData={data.intake} setIntake={v=>setSD("intake",v)}
+                deltaData={data.delta} setDelta={v=>setSD("delta",v)}
+                onAiParse={handleAiParse} isParsing={parsePromutMutation.isPending} parseError={parseError}
+                auditData={data.audit} setAudit={v=>setSD("audit",v)} w={w} isEditing={isEditing}/>
+            )}
+            {step===3 && <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
+            {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds}/>}
+            {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w} aiSuggestedFields={aiSuggestedFields}/>}
+            {step===6 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
+            {step===7 && <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>}
+
+          </div>
         </div>
       </div>
       </div>

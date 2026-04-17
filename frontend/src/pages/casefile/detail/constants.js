@@ -2,7 +2,7 @@
 // Centralised here so edits propagate to all sub-components automatically.
 
 export const F = "'Plus Jakarta Sans', sans-serif";
-export const BLUE = "#2563EB";
+export const BLUE = "#9B93E8";
 
 // Print layout uses the same font but is always hardcoded light-mode.
 export const PF = "'Plus Jakarta Sans', sans-serif";

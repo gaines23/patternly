@@ -142,7 +142,7 @@ function AccountTab({ user, mode, toggle, theme, updateMe, profile, setProfile, 
         </form>
       </Card>
 
-      <Card title="Appearance" sub="Choose how Flowpath looks on your device." theme={theme}>
+      <Card title="Appearance" sub="Choose how Patternly looks on your device." theme={theme}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
           <div>
             <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: theme.text, fontFamily: F }}>

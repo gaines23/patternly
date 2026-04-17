@@ -22,7 +22,7 @@ export default function PrintView({ cf }) {
       {/* Branded top bar */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
         <span style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#111827", fontWeight: 700, letterSpacing: "-0.02em" }}>
-          Flowpath
+          Patternly
         </span>
         <span style={{ fontSize: 12, color: "#9CA3AF", fontFamily: PF, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "4px 12px" }}>
           Read-only · Client brief
@@ -49,7 +49,7 @@ export default function PrintView({ cf }) {
       {(cf.industries?.length > 0 || cf.tools?.length > 0 || cf.process_frameworks?.length > 0) && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
           {cf.industries?.map(i => (
-            <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#2563EB", fontFamily: PF, fontWeight: 500 }}>{i}</span>
+            <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EEEAF8", border: "1px solid #C8C2E8", color: "#9B93E8", fontFamily: PF, fontWeight: 500 }}>{i}</span>
           ))}
           {cf.tools?.slice(0, 6).map(t => (
             <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F3F4F6", border: "1px solid #E5E7EB", color: "#6B7280", fontFamily: PF }}>{t}</span>
@@ -136,7 +136,7 @@ export default function PrintView({ cf }) {
           {intake.industries?.length > 0 && (
             <div style={{ padding: "10px 0", borderBottom: "1px solid #F9FAFB" }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Industries</span>
-              <PrintTagList items={intake.industries} color="#2563EB" />
+              <PrintTagList items={intake.industries} color="#9B93E8" />
             </div>
           )}
           {intake.process_frameworks?.length > 0 && (
@@ -214,7 +214,7 @@ export default function PrintView({ cf }) {
                             <div key={ai} style={{ border: "1px solid #BAE6FD", borderLeft: "3px solid #0284C780", borderRadius: 8, padding: "12px 14px", marginBottom: 8, background: "#F0F9FF" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                 <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#0284C7", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.06em" }}>Automation {ai + 1}</p>
-                                <span style={{ fontSize: 11, fontWeight: 600, color: isThirdParty ? "#7C3AED" : "#0284C7", background: isThirdParty ? "#F5F3FF" : "#EFF6FF", border: `1px solid ${isThirdParty ? "#DDD6FE" : "#BAE6FD"}`, borderRadius: 6, padding: "2px 8px", fontFamily: PF }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: isThirdParty ? "#7C3AED" : "#0284C7", background: isThirdParty ? "#F5F3FF" : "#EEEAF8", border: `1px solid ${isThirdParty ? "#DDD6FE" : "#BAE6FD"}`, borderRadius: 6, padding: "2px 8px", fontFamily: PF }}>
                                   {isThirdParty ? (auto.third_party_platform || "3rd Party") : "ClickUp"}
                                 </span>
                               </div>
@@ -223,7 +223,7 @@ export default function PrintView({ cf }) {
                                   <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", fontFamily: PF, textTransform: "uppercase", letterSpacing: "0.05em" }}>Triggers</span>
                                   {auto.triggers.map((t, ti) => t.type && (
                                     <div key={ti} style={{ display: "flex", gap: 8, alignItems: "baseline", marginTop: 4 }}>
-                                      <span style={{ fontSize: 12, fontWeight: 600, color: "#0284C7", fontFamily: PF, background: "#EFF6FF", border: "1px solid #BAE6FD", borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" }}>{t.type}</span>
+                                      <span style={{ fontSize: 12, fontWeight: 600, color: "#0284C7", fontFamily: PF, background: "#EEEAF8", border: "1px solid #BAE6FD", borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" }}>{t.type}</span>
                                       {t.detail && <span style={{ fontSize: 12, color: "#374151", fontFamily: PF }}>{t.detail}</span>}
                                     </div>
                                   ))}
@@ -337,7 +337,7 @@ export default function PrintView({ cf }) {
       {/* Footer */}
       <div style={{ marginTop: 48, paddingTop: 24, borderTop: "1px solid #E5E7EB", textAlign: "center" }}>
         <p style={{ fontSize: 12, color: "#9CA3AF", fontFamily: PF }}>
-          This brief was generated via <strong style={{ color: "#6B7280" }}>Flowpath</strong> · Read-only view
+          This brief was generated via <strong style={{ color: "#6B7280" }}>Patternly</strong> · Read-only view
         </p>
       </div>
     </div>

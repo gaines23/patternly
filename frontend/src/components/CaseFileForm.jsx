@@ -1,7 +1,7 @@
 /**
  * CaseFileForm.jsx
  *
- * The full 6-step Flowpath intake form.
+ * The full 6-step Patternly intake form.
  * Receives onSubmit(formData, enteredBy) and isSaving props.
  * Internally manages all form state; calls onSubmit when user hits "Save Case File".
  *
@@ -162,7 +162,7 @@ const DEFAULT_STATE = {
 
 //  ── Primitive UI components (self-contained, no external deps) ────────────────
 const F = "'Plus Jakarta Sans', sans-serif";
-const BLUE = "#2563EB";
+const BLUE = "#9B93E8";
 
 function useWidth() {
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 800);
@@ -176,7 +176,7 @@ function useWidth() {
 
 function AiBadge() {
   return (
-    <span style={{ fontSize:10, fontWeight:700, fontFamily:F, color:"#60A5FA", background:"#60A5FA18", border:"1px solid #60A5FA30", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>
+    <span style={{ fontSize:10, fontWeight:700, fontFamily:F, color:"#9B93E8", background:"#9B93E818", border:"1px solid #9B93E830", borderRadius:6, padding:"2px 6px", marginLeft:6, letterSpacing:"0.04em", verticalAlign:"middle" }}>
       AI
     </span>
   );
@@ -732,7 +732,7 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
                 <p style={{ margin:"3px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Paste exactly as the client described it — don't clean it up</p>
               </div>
               <button type="button" onClick={switchToGuided}
-                style={{ fontSize:11, color:"#60A5FA", background:"#60A5FA10", border:"1px solid #60A5FA30", borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
+                style={{ fontSize:11, color:"#9B93E8", background:"#9B93E810", border:"1px solid #9B93E830", borderRadius:6, padding:"4px 9px", cursor:"pointer", fontFamily:F, whiteSpace:"nowrap", flexShrink:0 }}>
                 Use guided form
               </button>
             </div>
@@ -741,7 +741,7 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
           {canParse && (
             <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
               <button type="button" onClick={onAiParse} disabled={isParsing}
-                style={{ padding:"9px 16px", borderRadius:8, fontSize:13, fontWeight:700, fontFamily:F, cursor:isParsing?"not-allowed":"pointer", background:"#60A5FA", color:"#fff", border:"none", opacity:isParsing?0.7:1, transition:"opacity 0.15s" }}>
+                style={{ padding:"9px 16px", borderRadius:8, fontSize:13, fontWeight:700, fontFamily:F, cursor:isParsing?"not-allowed":"pointer", background:"#9B93E8", color:"#fff", border:"none", opacity:isParsing?0.7:1, transition:"opacity 0.15s" }}>
                 {isParsing ? "Parsing…" : "✦ Let AI parse this"}
               </button>
               <span style={{ fontSize:12, color:theme.textFaint, fontFamily:F }}>Auto-fills industry, tools, and pain points</span>
@@ -821,7 +821,7 @@ const AI_FILLABLE_FIELDS = new Set(["teamSize", "workflowType", "industries", "p
 function AiInfoTip({ hasAiFields }) {
   const [hovered, setHovered] = useState(false);
   const { theme } = useTheme();
-  const color = "#60A5FA";
+  const color = "#9B93E8";
   const tip = hasAiFields
     ? { title:"AI pre-filled these fields", body:"Review each suggestion below — correct anything that looks off before saving." }
     : { title:"AI can pre-fill these fields", body:"Go back to Current State, fill out the guided form, and click 'Let AI parse this' to auto-fill the highlighted fields below." };
@@ -871,7 +871,7 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
         <CardTitle>Tools & pain points</CardTitle>
         <Field label="Tools currently in use" hint="select all" aiBadge={ai("tools")}><ChipGroup options={TOOLS} selected={data.tools} onChange={v=>set({...data,tools:v})} color={BLUE}/></Field>
         <HR label="pain points"/>
-        <Field label="Core pain points" aiBadge={ai("painPoints")}><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#60A5FA"/></Field>
+        <Field label="Core pain points" aiBadge={ai("painPoints")}><ChipGroup options={PAIN_POINTS} selected={data.painPoints} onChange={v=>set({...data,painPoints:v})} color="#9B93E8"/></Field>
         <HR/>
         <Field label="What have they already tried that didn't work?" hint="optional"><TI rows={2} value={data.priorAttempts} onChange={v=>set({...data,priorAttempts:v})} placeholder="Previous tools, failed automations…"/></Field>
       </Card>
@@ -1267,7 +1267,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, is
       {/* ── Mapped workflows ────────────────────────────────────────────────── */}
       <HR label="mapped workflows — what you're building"/>
       {workflows.length === 0 ? (
-        <div style={{ padding:"40px 24px", textAlign:"center", background:theme.surface, border:"1.5px dashed #BFDBFE", borderRadius:14, marginBottom:14 }}>
+        <div style={{ padding:"40px 24px", textAlign:"center", background:theme.surface, border:"1.5px dashed #C8C2E8", borderRadius:14, marginBottom:14 }}>
           <p style={{ margin:"0 0 16px", fontSize:14, color:theme.textMuted, fontFamily:F }}>No workflows yet. Add one to start mapping the build.</p>
           <button type="button" onClick={addWf} style={{ padding:"10px 24px", background:"#0284C7", border:"none", borderRadius:10, color:"#fff", fontSize:13, fontWeight:700, fontFamily:F, cursor:"pointer" }}>+ Add first workflow</button>
         </div>
@@ -1275,7 +1275,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, setAudit, is
         {workflows.map((wf,i) => (
           <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds}/>
         ))}
-        <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #BFDBFE", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
+        <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #C8C2E8", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
           + Add another workflow
         </button>
       </>)}

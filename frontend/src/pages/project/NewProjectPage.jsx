@@ -78,11 +78,11 @@ export default function NewCaseFilePage() {
         <div style={{
           margin: "24px 32px 0",
           padding: "12px 16px",
-          background: "#EFF6FF",
-          border: "1px solid #BFDBFE",
+          background: "#EEEAF8",
+          border: "1px solid #C8C2E8",
           borderRadius: 10,
           fontSize: 13,
-          color: "#1D4ED8",
+          color: "#7B72B8",
           fontFamily: "'Plus Jakarta Sans', sans-serif",
         }}>
           Pre-filled from your AI recommendation. Fill in the audit, delta, and outcome layers to complete the project.
@@ -92,11 +92,11 @@ export default function NewCaseFilePage() {
         <div style={{
           margin: "24px 32px 0",
           padding: "12px 16px",
-          background: "#EFF6FF",
-          border: "1px solid #BFDBFE",
+          background: "#EEEAF8",
+          border: "1px solid #C8C2E8",
           borderRadius: 10,
           fontSize: 13,
-          color: "#1D4ED8",
+          color: "#7B72B8",
           fontFamily: "'Plus Jakarta Sans', sans-serif",
         }}>
           Pre-filled from the <strong>{templateData.name}</strong> template. Fill in the audit, delta, and outcome layers to complete the project.

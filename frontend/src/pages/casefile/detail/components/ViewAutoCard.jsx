@@ -19,7 +19,7 @@ export default function ViewAutoCard({ auto, autoIdx, forceOpen = false }) {
   const isThirdParty = (auto.platform || "clickup") === "third_party";
   const platformLabel = isThirdParty ? (auto.third_party_platform || "3rd Party") : "ClickUp";
   const platformColor = isThirdParty ? "#7C3AED" : "#0284C7";
-  const platformBg = isThirdParty ? "#F5F3FF" : "#EFF6FF";
+  const platformBg = isThirdParty ? "#F5F3FF" : "#EEEAF8";
   const platformBorder = isThirdParty ? "#DDD6FE" : "#BAE6FD";
   const isOpen = forceOpen || !collapsed;
 

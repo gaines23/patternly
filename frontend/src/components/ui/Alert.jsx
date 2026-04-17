@@ -35,9 +35,9 @@ export default function Alert({
       icon:       "✓",
     },
     info: {
-      background: "#EFF6FF",
-      border:     "1px solid #BFDBFE",
-      color:      "#2563EB",
+      background: "#EEEAF8",
+      border:     "1px solid #C8C2E8",
+      color:      "#9B93E8",
       icon:       "ℹ",
     },
     warning: {

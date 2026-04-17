@@ -155,9 +155,9 @@ export default function CaseFileListPage() {
               <span className="fp-cf-col-status" style={{
                 alignSelf: "center", width: "fit-content",
                 fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 10,
-                background: cf.status === "closed" ? "#ECFDF5" : "#EFF6FF",
-                border: `1px solid ${cf.status === "closed" ? "#6EE7B7" : "#BFDBFE"}`,
-                color: cf.status === "closed" ? "#065F46" : "#1D4ED8",
+                background: cf.status === "closed" ? "#ECFDF5" : "#EEEAF8",
+                border: `1px solid ${cf.status === "closed" ? "#6EE7B7" : "#C8C2E8"}`,
+                color: cf.status === "closed" ? "#065F46" : "#7B72B8",
                 fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em",
                 whiteSpace: "nowrap", textAlign: "center",
               }}>

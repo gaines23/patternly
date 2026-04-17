@@ -1,5 +1,5 @@
 import { useTheme } from "@hooks/useTheme";
-import { FlowpathWordmark } from "@components/brand/FlowpathMark";
+import { PatternlyWordmark } from "@components/brand/PatternlyMark";
 import Card from "./Card";
 
 /**
@@ -30,7 +30,7 @@ export default function AuthLayout({ title, subtitle, children }) {
       <div style={{ width: "100%", maxWidth: 400 }}>
         {/* Logo lockup */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <FlowpathWordmark />
+          <PatternlyWordmark />
         </div>
 
         {/* Content card */}

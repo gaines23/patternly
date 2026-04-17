@@ -28,7 +28,7 @@ export default function DeleteConfirmModal({ name, onConfirm, onCancel, isDeleti
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: theme.surface,
+          background: theme.surfaceRaised,
           borderRadius: 14,
           padding: "28px 28px 24px",
           maxWidth: 420,
@@ -70,7 +70,7 @@ export default function DeleteConfirmModal({ name, onConfirm, onCancel, isDeleti
             style={{
               padding: "10px 20px", borderRadius: 9,
               border: `1.5px solid ${theme.borderInput}`,
-              background: theme.surface,
+              background: theme.surfaceRaised,
               color: theme.textSec, fontSize: 13, fontWeight: 600,
               fontFamily: F, cursor: "pointer",
             }}

@@ -6,9 +6,9 @@ import { PF } from "../constants";
  *
  * Props:
  *   items — string[]
- *   color — pill accent color (default Flowpath blue)
+ *   color — pill accent color (default Patternly periwinkle)
  */
-export default function PrintTagList({ items, color = "#2563EB" }) {
+export default function PrintTagList({ items, color = "#9B93E8" }) {
   if (!items?.length) return null;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

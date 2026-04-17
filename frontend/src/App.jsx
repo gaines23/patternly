@@ -69,7 +69,7 @@ export default function App() {
               <div style={{ textAlign: "center" }}>
                 <p style={{ fontSize: 48, marginBottom: 16 }}>404</p>
                 <p style={{ color: "#6B7280", marginBottom: 20 }}>Page not found</p>
-                <a href="/dashboard" style={{ color: "#2563EB", fontWeight: 600 }}>Go to dashboard →</a>
+                <a href="/dashboard" style={{ color: "#9B93E8", fontWeight: 600 }}>Go to dashboard →</a>
               </div>
             </div>
           } />

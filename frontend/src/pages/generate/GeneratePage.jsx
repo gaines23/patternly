@@ -17,7 +17,7 @@ const COMPLEXITY_LABELS = ["", "Very simple", "Simple", "Moderate", "Complex", "
 function ScoreBadge({ score, theme }) {
   const colour =
     score >= 70 ? { bg: "#ECFDF5", border: "#6EE7B7", text: "#059669" }
-    : score >= 40 ? { bg: "#EFF6FF", border: "#BFDBFE", text: "#1D4ED8" }
+    : score >= 40 ? { bg: "#EEEAF8", border: "#C8C2E8", text: "#7B72B8" }
     : { bg: theme.surfaceAlt, border: theme.border, text: theme.textFaint };
 
   return (
@@ -227,7 +227,7 @@ export default function GeneratePage() {
           <h1 style={{ margin: 0, fontSize: 24, fontFamily: "'Fraunces', serif" }}>Find a Workflow Template</h1>
         </div>
         <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F, maxWidth: 600 }}>
-          Describe your team and what you're trying to solve. Flowpath will match you to the best pre-built workflow template.
+          Describe your team and what you're trying to solve. Patternly will match you to the best pre-built workflow template.
         </p>
       </div>
 

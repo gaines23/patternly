@@ -63,7 +63,7 @@ export default function ClientBriefPage() {
       {/* Top bar */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#111827", fontWeight: 700, letterSpacing: "-0.02em" }}>
-          Flowpath
+          Patternly
         </span>
         <span style={{ fontSize: 12, color: "#9CA3AF", fontFamily: F, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "4px 12px" }}>
           Read-only · Client update
@@ -90,7 +90,7 @@ export default function ClientBriefPage() {
         {(cf.industries?.length > 0 || cf.tools?.length > 0) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
             {cf.industries?.map(i => (
-              <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#2563EB", fontFamily: F, fontWeight: 500 }}>{i}</span>
+              <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EEEAF8", border: "1px solid #C8C2E8", color: "#9B93E8", fontFamily: F, fontWeight: 500 }}>{i}</span>
             ))}
             {cf.tools?.slice(0, 6).map(t => (
               <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F3F4F6", border: "1px solid #E5E7EB", color: "#6B7280", fontFamily: F }}>{t}</span>
@@ -137,7 +137,7 @@ export default function ClientBriefPage() {
         {/* Footer */}
         <div style={{ textAlign: "center", paddingTop: 32, borderTop: "1px solid #E5E7EB" }}>
           <p style={{ fontSize: 12, color: "#9CA3AF", fontFamily: F }}>
-            This update was shared with you via <strong style={{ color: "#6B7280" }}>Flowpath</strong>
+            This update was shared with you via <strong style={{ color: "#6B7280" }}>Patternly</strong>
           </p>
         </div>
       </div>

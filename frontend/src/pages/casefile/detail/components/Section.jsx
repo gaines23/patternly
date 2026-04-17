@@ -3,7 +3,7 @@ import { useTheme } from "@hooks/useTheme";
 import { F } from "../constants";
 
 const STATUS_COLORS = {
-  open:        { color: "#1D4ED8", bg: "#EFF6FF" },
+  open:        { color: "#7B72B8", bg: "#EEEAF8" },
   in_progress: { color: "#B45309", bg: "#FFFBEB" },
   done:        { color: "#065F46", bg: "#ECFDF5" },
 };
@@ -11,7 +11,7 @@ const STATUS_LABELS = { open: "Open", in_progress: "In Progress", done: "Done" }
 const PRIORITY_COLORS = {
   high:   { color: "#DC2626", bg: "#FEF2F2" },
   medium: { color: "#D97706", bg: "#FFFBEB" },
-  low:    { color: "#2563EB", bg: "#EFF6FF" },
+  low:    { color: "#9B93E8", bg: "#EEEAF8" },
 };
 
 /**
