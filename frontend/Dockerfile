@@ -32,8 +32,18 @@ RUN npm run build
 # ── Production: nginx serves the built files ───────────────────────────────────
 FROM nginx:1.25-alpine AS production
 
+RUN rm -f /etc/nginx/conf.d/default.conf
+
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.prod.conf /etc/nginx/conf.d/default.conf
+COPY nginx.railway.conf /etc/nginx/nginx.conf.template
+
+# Defaults work for docker-compose; Railway overrides via env vars
+ENV PORT=80
+ENV BACKEND_URL=http://api:8000
+ENV BACKEND_HOST=api
+ENV DNS_RESOLVER=127.0.0.11
 
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+
+# Render the nginx template with env vars at startup, then start nginx
+CMD ["/bin/sh", "-c", "envsubst '$PORT $BACKEND_URL $BACKEND_HOST $DNS_RESOLVER' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
