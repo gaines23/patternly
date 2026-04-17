@@ -9,9 +9,11 @@ Usage:
     python manage.py seed_patternly
     python manage.py seed_patternly --clear   # wipe existing data first
 """
+import os
 import random
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.utils.crypto import get_random_string
 from apps.briefs.models import (
     CaseFile, AuditLayer, CurrentBuild, IntakeLayer,
     BuildLayer, DeltaLayer, Roadblock, ReasoningLayer, OutcomeLayer,
@@ -581,9 +583,10 @@ class Command(BaseCommand):
             },
         )
         if created:
-            user.set_password("patternly-demo-2024")
+            demo_pw = os.environ.get("SEED_DEMO_PASSWORD") or get_random_string(20)
+            user.set_password(demo_pw)
             user.save()
-            self.stdout.write(f"Created demo user: {user.email}")
+            self.stdout.write(f"Created demo user: {user.email} (password: {demo_pw})")
 
         created_count = 0
         for i, entry in enumerate(SEED_DATA, 1):
@@ -599,8 +602,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"\n✓ Seeded {created_count} case files. "
-                f"Demo user: {user.email} / patternly-demo-2024"
+                f"\n✓ Seeded {created_count} case files for {user.email}."
             )
         )
 
