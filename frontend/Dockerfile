@@ -36,6 +36,7 @@ RUN rm -f /etc/nginx/conf.d/default.conf
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.railway.conf /etc/nginx/nginx.conf.template
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 # Defaults work for docker-compose; Railway overrides via env vars
 ENV PORT=80
@@ -44,5 +45,4 @@ ENV BACKEND_HOST=api
 
 EXPOSE 80
 
-# At startup: auto-detect DNS resolver, render nginx template, start nginx
-CMD ["/bin/sh", "-c", "DNS_RESOLVER=$(grep nameserver /etc/resolv.conf | head -1 | awk '{print $2}'); case \"$DNS_RESOLVER\" in *:*) DNS_RESOLVER=\"[$DNS_RESOLVER]\";; esac; export DNS_RESOLVER=${DNS_RESOLVER:-8.8.8.8}; envsubst '$PORT $BACKEND_URL $BACKEND_HOST $DNS_RESOLVER' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["/docker-entrypoint.sh"]
