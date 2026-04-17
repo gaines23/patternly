@@ -229,7 +229,7 @@ export default function AppLayout({ children }) {
         <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${theme.borderSubtle}` }}>
           <Link to="/dashboard" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
             <PatternlyMark size={32} />
-            <span style={{ fontSize: 16, fontWeight: 500, color: "#9B93E8", fontFamily: F, letterSpacing: "-0.03em" }}>Patternly</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: "#9B93E8", fontFamily: F, letterSpacing: "-0.03em" }}>Patternly</span>
           </Link>
         </div>
         <nav className="fp-sidebar-nav" style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>

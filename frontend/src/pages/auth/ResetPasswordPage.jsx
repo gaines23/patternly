@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
           <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <PatternlyMark />
-              <span style={{ fontSize: 28, fontWeight: 500, color: "#9B93E8", fontFamily: F, letterSpacing: "-0.03em" }}>Patternly</span>
+              <span style={{ fontSize: 28, fontWeight: 600, color: "#9B93E8", fontFamily: F, letterSpacing: "-0.03em" }}>Patternly</span>
             </div>
             <p style={{ margin: 0, fontSize: 13, color: "#6E68A0", fontFamily: F }}>Spot the pattern. Skip the meeting</p>
           </div>
