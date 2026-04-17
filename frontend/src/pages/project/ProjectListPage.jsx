@@ -1,11 +1,33 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useProjects, useDeleteProject } from "@hooks/useProjects";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
+import { useProjects, useDeleteProject, useProjectStats } from "@hooks/useProjects";
 import { useTheme } from "../../hooks/useTheme";
 import { formatDate } from "../../utils/transforms";
 import DeleteConfirmModal from "../../components/DeleteConfirmModal";
 
 const F = "'Plus Jakarta Sans', sans-serif";
+
+const autocompleteSx = (theme) => ({
+  "& .MuiOutlinedInput-root": {
+    fontSize: 13, fontFamily: F, color: theme.text, background: theme.inputBg,
+    borderRadius: "8px", padding: "0 9px 0 0 !important", height: "38px",
+    "& fieldset": { borderColor: theme.borderInput, borderWidth: "1.5px" },
+    "&:hover fieldset": { borderColor: theme.borderInput },
+    "&.Mui-focused fieldset": { borderColor: theme.blue, borderWidth: "1.5px", boxShadow: `0 0 0 3px ${theme.blueLight}` },
+  },
+  "& .MuiInputBase-input": { padding: "0 13px !important", color: theme.text, fontFamily: F, fontSize: 13, height: "100%", boxSizing: "border-box" },
+  "& .MuiAutocomplete-clearIndicator": { color: theme.textFaint },
+  "& .MuiAutocomplete-popupIndicator": { color: theme.textFaint },
+});
+
+const paperSx = (theme) => ({
+  background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "8px", mt: "4px",
+  "& .MuiAutocomplete-option": { fontSize: 13, fontFamily: F, color: theme.text },
+  "& .MuiAutocomplete-option.Mui-focused": { background: theme.surfaceAlt },
+  "& .MuiAutocomplete-noOptions": { fontSize: 13, fontFamily: F, color: theme.textMuted },
+});
 
 function GridIcon({ size = 20, color }) {
   return (
@@ -196,13 +218,35 @@ export default function CaseFileListPage() {
   const [deleting, setDeleting] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [view, setView] = useState("grid");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
   const { theme } = useTheme();
 
+  useEffect(() => {
+    const handler = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   const { data, isLoading, isError } = useProjects(filters);
+  const { data: stats, isLoading: statsLoading } = useProjectStats();
   const deleteMutation = useDeleteProject();
 
   const caseFiles = data?.results || [];
   const totalCount = data?.count || 0;
+  const openCount = caseFiles.filter(cf => cf.status !== "closed").length;
+  const closedCount = caseFiles.filter(cf => cf.status === "closed").length;
+  const uniqueToolCount = new Set(caseFiles.flatMap(cf => cf.tools || [])).size;
+
+  // Collect unique values from loaded data for filter options
+  const uniqueIndustries = [...new Set(caseFiles.flatMap(cf => cf.industries || []))].sort();
+  const uniqueWorkflowTypes = [...new Set(caseFiles.map(cf => cf.workflow_type).filter(Boolean))].sort();
+  const uniqueTools = [...new Set(caseFiles.flatMap(cf => cf.tools || []))].sort();
+
+  const activeFilterCount = [filters.status, filters.industry, filters.workflow_type, filters.tool].filter(Boolean).length;
+
+  const setFilter = (key, value) => setFilters(f => ({ ...f, [key]: value || undefined, page: 1 }));
+  const clearFilters = () => setFilters({ search: filters.search, page: 1 });
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
@@ -219,6 +263,45 @@ export default function CaseFileListPage() {
 
   return (
     <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 1100 }}>
+
+      {/* Header: title + new project */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800, fontFamily: F, color: theme.text }}>Projects</h1>
+          <p style={{ margin: 0, fontSize: 13, color: theme.textMuted, fontFamily: F }}>
+            {statsLoading ? "—" : totalCount} build{totalCount !== 1 ? "s" : ""} documented
+          </p>
+        </div>
+        <Link to="/projects/new">
+          <button style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "10px 20px",
+            background: theme.blue, border: "none", borderRadius: 10,
+            color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer",
+          }}>
+            + New Project
+          </button>
+        </Link>
+      </div>
+
+      {/* Metric cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
+        {[
+          { label: "Total Projects", value: statsLoading ? "—" : stats?.total_case_files ?? totalCount, color: theme.blue },
+          { label: "Open", value: openCount, color: "#2563EB" },
+          { label: "Closed", value: closedCount, color: "#059669" },
+          { label: "Avg Satisfaction", value: statsLoading ? "—" : stats?.avg_satisfaction ? `${stats.avg_satisfaction}/5` : "—", color: "#7C3AED" },
+          { label: "Roadblocks", value: statsLoading ? "—" : stats?.total_roadblocks ?? 0, color: "#D97706" },
+          { label: "Tools Used", value: uniqueToolCount, color: "#0284C7" },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{
+            background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12,
+            padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4,
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color, fontFamily: F }}>{value}</span>
+          </div>
+        ))}
+      </div>
 
       {/* Toolbar: search + filter + view toggle */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
@@ -243,18 +326,111 @@ export default function CaseFileListPage() {
           />
         </div>
 
-        {/* Filter button */}
-        <button style={{
-          display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
-          background: theme.surface, border: `1.5px solid ${theme.borderInput}`, borderRadius: 10,
-          fontSize: 13, fontWeight: 600, fontFamily: F, color: theme.text, cursor: "pointer",
-          transition: "border-color 0.15s",
-        }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = theme.blue}
-        onMouseLeave={e => e.currentTarget.style.borderColor = theme.borderInput}>
-          <FilterIcon size={16} color={theme.textMuted} />
-          Filter
-        </button>
+        {/* Filter button + dropdown */}
+        <div ref={filterRef} style={{ position: "relative" }}>
+          <button onClick={() => setFilterOpen(o => !o)} style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
+            background: activeFilterCount > 0 ? theme.blueLight : theme.surface,
+            border: `1.5px solid ${activeFilterCount > 0 ? theme.blueBorder : theme.borderInput}`, borderRadius: 10,
+            fontSize: 13, fontWeight: 600, fontFamily: F, color: theme.text, cursor: "pointer",
+            transition: "border-color 0.15s",
+          }}>
+            <FilterIcon size={16} color={activeFilterCount > 0 ? theme.blue : theme.textMuted} />
+            Filter
+            {activeFilterCount > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: theme.blue, borderRadius: "50%", width: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 2 }}>
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          {filterOpen && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 30, width: 320,
+              background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: "16px 18px",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: theme.text, fontFamily: F }}>Filters</span>
+                {activeFilterCount > 0 && (
+                  <button onClick={clearFilters} style={{ fontSize: 11, fontWeight: 600, color: theme.blue, background: "none", border: "none", cursor: "pointer", fontFamily: F }}>
+                    Clear all
+                  </button>
+                )}
+              </div>
+
+              {/* Status */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Status</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {["open", "closed"].map(s => (
+                    <button key={s} onClick={() => setFilter("status", filters.status === s ? "" : s)}
+                      style={{
+                        flex: 1, padding: "7px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F, cursor: "pointer",
+                        border: filters.status === s ? `1.5px solid ${theme.blue}` : `1.5px solid ${theme.borderInput}`,
+                        background: filters.status === s ? theme.blueLight : theme.inputBg,
+                        color: filters.status === s ? theme.blue : theme.textMuted,
+                        textTransform: "capitalize", transition: "all 0.12s",
+                      }}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Industry */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Industry</label>
+                <Autocomplete
+                  options={uniqueIndustries}
+                  value={filters.industry || null}
+                  onChange={(_, val) => setFilter("industry", val || "")}
+                  clearOnEscape blurOnSelect size="small"
+                  sx={autocompleteSx(theme)}
+                  slotProps={{ paper: { sx: paperSx(theme) } }}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="All industries" variant="outlined" size="small"
+                      sx={{ "& .MuiInputBase-input::placeholder": { color: theme.textMuted, opacity: 1, fontFamily: F, fontSize: 13 } }} />
+                  )}
+                />
+              </div>
+
+              {/* Workflow Type */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Workflow Type</label>
+                <Autocomplete
+                  options={uniqueWorkflowTypes}
+                  value={filters.workflow_type || null}
+                  onChange={(_, val) => setFilter("workflow_type", val || "")}
+                  clearOnEscape blurOnSelect size="small"
+                  sx={autocompleteSx(theme)}
+                  slotProps={{ paper: { sx: paperSx(theme) } }}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="All workflow types" variant="outlined" size="small"
+                      sx={{ "& .MuiInputBase-input::placeholder": { color: theme.textMuted, opacity: 1, fontFamily: F, fontSize: 13 } }} />
+                  )}
+                />
+              </div>
+
+              {/* Tool */}
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Tool</label>
+                <Autocomplete
+                  options={uniqueTools}
+                  value={filters.tool || null}
+                  onChange={(_, val) => setFilter("tool", val || "")}
+                  clearOnEscape blurOnSelect size="small"
+                  sx={autocompleteSx(theme)}
+                  slotProps={{ paper: { sx: paperSx(theme) } }}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="All tools" variant="outlined" size="small"
+                      sx={{ "& .MuiInputBase-input::placeholder": { color: theme.textMuted, opacity: 1, fontFamily: F, fontSize: 13 } }} />
+                  )}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* View toggle */}
         <div style={{ display: "flex", border: `1.5px solid ${theme.borderInput}`, borderRadius: 10, overflow: "hidden" }}>
@@ -274,6 +450,35 @@ export default function CaseFileListPage() {
           </button>
         </div>
       </div>
+
+      {/* Active filter chips */}
+      {activeFilterCount > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+          {filters.status && (
+            <span onClick={() => setFilter("status", "")} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, fontFamily: F, color: theme.blue, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>
+              Status: {filters.status} <span style={{ fontWeight: 700, fontSize: 14, lineHeight: 1 }}>×</span>
+            </span>
+          )}
+          {filters.industry && (
+            <span onClick={() => setFilter("industry", "")} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, fontFamily: F, color: theme.blue, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>
+              {filters.industry} <span style={{ fontWeight: 700, fontSize: 14, lineHeight: 1 }}>×</span>
+            </span>
+          )}
+          {filters.workflow_type && (
+            <span onClick={() => setFilter("workflow_type", "")} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, fontFamily: F, color: theme.blue, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>
+              {filters.workflow_type} <span style={{ fontWeight: 700, fontSize: 14, lineHeight: 1 }}>×</span>
+            </span>
+          )}
+          {filters.tool && (
+            <span onClick={() => setFilter("tool", "")} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, fontFamily: F, color: theme.blue, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>
+              {filters.tool} <span style={{ fontWeight: 700, fontSize: 14, lineHeight: 1 }}>×</span>
+            </span>
+          )}
+          <button onClick={clearFilters} style={{ fontSize: 11, fontWeight: 600, color: theme.textFaint, background: "none", border: "none", cursor: "pointer", fontFamily: F, padding: "4px 6px" }}>
+            Clear all
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       {isLoading ? (
