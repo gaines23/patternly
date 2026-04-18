@@ -9,12 +9,19 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
-from .models import CaseFile, Roadblock, ProjectStatus, ProjectUpdate
+from .models import (
+    CaseFile, Roadblock, ProjectStatus, ProjectUpdate,
+    Platform, PlatformKnowledge, CommunityInsight,
+)
 from .serializers import (
     CaseFileDetailSerializer,
     CaseFileListSerializer,
     CaseFileWriteSerializer,
     PublicCaseFileSerializer,
+    IngestRequestSerializer,
+    PlatformSerializer,
+    PlatformKnowledgeSerializer,
+    CommunityInsightSerializer,
 )
 from apps.users.audit import log_action
 from apps.users.models import (
@@ -41,7 +48,10 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
             is_admin = getattr(user, "role", None) == "admin" or user.is_staff
         except AttributeError:
             is_admin = False
-        qs = CaseFile.objects.select_related("logged_by").prefetch_related(
+        qs = CaseFile.objects.select_related(
+            "logged_by", "primary_platform",
+        ).prefetch_related(
+            "connected_platforms",
             "audit__builds",
             "intake",
             "build",
@@ -52,9 +62,16 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
         # Admins see all; everyone else only sees their own files
         if not is_admin:
             qs = qs.filter(logged_by=user)
+
+        # Exclude training data by default; pass ?include_training=true to see it
+        include_training = self.request.query_params.get("include_training", "").lower() == "true"
+        if not include_training:
+            qs = qs.filter(is_training_data=False)
+
         # Optional filters via query params
         industry = self.request.query_params.get("industry")
         tool = self.request.query_params.get("tool")
+        platform = self.request.query_params.get("platform")
         workflow_type = self.request.query_params.get("workflow_type")
         min_satisfaction = self.request.query_params.get("min_satisfaction")
 
@@ -62,6 +79,8 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(industries__contains=[industry])
         if tool:
             qs = qs.filter(tools__contains=[tool])
+        if platform:
+            qs = qs.filter(primary_platform__slug=platform)
         if workflow_type:
             qs = qs.filter(workflow_type__icontains=workflow_type)
         if min_satisfaction:
@@ -110,7 +129,10 @@ class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
             is_admin = getattr(user, "role", None) == "admin" or user.is_staff
         except AttributeError:
             is_admin = False
-        qs = CaseFile.objects.select_related("logged_by").prefetch_related(
+        qs = CaseFile.objects.select_related(
+            "logged_by", "primary_platform",
+        ).prefetch_related(
+            "connected_platforms",
             "audit__builds",
             "intake",
             "build",
@@ -321,7 +343,7 @@ def stats(request):
     from django.db import connection
     from django.db.models import Avg, Count
 
-    totals = CaseFile.objects.aggregate(
+    totals = CaseFile.objects.filter(is_training_data=False).aggregate(
         total=Count("id"),
         avg_satisfaction=Avg("satisfaction_score"),
         total_roadblocks=Count("delta__roadblocks"),
@@ -696,3 +718,145 @@ def project_summary(request, pk):
             "scope_creep_items": len(scope_creep),
         },
     })
+
+
+# ── Platform & Knowledge endpoints ───────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def platform_list(request):
+    """
+    GET /api/v1/briefs/platforms/
+    Returns all supported platforms, optionally filtered by category.
+    """
+    qs = Platform.objects.all()
+    category = request.query_params.get("category")
+    if category:
+        qs = qs.filter(category=category)
+    serializer = PlatformSerializer(qs, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def knowledge_list(request):
+    """
+    GET /api/v1/briefs/knowledge/?platform=clickup&category=integrations
+    Returns platform knowledge, filterable by platform, related_platform,
+    knowledge_type, and category.
+    """
+    qs = PlatformKnowledge.objects.select_related("platform", "related_platform")
+
+    platform = request.query_params.get("platform")
+    related = request.query_params.get("related_platform")
+    k_type = request.query_params.get("knowledge_type")
+    category = request.query_params.get("category")
+
+    if platform:
+        qs = qs.filter(platform__slug=platform)
+    if related:
+        qs = qs.filter(related_platform__slug=related)
+    if k_type:
+        qs = qs.filter(knowledge_type=k_type)
+    if category:
+        qs = qs.filter(category=category)
+
+    serializer = PlatformKnowledgeSerializer(qs[:100], many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def insights_list(request):
+    """
+    GET /api/v1/briefs/insights/?platform=clickup&type=workaround
+    Returns community insights, filterable by platform and insight_type.
+    """
+    qs = CommunityInsight.objects.prefetch_related("platforms")
+
+    platform = request.query_params.get("platform")
+    i_type = request.query_params.get("type")
+
+    if platform:
+        qs = qs.filter(platforms__slug=platform)
+    if i_type:
+        qs = qs.filter(insight_type=i_type)
+
+    serializer = CommunityInsightSerializer(qs.distinct()[:100], many=True)
+    return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def ingest_url(request):
+    """
+    POST /api/v1/briefs/ingest/
+    Frontend-facing ingestion endpoint. Accepts a URL, fetches it, sends to
+    Claude for extraction, and saves the results.
+
+    Body: { "url": "...", "platform": "clickup", "ingest_type": "knowledge"|"case_file",
+            "content_type": "blog_post"|"platform_doc"|... }
+    """
+    serializer = IngestRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    url = serializer.validated_data["url"]
+    platform = serializer.validated_data["platform"]
+    ingest_type = serializer.validated_data["ingest_type"]
+    content_type = serializer.validated_data["content_type"]
+
+    # Use the management command logic via Django's call_command
+    from django.core.management import call_command
+    from io import StringIO
+
+    stdout = StringIO()
+    stderr = StringIO()
+
+    try:
+        if ingest_type == "case_file":
+            call_command(
+                "ingest_source",
+                url=url,
+                platform=platform.slug,
+                source_type=content_type if content_type in [
+                    "blog_post", "case_study", "community_post",
+                ] else "blog_post",
+                auto_approve=True,
+                stdout=stdout,
+                stderr=stderr,
+            )
+        else:
+            call_command(
+                "ingest_knowledge",
+                url=url,
+                platform=platform.slug,
+                content_type=content_type if content_type in [
+                    "platform_doc", "community_post", "integration_doc", "changelog",
+                ] else "community_post",
+                auto_approve=True,
+                stdout=stdout,
+                stderr=stderr,
+            )
+    except Exception as e:
+        logger.error("Ingestion failed for %s: %s", url, e)
+        return Response(
+            {"detail": f"Ingestion failed: {str(e)}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    output = stdout.getvalue()
+    errors = stderr.getvalue()
+
+    if errors and "Failed" in errors:
+        return Response(
+            {"detail": errors.strip()},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({
+        "status": "success",
+        "ingest_type": ingest_type,
+        "platform": platform.slug,
+        "url": url,
+        "output": output.strip(),
+    }, status=status.HTTP_201_CREATED)
