@@ -23,6 +23,16 @@ export function useIngestUrl() {
   });
 }
 
+// ── Ingest a YouTube video transcript ───────────────────────────────────────
+export function useIngestYouTube() {
+  return useMutation({
+    mutationFn: async (payload) => {
+      const { data } = await api.post("/v1/briefs/ingest/youtube/", payload);
+      return data;
+    },
+  });
+}
+
 // ── Upload a PDF for ingestion ──────────────────────────────────────────────
 export function useIngestPdf() {
   return useMutation({

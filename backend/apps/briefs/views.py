@@ -975,3 +975,141 @@ def ingest_pdf(request):
         "characters_extracted": len(content),
         "output": output.strip(),
     }, status=status.HTTP_201_CREATED)
+
+
+def _extract_youtube_id(url_or_id):
+    """Extract YouTube video ID from a URL or return as-is if already an ID."""
+    import re
+    # Already a bare ID (11 chars, alphanumeric + dash/underscore)
+    if re.match(r'^[\w-]{11}$', url_or_id):
+        return url_or_id
+    # Standard and short URLs
+    patterns = [
+        r'(?:youtube\.com/watch\?.*v=)([\w-]{11})',
+        r'(?:youtu\.be/)([\w-]{11})',
+        r'(?:youtube\.com/embed/)([\w-]{11})',
+        r'(?:youtube\.com/v/)([\w-]{11})',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url_or_id)
+        if match:
+            return match.group(1)
+    return None
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def ingest_youtube(request):
+    """
+    POST /api/v1/briefs/ingest/youtube/
+    Fetch a YouTube video's transcript and route through the ingest_prompt pipeline.
+
+    Body:
+        { "url": "https://youtube.com/watch?v=...", "platform": "clickup",
+          "source_attribution": "ZenPilot" }
+    """
+    from youtube_transcript_api import YouTubeTranscriptApi
+    from youtube_transcript_api._errors import (
+        NoTranscriptFound, TranscriptsDisabled, VideoUnavailable,
+    )
+
+    url_or_id = request.data.get("url", "").strip()
+    if not url_or_id:
+        return Response({"detail": "YouTube URL or video ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    platform_slug = request.data.get("platform", "").strip()
+    if not platform_slug:
+        return Response({"detail": "Platform is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    platform = Platform.objects.filter(slug=platform_slug).first()
+    if not platform:
+        return Response({"detail": f"Unknown platform: {platform_slug}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    source_attribution = request.data.get("source_attribution", "")
+
+    video_id = _extract_youtube_id(url_or_id)
+    if not video_id:
+        return Response(
+            {"detail": "Could not extract a YouTube video ID from the provided URL."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Fetch transcript
+    try:
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # Prefer manually created, fall back to auto-generated
+        try:
+            transcript = transcript_list.find_manually_created_transcript(['en'])
+        except NoTranscriptFound:
+            transcript = transcript_list.find_generated_transcript(['en'])
+        segments = transcript.fetch()
+        content = " ".join(seg.text for seg in segments).strip()
+    except TranscriptsDisabled:
+        return Response(
+            {"detail": "Transcripts are disabled for this video."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except VideoUnavailable:
+        return Response(
+            {"detail": "This video is unavailable or does not exist."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except NoTranscriptFound:
+        return Response(
+            {"detail": "No English transcript found for this video."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception as e:
+        logger.error("YouTube transcript fetch failed for %s: %s", video_id, e)
+        return Response(
+            {"detail": f"Failed to fetch transcript: {str(e)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not content:
+        return Response(
+            {"detail": "Transcript is empty for this video."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    source_url = f"https://www.youtube.com/watch?v={video_id}"
+
+    from django.core.management import call_command
+    from io import StringIO
+
+    stdout = StringIO()
+    stderr = StringIO()
+
+    try:
+        call_command(
+            "ingest_prompt",
+            platform=platform.slug,
+            content=content,
+            source_url=source_url,
+            source_attribution=source_attribution or "YouTube",
+            auto_approve=True,
+            stdout=stdout,
+            stderr=stderr,
+        )
+    except Exception as e:
+        logger.error("YouTube ingestion failed for %s: %s", video_id, e)
+        return Response(
+            {"detail": f"Ingestion failed: {str(e)}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    output = stdout.getvalue()
+    errors = stderr.getvalue()
+
+    if errors and "Failed" in errors:
+        return Response({"detail": errors.strip()}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+        "status": "success",
+        "ingest_type": "prompt",
+        "platform": platform.slug,
+        "video_id": video_id,
+        "source_url": source_url,
+        "characters_extracted": len(content),
+        "output": output.strip(),
+    }, status=status.HTTP_201_CREATED)

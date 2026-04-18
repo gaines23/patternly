@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useTheme } from "@hooks/useTheme";
-import { usePlatforms, useIngestUrl, useIngestPdf } from "../../hooks/useIngest";
+import { usePlatforms, useIngestUrl, useIngestPdf, useIngestYouTube } from "../../hooks/useIngest";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
@@ -11,6 +11,7 @@ const F = "'Plus Jakarta Sans', sans-serif";
 
 const INPUT_MODES = [
   { value: "url", label: "URL" },
+  { value: "youtube", label: "YouTube" },
   { value: "prompt", label: "Paste Content" },
   { value: "pdf", label: "Upload PDF" },
 ];
@@ -34,9 +35,11 @@ export default function IngestPage() {
   const { data: platforms, isLoading: platformsLoading } = usePlatforms();
   const ingestMutation = useIngestUrl();
   const pdfMutation = useIngestPdf();
+  const ytMutation = useIngestYouTube();
 
   const [inputMode, setInputMode] = useState("url");
   const [url, setUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [content, setContent] = useState("");
   const [pdfFile, setPdfFile] = useState(null);
   const [platformSlug, setPlatformSlug] = useState("");
@@ -47,7 +50,7 @@ export default function IngestPage() {
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
-  const isLoading = ingestMutation.isPending || pdfMutation.isPending;
+  const isLoading = ingestMutation.isPending || pdfMutation.isPending || ytMutation.isPending;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -59,7 +62,15 @@ export default function IngestPage() {
     try {
       let data;
 
-      if (inputMode === "pdf") {
+      if (inputMode === "youtube") {
+        if (!youtubeUrl.trim()) return;
+        data = await ytMutation.mutateAsync({
+          url: youtubeUrl.trim(),
+          platform: platformSlug,
+          source_attribution: sourceAttribution,
+        });
+        setYoutubeUrl("");
+      } else if (inputMode === "pdf") {
         if (!pdfFile) return;
         data = await pdfMutation.mutateAsync({
           file: pdfFile,
@@ -175,7 +186,10 @@ export default function IngestPage() {
   const canSubmit =
     platformSlug &&
     !isLoading &&
-    (inputMode === "url" ? url.trim() : inputMode === "prompt" ? content.trim() : !!pdfFile);
+    (inputMode === "url" ? url.trim()
+      : inputMode === "youtube" ? youtubeUrl.trim()
+      : inputMode === "prompt" ? content.trim()
+      : !!pdfFile);
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto" }}>
@@ -213,6 +227,30 @@ export default function IngestPage() {
               required
               helper="Blog post, documentation page, forum thread, or case study"
             />
+          )}
+
+          {/* ── YouTube mode ────────────────────────────────────── */}
+          {inputMode === "youtube" && (
+            <>
+              <Input
+                label="YouTube URL or Video ID"
+                type="text"
+                name="youtube_url"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=... or video ID"
+                required
+                helper="The transcript will be fetched automatically and extracted"
+              />
+              <Input
+                label="Attribution (optional)"
+                name="source_attribution"
+                value={sourceAttribution}
+                onChange={(e) => setSourceAttribution(e.target.value)}
+                placeholder="e.g. ZenPilot, ClickUp"
+                helper="Channel or creator name"
+              />
+            </>
           )}
 
           {/* ── Paste content mode ───────────────────────────────── */}
@@ -391,12 +429,14 @@ export default function IngestPage() {
               ? "Extracting..."
               : inputMode === "pdf"
                 ? "Upload & Extract"
-                : inputMode === "prompt"
-                  ? "Extract & Store"
-                  : "Ingest Source"}
+                : inputMode === "youtube"
+                  ? "Fetch Transcript & Extract"
+                  : inputMode === "prompt"
+                    ? "Extract & Store"
+                    : "Ingest Source"}
           </Button>
 
-          {(inputMode === "prompt" || inputMode === "pdf") && (
+          {(inputMode === "prompt" || inputMode === "pdf" || inputMode === "youtube") && (
             <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: F, margin: 0, textAlign: "center" }}>
               The AI will automatically classify each piece of information as platform knowledge,
               community insight, or case file and store it in the correct place.
@@ -416,8 +456,10 @@ export default function IngestPage() {
             <strong>Ingested successfully.</strong>
             <br />
             Platform: {result.platform}
+            {result.video_id && <> | Video: {result.video_id}</>}
             {result.filename && <> | File: {result.filename}</>}
-            {result.pages_extracted != null && <> | {result.pages_extracted} pages, {result.characters_extracted?.toLocaleString()} chars extracted</>}
+            {result.pages_extracted != null && <> | {result.pages_extracted} pages</>}
+            {result.characters_extracted != null && <> | {result.characters_extracted.toLocaleString()} chars extracted</>}
             {result.output && (
               <pre style={{
                 marginTop: 8,

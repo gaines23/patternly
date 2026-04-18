@@ -17,4 +17,5 @@ urlpatterns = [
     path("insights/", views.insights_list, name="insights_list"),
     path("ingest/", views.ingest_url, name="ingest_url"),
     path("ingest/pdf/", views.ingest_pdf, name="ingest_pdf"),
+    path("ingest/youtube/", views.ingest_youtube, name="ingest_youtube"),
 ]
