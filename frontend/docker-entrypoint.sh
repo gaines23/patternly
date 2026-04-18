@@ -17,13 +17,13 @@ echo "Backend URL: $BACKEND_URL"
 echo "Backend Host: $BACKEND_HOST"
 echo "Port: $PORT"
 
-# Render the nginx config template
+# Render the full nginx config (replaces the default nginx.conf)
 envsubst '$PORT $BACKEND_URL $BACKEND_HOST $DNS_RESOLVER' \
   < /etc/nginx/nginx.conf.template \
-  > /etc/nginx/conf.d/default.conf
+  > /etc/nginx/nginx.conf
 
 echo "Generated nginx config:"
-cat /etc/nginx/conf.d/default.conf
+cat /etc/nginx/nginx.conf
 
 # Start nginx
 exec nginx -g 'daemon off;'
