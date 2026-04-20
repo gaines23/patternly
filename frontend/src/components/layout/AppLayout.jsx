@@ -8,6 +8,7 @@ const MAIN_NAV = [
   { to: "/generate",  label: "Generate",   icon: "generate" },
   { to: "/projects",  label: "Projects",   icon: "projects" },
   { to: "/tasks",     label: "Tasks",      icon: "tasks" },
+  { to: "/ingest",    label: "Ingest",     icon: "ingest" },
 ];
 const QUICK_NAV = [
   { to: "/projects/new", label: "New Project", icon: "plus" },
@@ -35,6 +36,11 @@ function NavIcon({ name, size = 18, color }) {
     case "tasks": return (
       <svg style={s} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="14" height="14" rx="2.5"/><path d="M7 10l2 2 4-4"/>
+      </svg>
+    );
+    case "ingest": return (
+      <svg style={s} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 3v10M6 9l4 4 4-4"/><path d="M4 15h12"/>
       </svg>
     );
     case "plus": return (
@@ -143,6 +149,7 @@ export default function AppLayout({ children }) {
     to === "/dashboard" ? location.pathname === "/dashboard"
     : to === "/projects" ? location.pathname === "/projects"
     : to === "/tasks"    ? location.pathname === "/tasks"
+    : to === "/ingest"   ? location.pathname === "/ingest"
     : location.pathname.startsWith(to);
 
   const NavLink = ({ item, isCollapsed }) => {

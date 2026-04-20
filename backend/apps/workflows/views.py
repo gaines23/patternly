@@ -13,6 +13,7 @@ from .serializers import (
     BriefFeedbackSerializer,
     TemplateMatchInputSerializer,
     TemplateMatchResultSerializer,
+    CompileInputSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -315,3 +316,54 @@ def match_templates(request):
         "parsed": parsed_data,
         "matches": TemplateMatchResultSerializer(top_matches, many=True).data,
     })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def compile_suggestions(request):
+    """
+    POST /api/v1/workflows/compile/
+
+    Agent Compiler: parse → retrieve → generate N ranked build suggestions.
+    Returns suggestions with full workflow structure ready for form population.
+
+    Body:
+        { "raw_prompt": "...", "num_suggestions": 5 }
+
+    Returns:
+        {
+          "brief_id": "uuid",
+          "parsed": { workflow_type, industries, tools, ... },
+          "suggestions": [ { rank, name, description, reasoning, limitations,
+                             confidence_score, workflows: [...], ... } ]
+        }
+    """
+    input_serializer = CompileInputSerializer(data=request.data)
+    if not input_serializer.is_valid():
+        return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    raw_prompt = input_serializer.validated_data["raw_prompt"]
+    num_suggestions = input_serializer.validated_data.get("num_suggestions", 5)
+
+    try:
+        service = PatternlyAIService()
+        result = service.compile_build_suggestions(raw_prompt, num_suggestions)
+        return Response(result, status=status.HTTP_201_CREATED)
+    except ConfigurationError as e:
+        logger.error("AI service not configured: %s", e)
+        return Response(
+            {"error": "AI service is not configured. Set ANTHROPIC_API_KEY in your environment."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except AIServiceError as e:
+        logger.error("AI service error: %s", e)
+        return Response(
+            {"error": f"Compilation failed: {str(e)}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    except Exception as e:
+        logger.exception("Unexpected error in compile_suggestions: %s", e)
+        return Response(
+            {"error": "An unexpected error occurred. Please try again."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

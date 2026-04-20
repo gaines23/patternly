@@ -22,8 +22,11 @@ from typing import Optional
 import anthropic
 from django.conf import settings
 
-from apps.briefs.models import CaseFile, Roadblock
-from .models import GeneratedBrief
+from apps.briefs.models import (
+    CaseFile, Roadblock, Platform,
+    PlatformKnowledge, CommunityInsight, IntegrationPattern,
+)
+from .models import GeneratedBrief, WorkflowTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +64,14 @@ class ParsedScenario:
 
 @dataclass
 class RetrievedContext:
-    """Case files retrieved for RAG context."""
-    case_files: list = field(default_factory=list)  # list of CaseFile dicts
+    """All knowledge retrieved for generation context."""
+    case_files: list = field(default_factory=list)
     roadblock_warnings: list = field(default_factory=list)
     similar_count: int = 0
+    platform_knowledge: list = field(default_factory=list)
+    community_insights: list = field(default_factory=list)
+    matched_templates: list = field(default_factory=list)
+    integration_patterns: list = field(default_factory=list)
 
 
 @dataclass
@@ -82,6 +89,22 @@ class WorkflowRecommendation:
     proactive_warnings: list = field(default_factory=list)
     estimated_complexity: int = 3
     source_case_file_ids: list = field(default_factory=list)
+
+
+@dataclass
+class CompiledSuggestion:
+    """One ranked build suggestion from the Agent Compiler."""
+    rank: int = 1
+    name: str = ""
+    description: str = ""
+    reasoning: str = ""
+    limitations: str = ""
+    confidence_score: float = 0.0
+    estimated_complexity: int = 3
+    workflows: list = field(default_factory=list)
+    proactive_warnings: list = field(default_factory=list)
+    integrations: list = field(default_factory=list)
+    build_notes: str = ""
 
 
 # ── Prompt templates ──────────────────────────────────────────────────────────
@@ -107,15 +130,25 @@ Return ONLY valid JSON, no markdown fences, no explanation. Schema:
 }"""
 
 RECOMMEND_SYSTEM_PROMPT = """You are a senior ClickUp solutions engineer with deep expertise in workflow design.
-You have access to documentation from previous successful and unsuccessful builds.
+You have access to a comprehensive knowledge base including:
+- Past successful and unsuccessful builds (case files)
+- Platform capabilities and limitations (official docs, API specs)
+- Community best practices, gotchas, and workarounds from practitioners
+- Pre-built workflow templates that have been validated in production
+- Known integration patterns between tool pairs
 
-Your task: Given a user scenario and relevant past case files, generate the optimal ClickUp workspace recommendation.
+Your task: Given a user scenario and all available context, generate the optimal ClickUp workspace recommendation.
 
 CRITICAL RULES:
 - Be specific and actionable — someone should be able to build exactly this in ClickUp
-- Acknowledge known limitations proactively (from roadblock history)
+- Reference platform capabilities AND limitations from the provided knowledge base
+- Apply community best practices and avoid known gotchas mentioned in the context
+- When matching pre-built templates exist, use them as a structural starting point and adapt to this specific scenario
+- For tool pairs with known integration patterns, use those patterns and flag their limitations
+- Acknowledge known limitations proactively (from roadblock history and platform knowledge)
 - Set realistic expectations — don't promise what integrations cannot deliver
-- Draw explicitly on the provided past case files as evidence
+- Draw explicitly on past case files, templates, and knowledge as evidence
+- Prioritize knowledge with higher confidence scores
 
 Return ONLY valid JSON. Schema:
 {
@@ -126,13 +159,106 @@ Return ONLY valid JSON. Schema:
   "automations": "one per line: Trigger → Action",
   "integrations": ["array of tool names to connect"],
   "build_notes": "implementation notes, gotchas, dependencies",
-  "reasoning": "2-3 paragraphs explaining why this structure was chosen",
+  "reasoning": "2-3 paragraphs explaining why this structure was chosen, referencing templates, past builds, and knowledge used",
   "confidence_score": 0.0,
   "estimated_complexity": 3,
   "proactive_warnings": [
     {"tool": "tool name", "warning": "what to watch out for", "workaround": "how to handle it"}
   ]
 }"""
+
+COMPILE_SYSTEM_PROMPT = """You are a senior ClickUp solutions architect with deep expertise in workflow design.
+You have access to a comprehensive knowledge base including past successful builds, platform
+capabilities and limitations, community best practices, validated workflow templates, and
+known integration patterns between tool pairs.
+
+Your task: Given a user scenario and all available context, generate 1 to {num_suggestions}
+DISTINCT ranked build suggestions. Each suggestion must be a complete, actionable ClickUp
+workspace build that someone could implement directly.
+
+SUGGESTION STRATEGY:
+- Suggestion #1: The OPTIMAL fit — best match for the user's specific needs, tools, and constraints
+- Suggestion #2: A SIMPLER alternative — fewer moving parts, easier to maintain, good for smaller teams
+- Suggestion #3: A COMPREHENSIVE option — more structure, better reporting, suits growing teams
+- Suggestion #4-5: CREATIVE alternatives — different structural approaches, different frameworks, or different automation strategies
+- Each suggestion must be meaningfully different (not just variations in naming)
+- Rank by confidence_score: how well this specific build fits the described scenario
+
+SCORING DIMENSIONS (compute confidence_score as weighted average, 0.0 to 1.0):
+- Fit (40%): How well does the build match the described workflow need?
+- Feasibility (25%): Can this be built in ClickUp without hitting known blockers?
+- Simplicity (20%): Lower complexity for equivalent outcomes scores higher
+- Evidence (15%): Is this backed by past case files and templates?
+
+AUTOMATION RULES:
+- Use ONLY these trigger types: Task Created, Task Status Changed, Task Completed, Task Moved, Task Assigned, Task Unassigned, Task Due Date Arrives, Task Start Date Arrives, Task Due Date Changed, Task Priority Changed, Custom Field Changed, Custom Field Is, Comment Posted, Attachment Added, Tag Added, Tag Removed, Task Type Is, Checklist Item Completed, Time Estimate Changed, Dependency Resolved, Form Submitted, Recurring Task Due
+- Use ONLY these action types: Change Status, Assign To, Unassign From, Set Priority, Set Due Date, Set Start Date, Move to List, Add to List, Create List, Copy Task, Create Subtask, Create Task, Post Comment, Send Email, Add Tag, Remove Tag, Set Custom Field, Start Time Tracking, Stop Time Tracking, Change Task Type, Apply Template, Archive Task, Send Webhook
+
+AGENT INSTRUCTIONS RULES:
+- The "instructions" field is ONLY for automations that require an AI agent or custom prompt text — for example: creating lists dynamically, applying list templates, complex conditional logic, or multi-step orchestration that goes beyond a simple trigger→action pair
+- For standard ClickUp automations (e.g. "when status changes → assign to"), leave "instructions" as an empty string ""
+- When instructions ARE needed (e.g. a ClickUp AI agent that creates a list and applies a template), write clear step-by-step prompt text the agent should follow
+
+CRITICAL RULES:
+- Be specific and actionable — someone should be able to build exactly this in ClickUp
+- Each suggestion must include reasoning explaining WHY this approach fits
+- Each suggestion must include limitations noting known tradeoffs, blockers, or gotchas
+- Reference platform knowledge and community best practices
+- Flag integration limitations proactively
+- Set realistic expectations
+
+Return ONLY valid JSON — an array of suggestion objects. Schema:
+[
+  {{
+    "rank": 1,
+    "name": "short descriptive name for this build approach",
+    "description": "1-2 sentence summary of the approach",
+    "reasoning": "2-3 paragraphs explaining why this structure was chosen, referencing templates, past builds, and knowledge",
+    "limitations": "known tradeoffs, blockers, or things that won't work perfectly with this approach",
+    "confidence_score": 0.85,
+    "estimated_complexity": 3,
+    "integrations": ["tool names to connect"],
+    "build_notes": "implementation notes, gotchas, dependencies",
+    "proactive_warnings": [
+      {{"tool": "tool name", "warning": "what to watch out for", "workaround": "how to handle it"}}
+    ],
+    "workflows": [
+      {{
+        "name": "Workflow / Space name",
+        "notes": "workflow-specific implementation notes",
+        "pipeline": ["Phase 1 Name", "Phase 2 Name"],
+        "lists": [
+          {{
+            "name": "List name",
+            "space": "Space this list belongs to",
+            "statuses": "Status1 → Status2 → Status3 → Done",
+            "custom_fields": "FieldName — Type — Purpose (one per line)",
+            "automations": [
+              {{
+                "platform": "clickup",
+                "automation_mode": "pipeline",
+                "pipeline_phase": "Phase name if applicable",
+                "triggers": [{{"type": "Task Status Changed", "detail": "When status changes to Review"}}],
+                "actions": [{{"type": "Assign To", "detail": "Assign to team lead for review"}}],
+                "instructions": "",
+                "map_description": "Short label for workflow visualization"
+              }},
+              {{
+                "platform": "clickup",
+                "automation_mode": "standalone",
+                "pipeline_phase": "",
+                "triggers": [{{"type": "Task Status Changed", "detail": "When task status changes to Approved"}}],
+                "actions": [{{"type": "Create List", "detail": "Create new list in Project Space with task name"}}],
+                "instructions": "1. Get the approved task name from the trigger\\n2. Create a new list in the Project Space using the task name\\n3. Apply the 'List Template' template to the new list\\n4. Post a comment on the original task confirming the list was created",
+                "map_description": "Auto-provision project list with template"
+              }}
+            ]
+          }}
+        ]
+      }}
+    ]
+  }}
+]"""
 
 
 def _strip_json_fences(text: str) -> str:
@@ -203,47 +329,52 @@ class PatternlyAIService:
 
     def retrieve_context(self, scenario: ParsedScenario, top_k: int = 5) -> RetrievedContext:
         """
-        Retrieve the most relevant past case files using metadata filtering.
-
-        Phase 2a: Metadata-only retrieval (fast, no embeddings needed yet).
-        Phase 2b: Add pgvector cosine similarity once embeddings are populated.
+        Retrieve all relevant knowledge for generation context:
+        case files, roadblocks, platform knowledge, community insights,
+        matched templates, and integration patterns.
         """
-        # Build a relevance-scored queryset
+        # Resolve tool names to Platform objects (reused by multiple queries)
+        platforms = self._resolve_platforms(scenario.tools)
+
+        # Case files — well-received past builds
         qs = CaseFile.objects.filter(
-            satisfaction_score__gte=3,  # only well-received builds
+            satisfaction_score__gte=3,
         ).prefetch_related(
             "intake", "build", "delta__roadblocks", "reasoning", "outcome", "audit__builds"
         )
-
-        # Filter by workflow type first (highest signal)
         if scenario.workflow_type:
             matching = qs.filter(workflow_type__icontains=scenario.workflow_type)
             if matching.exists():
                 qs = matching
-
-        # Filter by industry if we have matches
         if scenario.industries:
             industry_match = qs.filter(industries__overlap=scenario.industries)
             if industry_match.exists():
                 qs = industry_match
-
-        # Limit and order by satisfaction
         qs = qs.order_by("-satisfaction_score", "-created_at")[:top_k]
-
         case_files = [self._serialise_case_file(cf) for cf in qs]
 
-        # Fetch roadblock warnings for detected tools
+        # All knowledge sources
         warnings = self._get_roadblock_warnings(scenario.tools)
+        platform_knowledge = self._get_platform_knowledge(platforms, scenario)
+        community_insights = self._get_community_insights(platforms, scenario)
+        matched_templates = self._get_matched_templates(scenario)
+        integration_patterns = self._get_integration_patterns(platforms)
 
         logger.info(
-            "Retrieved %d case files, %d roadblock warnings for scenario",
-            len(case_files), len(warnings),
+            "Retrieved context: %d case files, %d warnings, %d knowledge, "
+            "%d insights, %d templates, %d patterns",
+            len(case_files), len(warnings), len(platform_knowledge),
+            len(community_insights), len(matched_templates), len(integration_patterns),
         )
 
         return RetrievedContext(
             case_files=case_files,
             roadblock_warnings=warnings,
             similar_count=len(case_files),
+            platform_knowledge=platform_knowledge,
+            community_insights=community_insights,
+            matched_templates=matched_templates,
+            integration_patterns=integration_patterns,
         )
 
     def _serialise_case_file(self, cf: CaseFile) -> dict:
@@ -296,6 +427,154 @@ class PatternlyAIService:
             for rb in warnings
             if any(t in rb.tools_affected for t in tools)
         ][:8]
+
+    # ── Knowledge retrieval helpers ────────────────────────────────────────
+
+    def _resolve_platforms(self, tool_names: list) -> list:
+        """Map human tool names to Platform objects for FK-based queries."""
+        if not tool_names:
+            return []
+        slug_map = {
+            "clickup": "clickup", "monday": "monday", "monday.com": "monday",
+            "asana": "asana", "jira": "jira",
+            "zapier": "zapier", "make": "make", "integromat": "make",
+            "airtable": "airtable", "notion": "notion",
+            "hubspot": "hubspot", "salesforce": "salesforce",
+            "slack": "slack", "google drive": "google-drive",
+            "github": "github", "figma": "figma",
+            "docusign": "docusign", "zoom": "zoom", "stripe": "stripe",
+            "microsoft teams": "microsoft-teams", "teams": "microsoft-teams",
+            "outlook": "outlook", "gmail": "gmail",
+        }
+        slugs = set()
+        for tool in tool_names:
+            slug = slug_map.get(tool.strip().lower())
+            if slug:
+                slugs.add(slug)
+        if not slugs:
+            return []
+        return list(Platform.objects.filter(slug__in=slugs))
+
+    def _get_platform_knowledge(self, platforms: list, scenario: ParsedScenario) -> list:
+        """Retrieve platform capabilities and limitations for the user's tools."""
+        if not platforms:
+            return []
+        qs = PlatformKnowledge.objects.filter(
+            platform__in=platforms,
+            confidence_score__gte=0.5,
+        ).select_related("platform", "related_platform").order_by("-confidence_score")
+
+        # Limitations are always important; then capabilities/features
+        limitations = list(qs.filter(knowledge_type="limitation")[:5])
+        capabilities = list(qs.filter(
+            knowledge_type__in=["capability", "feature", "integration_spec"],
+        )[:5])
+
+        return [
+            {
+                "platform": pk.platform.name,
+                "type": pk.knowledge_type,
+                "category": pk.category,
+                "title": pk.title,
+                "content": pk.content[:300],
+                "confidence": pk.confidence_score,
+            }
+            for pk in (limitations + capabilities)[:10]
+        ]
+
+    def _get_community_insights(self, platforms: list, scenario: ParsedScenario) -> list:
+        """Retrieve community best practices, gotchas, and workarounds."""
+        if not platforms:
+            return []
+        actionable_types = ["best_practice", "gotcha", "workaround", "methodology"]
+        qs = CommunityInsight.objects.filter(
+            platforms__in=platforms,
+            insight_type__in=actionable_types,
+            confidence_score__gte=0.5,
+        ).distinct().order_by("-confidence_score")
+
+        # Boost industry-relevant insights
+        if scenario.industries:
+            industry_match = qs.filter(applies_to_industries__overlap=scenario.industries)
+            general = qs.exclude(pk__in=industry_match)
+            results = list(industry_match[:5]) + list(general[:3])
+        else:
+            results = list(qs[:8])
+
+        return [
+            {
+                "type": ci.insight_type,
+                "title": ci.title,
+                "content": ci.content[:300],
+                "confidence": ci.confidence_score,
+            }
+            for ci in results[:8]
+        ]
+
+    def _get_matched_templates(self, scenario: ParsedScenario) -> list:
+        """Score WorkflowTemplates against the parsed scenario and return top matches."""
+        parsed_wf = (scenario.workflow_type or "").lower()
+        parsed_industries = set(i.lower() for i in scenario.industries)
+        parsed_pain_points = set(p.lower() for p in scenario.pain_points)
+        parsed_tools = set(t.lower() for t in scenario.tools)
+
+        templates = WorkflowTemplate.objects.filter(is_active=True)
+        scored = []
+
+        for tmpl in templates:
+            score = 0
+            if parsed_wf and tmpl.workflow_type.lower() == parsed_wf:
+                score += 40
+            shared_ind = parsed_industries & set(i.lower() for i in (tmpl.industries or []))
+            score += min(len(shared_ind) * 15, 30)
+            shared_pp = parsed_pain_points & set(p.lower() for p in (tmpl.pain_points or []))
+            score += min(len(shared_pp) * 10, 30)
+            shared_tools = parsed_tools & set(t.lower() for t in (tmpl.tools or []))
+            score += min(len(shared_tools) * 5, 20)
+            if score > 0:
+                scored.append((tmpl, min(score, 100)))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        return [
+            {
+                "name": tmpl.name,
+                "score": score,
+                "workflow_type": tmpl.workflow_type,
+                "spaces": tmpl.spaces,
+                "lists": tmpl.lists,
+                "statuses": tmpl.statuses,
+                "custom_fields": tmpl.custom_fields[:200],
+                "automations": tmpl.automations[:200],
+                "integrations": tmpl.integrations,
+                "build_notes": tmpl.build_notes[:200],
+                "estimated_complexity": tmpl.estimated_complexity,
+            }
+            for tmpl, score in scored[:3]
+        ]
+
+    def _get_integration_patterns(self, platforms: list) -> list:
+        """Retrieve known integration patterns for tool pairs in the user's stack."""
+        if len(platforms) < 2:
+            return []
+        patterns = IntegrationPattern.objects.filter(
+            source_platform__in=platforms,
+            target_platform__in=platforms,
+        ).select_related("source_platform", "target_platform", "via_platform")
+
+        return [
+            {
+                "source": ip.source_platform.name,
+                "target": ip.target_platform.name,
+                "via": ip.via_platform.name if ip.via_platform else "native",
+                "pattern_type": ip.pattern_type,
+                "description": ip.description[:200],
+                "limitations": ip.known_limitations[:3] if ip.known_limitations else [],
+                "workarounds": ip.workarounds[:2] if ip.workarounds else [],
+                "success_rate": ip.success_rate,
+            }
+            for ip in patterns[:6]
+        ]
 
     # ── Step 3: Generate recommendation ──────────────────────────────────────
 
@@ -351,6 +630,25 @@ class PatternlyAIService:
             f"Key requirements: {', '.join(scenario.key_requirements)}",
         ]
 
+        # Platform knowledge — capabilities and limitations
+        if context.platform_knowledge:
+            parts.append("\n## Platform Capabilities & Limitations")
+            for pk in context.platform_knowledge:
+                parts.append(
+                    f"- [{pk['type'].upper()}] {pk['platform']} ({pk['category']}): "
+                    f"{pk['title']} — {pk['content']} (confidence: {pk['confidence']})"
+                )
+
+        # Community insights — best practices, gotchas, workarounds
+        if context.community_insights:
+            parts.append("\n## Community Best Practices & Gotchas")
+            for ci in context.community_insights:
+                parts.append(
+                    f"- [{ci['type'].upper()}] {ci['title']} — "
+                    f"{ci['content']} (confidence: {ci['confidence']})"
+                )
+
+        # Roadblock warnings
         if context.roadblock_warnings:
             parts.append("\n## Known Roadblocks For This Tool Stack")
             for w in context.roadblock_warnings:
@@ -358,6 +656,21 @@ class PatternlyAIService:
                 if w.get("workaround"):
                     parts.append(f"  Workaround: {w['workaround']}")
 
+        # Integration patterns
+        if context.integration_patterns:
+            parts.append("\n## Known Integration Patterns")
+            for ip in context.integration_patterns:
+                via = f" via {ip['via']}" if ip['via'] != "native" else " (native)"
+                parts.append(
+                    f"- {ip['source']} → {ip['target']}{via} ({ip['pattern_type']}): "
+                    f"{ip['description']}"
+                )
+                if ip.get("limitations"):
+                    parts.append(f"  Limitations: {'; '.join(str(l) for l in ip['limitations'])}")
+                if ip.get("success_rate") is not None:
+                    parts.append(f"  Success rate: {ip['success_rate']:.0%}")
+
+        # Past builds
         if context.case_files:
             parts.append(f"\n## {len(context.case_files)} Relevant Past Builds")
             for cf in context.case_files:
@@ -375,10 +688,33 @@ class PatternlyAIService:
         else:
             parts.append("\n## Past Builds\nNo closely matching past builds found. Use general best practices.")
 
+        # Matched templates — full build structure as starting points
+        if context.matched_templates:
+            parts.append(f"\n## {len(context.matched_templates)} Pre-Built Template Matches")
+            for tmpl in context.matched_templates:
+                parts.append(f"\n### {tmpl['name']} (match score: {tmpl['score']}/100)")
+                parts.append(f"Workflow type: {tmpl['workflow_type']}")
+                if tmpl.get("spaces"):
+                    parts.append(f"Spaces: {tmpl['spaces']}")
+                if tmpl.get("lists"):
+                    parts.append(f"Lists: {tmpl['lists']}")
+                if tmpl.get("statuses"):
+                    parts.append(f"Statuses: {tmpl['statuses']}")
+                if tmpl.get("custom_fields"):
+                    parts.append(f"Custom fields: {tmpl['custom_fields']}")
+                if tmpl.get("automations"):
+                    parts.append(f"Automations: {tmpl['automations']}")
+                if tmpl.get("integrations"):
+                    parts.append(f"Integrations: {', '.join(tmpl['integrations'])}")
+                if tmpl.get("build_notes"):
+                    parts.append(f"Build notes: {tmpl['build_notes']}")
+
         parts.append("\n## Instructions")
         parts.append(
             "Generate the optimal ClickUp workspace recommendation for this scenario. "
-            "Draw on the past builds above. Flag any known risks proactively. "
+            "Draw on past builds, platform knowledge, community insights, and matching templates above. "
+            "Use matching templates as a structural starting point and adapt to this specific scenario. "
+            "Flag any known risks, limitations, or gotchas proactively. "
             "Be specific — every field should be actionable by someone building in ClickUp."
         )
 
@@ -423,6 +759,13 @@ class PatternlyAIService:
                 "build_notes": recommendation.build_notes,
                 "reasoning": recommendation.reasoning,
                 "estimated_complexity": recommendation.estimated_complexity,
+                "knowledge_sources": {
+                    "case_files_used": len(context.case_files),
+                    "platform_knowledge_used": len(context.platform_knowledge),
+                    "community_insights_used": len(context.community_insights),
+                    "templates_matched": len(context.matched_templates),
+                    "integration_patterns_used": len(context.integration_patterns),
+                },
             },
             source_case_file_ids=recommendation.source_case_file_ids,
             confidence_score=recommendation.confidence_score,
@@ -435,3 +778,153 @@ class PatternlyAIService:
         )
 
         return brief
+
+    # ── Agent Compiler pipeline ──────────────────────────────────────────────
+
+    def generate_compiled_suggestions(
+        self,
+        scenario: ParsedScenario,
+        context: RetrievedContext,
+        num_suggestions: int = 5,
+    ) -> list[CompiledSuggestion]:
+        """
+        Call Claude with the parsed scenario + retrieved context to generate
+        multiple ranked build suggestions with full workflow structure.
+        """
+        user_message = self._build_generation_prompt(scenario, context)
+        system_prompt = COMPILE_SYSTEM_PROMPT.format(num_suggestions=num_suggestions)
+
+        logger.info(
+            "Compiling %d suggestions via Claude for workflow: %s",
+            num_suggestions, scenario.workflow_type,
+        )
+        try:
+            message = self.client.messages.create(
+                model=self.model,
+                max_tokens=16000,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_message}],
+            )
+            raw = _strip_json_fences(message.content[0].text)
+            data = json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.error("Compiler JSON parse error: %s", e)
+            raise AIServiceError(f"AI returned invalid JSON: {e}")
+
+        if not isinstance(data, list):
+            data = [data]
+
+        suggestions = []
+        for i, item in enumerate(data[:num_suggestions]):
+            suggestions.append(CompiledSuggestion(
+                rank=item.get("rank", i + 1),
+                name=item.get("name", f"Suggestion {i + 1}"),
+                description=item.get("description", ""),
+                reasoning=item.get("reasoning", ""),
+                limitations=item.get("limitations", ""),
+                confidence_score=float(item.get("confidence_score", 0.5)),
+                estimated_complexity=int(item.get("estimated_complexity", 3)),
+                workflows=item.get("workflows", []),
+                proactive_warnings=item.get("proactive_warnings", []),
+                integrations=item.get("integrations", []),
+                build_notes=item.get("build_notes", ""),
+            ))
+
+        suggestions.sort(key=lambda s: s.confidence_score, reverse=True)
+        for i, s in enumerate(suggestions):
+            s.rank = i + 1
+
+        return suggestions
+
+    def compile_build_suggestions(
+        self,
+        raw_prompt: str,
+        num_suggestions: int = 5,
+    ) -> dict:
+        """
+        Full Agent Compiler pipeline: parse → retrieve → compile → persist.
+        Returns a dict with brief_id, parsed scenario, and ranked suggestions.
+        """
+        scenario = self.parse_scenario(raw_prompt)
+        context = self.retrieve_context(scenario)
+        suggestions = self.generate_compiled_suggestions(
+            scenario, context, num_suggestions,
+        )
+
+        top = suggestions[0] if suggestions else None
+        brief = GeneratedBrief.objects.create(
+            raw_prompt=raw_prompt,
+            parsed_scenario={
+                "client_name": scenario.client_name,
+                "industries": scenario.industries,
+                "team_size": scenario.team_size,
+                "workflow_type": scenario.workflow_type,
+                "tools": scenario.tools,
+                "pain_points": scenario.pain_points,
+                "process_frameworks": scenario.process_frameworks,
+                "key_requirements": scenario.key_requirements,
+            },
+            recommendation={
+                "type": "compile",
+                "suggestions": [
+                    {
+                        "rank": s.rank,
+                        "name": s.name,
+                        "description": s.description,
+                        "reasoning": s.reasoning,
+                        "limitations": s.limitations,
+                        "confidence_score": s.confidence_score,
+                        "estimated_complexity": s.estimated_complexity,
+                        "workflows": s.workflows,
+                        "proactive_warnings": s.proactive_warnings,
+                        "integrations": s.integrations,
+                        "build_notes": s.build_notes,
+                    }
+                    for s in suggestions
+                ],
+                "knowledge_sources": {
+                    "case_files_used": len(context.case_files),
+                    "platform_knowledge_used": len(context.platform_knowledge),
+                    "community_insights_used": len(context.community_insights),
+                    "templates_matched": len(context.matched_templates),
+                    "integration_patterns_used": len(context.integration_patterns),
+                },
+            },
+            source_case_file_ids=[cf["id"] for cf in context.case_files],
+            confidence_score=top.confidence_score if top else 0,
+            proactive_warnings=top.proactive_warnings if top else [],
+        )
+
+        logger.info(
+            "Compiled %d suggestions (brief %s, top confidence=%.2f)",
+            len(suggestions), brief.id,
+            top.confidence_score if top else 0,
+        )
+
+        return {
+            "brief_id": str(brief.id),
+            "parsed": {
+                "workflow_type": scenario.workflow_type,
+                "industries": scenario.industries,
+                "tools": scenario.tools,
+                "pain_points": scenario.pain_points,
+                "process_frameworks": scenario.process_frameworks,
+                "team_size": scenario.team_size,
+            },
+            "suggestions": [
+                {
+                    "rank": s.rank,
+                    "name": s.name,
+                    "description": s.description,
+                    "reasoning": s.reasoning,
+                    "limitations": s.limitations,
+                    "confidence_score": s.confidence_score,
+                    "estimated_complexity": s.estimated_complexity,
+                    "workflows": s.workflows,
+                    "proactive_warnings": s.proactive_warnings,
+                    "integrations": s.integrations,
+                    "build_notes": s.build_notes,
+                }
+                for s in suggestions
+            ],
+        }

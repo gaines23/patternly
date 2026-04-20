@@ -1,0 +1,361 @@
+[
+  {
+    "model": "briefs.platform",
+    "pk": "a0000000-0000-0000-0000-000000000001",
+    "fields": {
+      "slug": "clickup",
+      "name": "ClickUp",
+      "category": "pm",
+      "concept_labels": {
+        "container": "Space",
+        "workflow_group": "Folder",
+        "work_unit": "List",
+        "item": "Task",
+        "status_flow": "Statuses",
+        "custom_data": "Custom Fields",
+        "automation": "Automation",
+        "view": "View"
+      },
+      "supported": true,
+      "created_at": "2026-04-17T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "a0000000-0000-0000-0000-000000000002",
+    "fields": {
+      "slug": "monday",
+      "name": "Monday.com",
+      "category": "pm",
+      "concept_labels": {
+        "container": "Workspace",
+        "workflow_group": "Board",
+        "work_unit": "Group",
+        "item": "Item",
+        "status_flow": "Status Column",
+        "custom_data": "Column",
+        "automation": "Recipe",
+        "view": "View"
+      },
+      "supported": true,
+      "created_at": "2026-04-17T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "a0000000-0000-0000-0000-000000000003",
+    "fields": {
+      "slug": "asana",
+      "name": "Asana",
+      "category": "pm",
+      "concept_labels": {
+        "container": "Team",
+        "workflow_group": "Project",
+        "work_unit": "Section",
+        "item": "Task",
+        "status_flow": "Sections",
+        "custom_data": "Custom Fields",
+        "automation": "Rule",
+        "view": "View"
+      },
+      "supported": true,
+      "created_at": "2026-04-17T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "a0000000-0000-0000-0000-000000000004",
+    "fields": {
+      "slug": "zapier",
+      "name": "Zapier",
+      "category": "automation",
+      "concept_labels": {
+        "container": "Folder",
+        "workflow_group": "Folder",
+        "work_unit": "Zap",
+        "item": "Zap Step",
+        "automation": "Zap",
+        "integration": "App Connection"
+      },
+      "supported": true,
+      "created_at": "2026-04-17T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "a0000000-0000-0000-0000-000000000005",
+    "fields": {
+      "slug": "make",
+      "name": "Make (Integromat)",
+      "category": "automation",
+      "concept_labels": {
+        "container": "Organization",
+        "workflow_group": "Folder",
+        "work_unit": "Scenario",
+        "item": "Module",
+        "automation": "Scenario",
+        "integration": "Connection"
+      },
+      "supported": true,
+      "created_at": "2026-04-17T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "a0000000-0000-0000-0000-000000000006",
+    "fields": {
+      "slug": "airtable",
+      "name": "Airtable",
+      "category": "database",
+      "concept_labels": {
+        "container": "Base",
+        "workflow_group": "Table",
+        "work_unit": "View",
+        "item": "Record",
+        "custom_data": "Field",
+        "automation": "Automation"
+      },
+      "supported": true,
+      "created_at": "2026-04-17T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "a0000000-0000-0000-0000-000000000007",
+    "fields": {
+      "slug": "hubspot",
+      "name": "HubSpot",
+      "category": "crm",
+      "concept_labels": {
+        "container": "Portal",
+        "workflow_group": "Pipeline",
+        "work_unit": "Stage",
+        "item": "Deal / Contact / Ticket",
+        "status_flow": "Deal Stages",
+        "custom_data": "Property",
+        "automation": "Workflow",
+        "integration": "Connected App",
+        "view": "Saved View"
+      },
+      "supported": true,
+      "created_at": "2026-04-17T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "a0000000-0000-0000-0000-000000000008",
+    "fields": {
+      "slug": "notion",
+      "name": "Notion",
+      "category": "database",
+      "concept_labels": {
+        "container": "Workspace",
+        "workflow_group": "Database",
+        "work_unit": "View",
+        "item": "Page",
+        "custom_data": "Property",
+        "automation": "Automation"
+      },
+      "supported": true,
+      "created_at": "2026-04-17T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000001",
+    "fields": {
+      "slug": "slack",
+      "name": "Slack",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Workspace",
+        "work_unit": "Channel",
+        "automation": "Workflow Builder"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000002",
+    "fields": {
+      "slug": "google-drive",
+      "name": "Google Drive",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Shared Drive",
+        "work_unit": "Folder"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000003",
+    "fields": {
+      "slug": "outlook",
+      "name": "Microsoft Outlook",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Mailbox",
+        "work_unit": "Inbox"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000004",
+    "fields": {
+      "slug": "gmail",
+      "name": "Gmail",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Account",
+        "work_unit": "Inbox"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000005",
+    "fields": {
+      "slug": "docusign",
+      "name": "DocuSign",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Account",
+        "work_unit": "Envelope"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000006",
+    "fields": {
+      "slug": "github",
+      "name": "GitHub",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Organization",
+        "workflow_group": "Repository",
+        "work_unit": "Issue",
+        "item": "Pull Request"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000007",
+    "fields": {
+      "slug": "salesforce",
+      "name": "Salesforce",
+      "category": "crm",
+      "concept_labels": {
+        "container": "Org",
+        "workflow_group": "Object",
+        "work_unit": "Record Type",
+        "item": "Record",
+        "status_flow": "Opportunity Stages",
+        "custom_data": "Field",
+        "automation": "Flow",
+        "view": "List View"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000008",
+    "fields": {
+      "slug": "figma",
+      "name": "Figma",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Team",
+        "workflow_group": "Project",
+        "work_unit": "File"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000009",
+    "fields": {
+      "slug": "zoom",
+      "name": "Zoom",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Account",
+        "work_unit": "Meeting"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000010",
+    "fields": {
+      "slug": "stripe",
+      "name": "Stripe",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Account",
+        "work_unit": "Payment",
+        "item": "Invoice"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000011",
+    "fields": {
+      "slug": "jira",
+      "name": "Jira",
+      "category": "pm",
+      "concept_labels": {
+        "container": "Project",
+        "workflow_group": "Board",
+        "work_unit": "Sprint",
+        "item": "Issue",
+        "status_flow": "Workflow",
+        "custom_data": "Custom Fields",
+        "automation": "Automation Rule",
+        "view": "Board / Backlog"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "briefs.platform",
+    "pk": "b0000000-0000-0000-0000-000000000012",
+    "fields": {
+      "slug": "microsoft-teams",
+      "name": "Microsoft Teams",
+      "category": "integration_app",
+      "concept_labels": {
+        "container": "Organization",
+        "work_unit": "Channel",
+        "automation": "Power Automate"
+      },
+      "supported": true,
+      "created_at": "2026-04-18T00:00:00Z"
+    }
+  }
+]

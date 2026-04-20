@@ -12,6 +12,8 @@ import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { useParsePrompt, useMatchTemplates } from "../hooks/useWorkflows";
 import { WorkflowMapPanel } from "./WorkflowMapPanel";
+import AgentCompilerPanel from "./AgentCompilerPanel";
+import { compiledSuggestionToBuildState } from "../utils/transforms";
 
 // ── All data constants (same as workflow-intake.jsx) ──────────────────────────
 const INDUSTRY_MAP = {
@@ -1483,7 +1485,7 @@ function formWfToMapWf(wf) {
   };
 }
 
-function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [] }) {
+function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [], intakePrompt = "" }) {
   const { theme } = useTheme();
   const [mapWfIndex, setMapWfIndex] = useState(null);
   const workflows = data.workflows || [];
@@ -1510,8 +1512,23 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBui
     set({ ...data, workflows: [...workflows, newWf] });
   };
 
+  const handleCompilerApply = (suggestion) => {
+    const buildState = compiledSuggestionToBuildState(suggestion);
+    set({
+      ...data,
+      buildNotes: [data.buildNotes, buildState.buildNotes].filter(Boolean).join("\n\n"),
+      workflows: [...workflows, ...buildState.workflows],
+    });
+  };
+
   return (
     <div>
+      {/* Agent Compiler — AI-powered build generation */}
+      <AgentCompilerPanel
+        onApplyBuild={handleCompilerApply}
+        existingPrompt={intakePrompt}
+      />
+
       <Banner emoji="🏗️" title="Map what you're building." body="Add each new mapped workflow space by space." color="#0284C7"/>
 
       {suggestedBuilds.length > 0 && (
@@ -2006,7 +2023,7 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
                 auditData={data.audit} setAudit={v=>setSD("audit",v)} w={w} isEditing={isEditing}/>
             )}
             {step===3 && <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
-            {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds}/>}
+            {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds} intakePrompt={data.intake?.rawPrompt || ""}/>}
             {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w} aiSuggestedFields={aiSuggestedFields}/>}
             {step===6 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
             {step===7 && <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>}

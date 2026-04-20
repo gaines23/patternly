@@ -9,12 +9,19 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
-from .models import CaseFile, Roadblock, ProjectStatus, ProjectUpdate
+from .models import (
+    CaseFile, Roadblock, ProjectStatus, ProjectUpdate,
+    Platform, PlatformKnowledge, CommunityInsight,
+)
 from .serializers import (
     CaseFileDetailSerializer,
     CaseFileListSerializer,
     CaseFileWriteSerializer,
     PublicCaseFileSerializer,
+    IngestRequestSerializer,
+    PlatformSerializer,
+    PlatformKnowledgeSerializer,
+    CommunityInsightSerializer,
 )
 from apps.users.audit import log_action
 from apps.users.models import (
@@ -41,7 +48,10 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
             is_admin = getattr(user, "role", None) == "admin" or user.is_staff
         except AttributeError:
             is_admin = False
-        qs = CaseFile.objects.select_related("logged_by").prefetch_related(
+        qs = CaseFile.objects.select_related(
+            "logged_by", "primary_platform",
+        ).prefetch_related(
+            "connected_platforms",
             "audit__builds",
             "intake",
             "build",
@@ -52,9 +62,16 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
         # Admins see all; everyone else only sees their own files
         if not is_admin:
             qs = qs.filter(logged_by=user)
+
+        # Exclude training data by default; pass ?include_training=true to see it
+        include_training = self.request.query_params.get("include_training", "").lower() == "true"
+        if not include_training:
+            qs = qs.filter(is_training_data=False)
+
         # Optional filters via query params
         industry = self.request.query_params.get("industry")
         tool = self.request.query_params.get("tool")
+        platform = self.request.query_params.get("platform")
         workflow_type = self.request.query_params.get("workflow_type")
         min_satisfaction = self.request.query_params.get("min_satisfaction")
 
@@ -62,6 +79,8 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(industries__contains=[industry])
         if tool:
             qs = qs.filter(tools__contains=[tool])
+        if platform:
+            qs = qs.filter(primary_platform__slug=platform)
         if workflow_type:
             qs = qs.filter(workflow_type__icontains=workflow_type)
         if min_satisfaction:
@@ -110,7 +129,10 @@ class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
             is_admin = getattr(user, "role", None) == "admin" or user.is_staff
         except AttributeError:
             is_admin = False
-        qs = CaseFile.objects.select_related("logged_by").prefetch_related(
+        qs = CaseFile.objects.select_related(
+            "logged_by", "primary_platform",
+        ).prefetch_related(
+            "connected_platforms",
             "audit__builds",
             "intake",
             "build",
@@ -321,7 +343,7 @@ def stats(request):
     from django.db import connection
     from django.db.models import Avg, Count
 
-    totals = CaseFile.objects.aggregate(
+    totals = CaseFile.objects.filter(is_training_data=False).aggregate(
         total=Count("id"),
         avg_satisfaction=Avg("satisfaction_score"),
         total_roadblocks=Count("delta__roadblocks"),
@@ -696,3 +718,399 @@ def project_summary(request, pk):
             "scope_creep_items": len(scope_creep),
         },
     })
+
+
+# ── Platform & Knowledge endpoints ───────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def platform_list(request):
+    """
+    GET /api/v1/briefs/platforms/
+    Returns all supported platforms, optionally filtered by category.
+    """
+    qs = Platform.objects.all()
+    category = request.query_params.get("category")
+    if category:
+        qs = qs.filter(category=category)
+    serializer = PlatformSerializer(qs, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def knowledge_list(request):
+    """
+    GET /api/v1/briefs/knowledge/?platform=clickup&category=integrations
+    Returns platform knowledge, filterable by platform, related_platform,
+    knowledge_type, and category.
+    """
+    qs = PlatformKnowledge.objects.select_related("platform", "related_platform")
+
+    platform = request.query_params.get("platform")
+    related = request.query_params.get("related_platform")
+    k_type = request.query_params.get("knowledge_type")
+    category = request.query_params.get("category")
+
+    if platform:
+        qs = qs.filter(platform__slug=platform)
+    if related:
+        qs = qs.filter(related_platform__slug=related)
+    if k_type:
+        qs = qs.filter(knowledge_type=k_type)
+    if category:
+        qs = qs.filter(category=category)
+
+    serializer = PlatformKnowledgeSerializer(qs[:100], many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def insights_list(request):
+    """
+    GET /api/v1/briefs/insights/?platform=clickup&type=workaround
+    Returns community insights, filterable by platform and insight_type.
+    """
+    qs = CommunityInsight.objects.prefetch_related("platforms")
+
+    platform = request.query_params.get("platform")
+    i_type = request.query_params.get("type")
+
+    if platform:
+        qs = qs.filter(platforms__slug=platform)
+    if i_type:
+        qs = qs.filter(insight_type=i_type)
+
+    serializer = CommunityInsightSerializer(qs.distinct()[:100], many=True)
+    return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def ingest_url(request):
+    """
+    POST /api/v1/briefs/ingest/
+    Frontend-facing ingestion endpoint.
+
+    Supports three modes:
+    - URL + case_file:  fetch URL → extract case file
+    - URL + knowledge:  fetch URL → extract platform knowledge + community insights
+    - content + prompt: paste raw text → auto-route to all data types
+
+    Body: { "url": "...", "content": "...", "platform": "clickup",
+            "ingest_type": "case_file"|"knowledge"|"prompt",
+            "content_type": "blog_post"|..., "source_attribution": "..." }
+    """
+    serializer = IngestRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    url = serializer.validated_data.get("url", "").strip()
+    content = serializer.validated_data.get("content", "").strip()
+    platform = serializer.validated_data["platform"]
+    ingest_type = serializer.validated_data["ingest_type"]
+    content_type = serializer.validated_data["content_type"]
+    source_attribution = serializer.validated_data.get("source_attribution", "")
+
+    from django.core.management import call_command
+    from io import StringIO
+
+    stdout = StringIO()
+    stderr = StringIO()
+
+    try:
+        if ingest_type == "prompt":
+            # Smart extract: raw content → auto-routes to all models
+            call_command(
+                "ingest_prompt",
+                platform=platform.slug,
+                content=content,
+                source_url=url,
+                source_attribution=source_attribution,
+                auto_approve=True,
+                stdout=stdout,
+                stderr=stderr,
+            )
+        elif ingest_type == "case_file":
+            call_command(
+                "ingest_source",
+                url=url,
+                platform=platform.slug,
+                source_type=content_type if content_type in [
+                    "blog_post", "case_study", "community_post",
+                ] else "blog_post",
+                auto_approve=True,
+                stdout=stdout,
+                stderr=stderr,
+            )
+        else:
+            call_command(
+                "ingest_knowledge",
+                url=url,
+                platform=platform.slug,
+                content_type=content_type if content_type in [
+                    "platform_doc", "community_post", "integration_doc", "changelog",
+                ] else "community_post",
+                auto_approve=True,
+                stdout=stdout,
+                stderr=stderr,
+            )
+    except Exception as e:
+        logger.error("Ingestion failed: %s", e)
+        return Response(
+            {"detail": f"Ingestion failed: {str(e)}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    output = stdout.getvalue()
+    errors = stderr.getvalue()
+
+    if errors and "Failed" in errors:
+        return Response(
+            {"detail": errors.strip()},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({
+        "status": "success",
+        "ingest_type": ingest_type,
+        "platform": platform.slug,
+        "url": url or None,
+        "output": output.strip(),
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def ingest_pdf(request):
+    """
+    POST /api/v1/briefs/ingest/pdf/
+    Upload a PDF file for extraction. Extracts text via PyMuPDF, then routes
+    through the ingest_prompt pipeline (auto-routes to all data types).
+
+    Multipart form data:
+        file: PDF file
+        platform: platform slug (required)
+        source_attribution: optional author/org name
+    """
+    import fitz  # PyMuPDF
+
+    pdf_file = request.FILES.get("file")
+    if not pdf_file:
+        return Response({"detail": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not pdf_file.name.lower().endswith(".pdf"):
+        return Response({"detail": "Only PDF files are supported."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if pdf_file.size > 10 * 1024 * 1024:
+        return Response({"detail": "File too large. Maximum 10 MB."}, status=status.HTTP_400_BAD_REQUEST)
+
+    platform_slug = request.data.get("platform", "").strip()
+    if not platform_slug:
+        return Response({"detail": "Platform is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    platform = Platform.objects.filter(slug=platform_slug).first()
+    if not platform:
+        return Response({"detail": f"Unknown platform: {platform_slug}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    source_attribution = request.data.get("source_attribution", "")
+
+    try:
+        pdf_bytes = pdf_file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        pages = []
+        for page in doc:
+            pages.append(page.get_text())
+        doc.close()
+        content = "\n\n".join(pages).strip()
+    except Exception as e:
+        logger.error("PDF extraction failed: %s", e)
+        return Response(
+            {"detail": f"Failed to extract text from PDF: {str(e)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not content:
+        return Response(
+            {"detail": "No text could be extracted from this PDF. It may be image-based."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    from django.core.management import call_command
+    from io import StringIO
+
+    stdout = StringIO()
+    stderr = StringIO()
+
+    try:
+        call_command(
+            "ingest_prompt",
+            platform=platform.slug,
+            content=content,
+            source_url="",
+            source_attribution=source_attribution or pdf_file.name,
+            auto_approve=True,
+            stdout=stdout,
+            stderr=stderr,
+        )
+    except Exception as e:
+        logger.error("PDF ingestion failed: %s", e)
+        return Response(
+            {"detail": f"Ingestion failed: {str(e)}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    output = stdout.getvalue()
+    errors = stderr.getvalue()
+
+    if errors and "Failed" in errors:
+        return Response({"detail": errors.strip()}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+        "status": "success",
+        "ingest_type": "prompt",
+        "platform": platform.slug,
+        "filename": pdf_file.name,
+        "pages_extracted": len(pages),
+        "characters_extracted": len(content),
+        "output": output.strip(),
+    }, status=status.HTTP_201_CREATED)
+
+
+def _extract_youtube_id(url_or_id):
+    """Extract YouTube video ID from a URL or return as-is if already an ID."""
+    import re
+    # Already a bare ID (11 chars, alphanumeric + dash/underscore)
+    if re.match(r'^[\w-]{11}$', url_or_id):
+        return url_or_id
+    # Standard and short URLs
+    patterns = [
+        r'(?:youtube\.com/watch\?.*v=)([\w-]{11})',
+        r'(?:youtu\.be/)([\w-]{11})',
+        r'(?:youtube\.com/embed/)([\w-]{11})',
+        r'(?:youtube\.com/v/)([\w-]{11})',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url_or_id)
+        if match:
+            return match.group(1)
+    return None
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def ingest_youtube(request):
+    """
+    POST /api/v1/briefs/ingest/youtube/
+    Fetch a YouTube video's transcript and route through the ingest_prompt pipeline.
+
+    Body:
+        { "url": "https://youtube.com/watch?v=...", "platform": "clickup",
+          "source_attribution": "ZenPilot" }
+    """
+    from youtube_transcript_api import YouTubeTranscriptApi
+    from youtube_transcript_api._errors import (
+        NoTranscriptFound, TranscriptsDisabled, VideoUnavailable,
+    )
+
+    url_or_id = request.data.get("url", "").strip()
+    if not url_or_id:
+        return Response({"detail": "YouTube URL or video ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    platform_slug = request.data.get("platform", "").strip()
+    if not platform_slug:
+        return Response({"detail": "Platform is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    platform = Platform.objects.filter(slug=platform_slug).first()
+    if not platform:
+        return Response({"detail": f"Unknown platform: {platform_slug}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    source_attribution = request.data.get("source_attribution", "")
+
+    video_id = _extract_youtube_id(url_or_id)
+    if not video_id:
+        return Response(
+            {"detail": "Could not extract a YouTube video ID from the provided URL."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Fetch transcript
+    try:
+        ytt_api = YouTubeTranscriptApi()
+        transcript_list = ytt_api.list(video_id)
+        # Prefer manually created, fall back to auto-generated
+        try:
+            transcript = transcript_list.find_manually_created_transcript(['en'])
+        except NoTranscriptFound:
+            transcript = transcript_list.find_generated_transcript(['en'])
+        segments = transcript.fetch()
+        content = " ".join(seg.text for seg in segments).strip()
+    except TranscriptsDisabled:
+        return Response(
+            {"detail": "Transcripts are disabled for this video."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except VideoUnavailable:
+        return Response(
+            {"detail": "This video is unavailable or does not exist."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except NoTranscriptFound:
+        return Response(
+            {"detail": "No English transcript found for this video."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception as e:
+        logger.error("YouTube transcript fetch failed for %s: %s", video_id, e)
+        return Response(
+            {"detail": f"Failed to fetch transcript: {str(e)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not content:
+        return Response(
+            {"detail": "Transcript is empty for this video."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    source_url = f"https://www.youtube.com/watch?v={video_id}"
+
+    from django.core.management import call_command
+    from io import StringIO
+
+    stdout = StringIO()
+    stderr = StringIO()
+
+    try:
+        call_command(
+            "ingest_prompt",
+            platform=platform.slug,
+            content=content,
+            source_url=source_url,
+            source_attribution=source_attribution or "YouTube",
+            auto_approve=True,
+            stdout=stdout,
+            stderr=stderr,
+        )
+    except Exception as e:
+        logger.error("YouTube ingestion failed for %s: %s", video_id, e)
+        return Response(
+            {"detail": f"Ingestion failed: {str(e)}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    output = stdout.getvalue()
+    errors = stderr.getvalue()
+
+    if errors and "Failed" in errors:
+        return Response({"detail": errors.strip()}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+        "status": "success",
+        "ingest_type": "prompt",
+        "platform": platform.slug,
+        "video_id": video_id,
+        "source_url": source_url,
+        "characters_extracted": len(content),
+        "output": output.strip(),
+    }, status=status.HTTP_201_CREATED)

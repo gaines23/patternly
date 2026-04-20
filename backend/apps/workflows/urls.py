@@ -9,4 +9,5 @@ urlpatterns = [
     path("briefs/<uuid:pk>/convert/", views.brief_convert, name="generated_brief_convert"),
     path("briefs/<uuid:pk>/feedback/", views.brief_feedback, name="generated_brief_feedback"),
     path("match/", views.match_templates, name="workflow_match"),
+    path("compile/", views.compile_suggestions, name="workflow_compile"),
 ]

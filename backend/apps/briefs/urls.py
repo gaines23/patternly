@@ -12,4 +12,10 @@ urlpatterns = [
     path("client/<uuid:share_token>/", views.public_client_brief, name="case_file_client_public"),
     path("roadblocks/warnings/", views.roadblock_warnings, name="roadblock_warnings"),
     path("stats/", views.stats, name="brief_stats"),
+    path("platforms/", views.platform_list, name="platform_list"),
+    path("knowledge/", views.knowledge_list, name="knowledge_list"),
+    path("insights/", views.insights_list, name="insights_list"),
+    path("ingest/", views.ingest_url, name="ingest_url"),
+    path("ingest/pdf/", views.ingest_pdf, name="ingest_pdf"),
+    path("ingest/youtube/", views.ingest_youtube, name="ingest_youtube"),
 ]

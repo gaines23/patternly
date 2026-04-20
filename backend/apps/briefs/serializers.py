@@ -3,8 +3,96 @@ from .models import (
     CaseFile, AuditLayer, CurrentBuild,
     IntakeLayer, BuildLayer, DeltaLayer,
     Roadblock, ReasoningLayer, OutcomeLayer,
-    ProjectUpdate,
+    ProjectUpdate, Platform, IntegrationPattern,
+    PlatformKnowledge, CommunityInsight,
 )
+
+
+# ── Platform ─────────────────────────────────────────────────────────────────
+
+class PlatformSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Platform
+        fields = ["id", "slug", "name", "category", "concept_labels", "supported"]
+        read_only_fields = fields
+
+
+class IntegrationPatternSerializer(serializers.ModelSerializer):
+    source_platform = PlatformSerializer(read_only=True)
+    target_platform = PlatformSerializer(read_only=True)
+    via_platform = PlatformSerializer(read_only=True)
+
+    class Meta:
+        model = IntegrationPattern
+        fields = [
+            "id", "source_platform", "target_platform", "via_platform",
+            "pattern_type", "description", "known_limitations", "workarounds",
+            "success_rate", "case_file_count",
+        ]
+        read_only_fields = fields
+
+
+class PlatformKnowledgeSerializer(serializers.ModelSerializer):
+    platform = PlatformSerializer(read_only=True)
+    related_platform = PlatformSerializer(read_only=True)
+
+    class Meta:
+        model = PlatformKnowledge
+        fields = [
+            "id", "platform", "related_platform",
+            "knowledge_type", "category", "title", "content",
+            "source_url", "source_attribution",
+            "verified_at", "platform_version", "confidence_score",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class CommunityInsightSerializer(serializers.ModelSerializer):
+    platforms = PlatformSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = CommunityInsight
+        fields = [
+            "id", "platforms", "insight_type", "title", "content",
+            "source_url", "source_attribution", "source_date",
+            "confidence_score", "applies_to_industries",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class IngestRequestSerializer(serializers.Serializer):
+    """Validates the frontend intake form submission."""
+    url = serializers.URLField(required=False, allow_blank=True, default="")
+    content = serializers.CharField(required=False, allow_blank=True, default="")
+    platform = serializers.SlugRelatedField(
+        slug_field="slug", queryset=Platform.objects.all(),
+    )
+    ingest_type = serializers.ChoiceField(choices=[
+        ("case_file", "Case File"),
+        ("knowledge", "Platform Knowledge & Community Insights"),
+        ("prompt", "Smart Extract (auto-routes to all types)"),
+    ])
+    content_type = serializers.ChoiceField(
+        choices=[
+            ("blog_post", "Blog Post"),
+            ("platform_doc", "Platform Documentation"),
+            ("community_post", "Community Post / Forum"),
+            ("integration_doc", "Integration Documentation"),
+            ("case_study", "Case Study"),
+            ("changelog", "Changelog / Release Notes"),
+        ],
+        default="blog_post",
+    )
+    source_attribution = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, data):
+        url = data.get("url", "").strip()
+        content = data.get("content", "").strip()
+        if not url and not content:
+            raise serializers.ValidationError("Provide either a URL or content to ingest.")
+        return data
 
 
 class NestedLayerMixin:
@@ -117,6 +205,8 @@ class CaseFileDetailSerializer(serializers.ModelSerializer):
     logged_by_id = serializers.UUIDField(read_only=True)
     logged_by_name = serializers.SerializerMethodField()
     logged_by_email = serializers.SerializerMethodField()
+    primary_platform = PlatformSerializer(read_only=True)
+    connected_platforms = PlatformSerializer(many=True, read_only=True)
 
     class Meta:
         model = CaseFile
@@ -138,6 +228,8 @@ class PublicCaseFileSerializer(CaseFileDetailSerializer):
         fields = [
             "id", "name", "logged_by_name",
             "industries", "tools", "process_frameworks", "workflow_type", "team_size",
+            "primary_platform", "connected_platforms",
+            "source_type", "source_attribution",
             "satisfaction_score", "roadblock_count", "built_outcome",
             "status", "closed_at",
             "created_at", "updated_at",
@@ -150,12 +242,14 @@ class PublicCaseFileSerializer(CaseFileDetailSerializer):
 class CaseFileListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views."""
     logged_by_name = serializers.SerializerMethodField()
+    primary_platform = PlatformSerializer(read_only=True)
 
     class Meta:
         model = CaseFile
         fields = [
             "id", "name", "logged_by_id", "logged_by_name", "industries", "workflow_type",
             "team_size", "tools", "process_frameworks",
+            "primary_platform", "source_type",
             "satisfaction_score", "roadblock_count", "built_outcome",
             "status", "closed_at",
             "created_at", "updated_at",
@@ -177,11 +271,25 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
     reasoning = ReasoningLayerSerializer(required=False)
     outcome = OutcomeLayerSerializer(required=False)
     project_updates = ProjectUpdateSerializer(many=True, required=False)
+    primary_platform = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Platform.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    connected_platforms = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Platform.objects.all(),
+        many=True,
+        required=False,
+    )
 
     class Meta:
         model = CaseFile
         fields = [
             "name", "logged_by_name", "status",
+            "primary_platform", "connected_platforms",
+            "source_type", "source_url", "source_attribution",
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
         ]
@@ -194,6 +302,7 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
         reasoning_data = validated_data.pop("reasoning", None)
         outcome_data = validated_data.pop("outcome", None)
         project_updates_data = validated_data.pop("project_updates", [])
+        connected_platforms = validated_data.pop("connected_platforms", [])
 
         # Attach the authenticated user
         request = self.context.get("request")
@@ -201,6 +310,9 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
             validated_data["logged_by"] = request.user
 
         case_file = CaseFile.objects.create(**validated_data)
+
+        if connected_platforms:
+            case_file.connected_platforms.set(connected_platforms)
 
         # Create each layer
         layer_map = [
@@ -234,10 +346,14 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
         reasoning_data      = validated_data.pop("reasoning", None)
         outcome_data        = validated_data.pop("outcome", None)
         project_updates_data = validated_data.pop("project_updates", None)
+        connected_platforms = validated_data.pop("connected_platforms", None)
 
         for attr, val in validated_data.items():
             setattr(instance, attr, val)
         instance.save()
+
+        if connected_platforms is not None:
+            instance.connected_platforms.set(connected_platforms)
 
         layer_map = [
             (audit_data,     AuditLayerSerializer,     "audit"),

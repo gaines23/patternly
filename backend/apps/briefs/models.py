@@ -43,6 +43,89 @@ class ProjectStatus(models.TextChoices):
     CLOSED = "closed", "Closed"
 
 
+class PlatformCategory(models.TextChoices):
+    PM = "pm", "Project Management"
+    AUTOMATION = "automation", "Automation / Integration"
+    DATABASE = "database", "Database / No-Code"
+    CRM = "crm", "CRM"
+    INTEGRATION_APP = "integration_app", "Integration App"
+    OTHER = "other", "Other"
+
+
+class SourceType(models.TextChoices):
+    ORGANIC = "organic", "Direct user input"
+    INGESTED = "ingested", "AI-ingested from public source"
+    COMMUNITY = "community", "Community contribution"
+    TEMPLATE = "template", "Official template"
+
+
+class IntegrationPatternType(models.TextChoices):
+    DATA_SYNC = "data_sync", "Data Sync"
+    TRIGGER_ACTION = "trigger_action", "Trigger → Action"
+    BIDIRECTIONAL = "bidirectional", "Bidirectional Sync"
+    MIGRATION = "migration", "One-time Migration"
+    WEBHOOK = "webhook", "Webhook-based"
+
+
+class KnowledgeType(models.TextChoices):
+    CAPABILITY = "capability", "Capability"
+    LIMITATION = "limitation", "Limitation"
+    PRICING_CONSTRAINT = "pricing_constraint", "Pricing Constraint"
+    API_DETAIL = "api_detail", "API Detail"
+    INTEGRATION_SPEC = "integration_spec", "Integration Spec"
+    FEATURE = "feature", "Feature"
+
+
+class KnowledgeCategory(models.TextChoices):
+    AUTOMATIONS = "automations", "Automations"
+    INTEGRATIONS = "integrations", "Integrations"
+    PERMISSIONS = "permissions", "Permissions"
+    HIERARCHY = "hierarchy", "Hierarchy / Structure"
+    REPORTING = "reporting", "Reporting / Dashboards"
+    VIEWS = "views", "Views"
+    CUSTOM_FIELDS = "custom_fields", "Custom Fields"
+    TEMPLATES = "templates", "Templates"
+    API = "api", "API"
+    PRICING = "pricing", "Pricing / Plans"
+    OTHER = "other", "Other"
+
+
+class InsightType(models.TextChoices):
+    METHODOLOGY = "methodology", "Methodology"
+    WORKAROUND = "workaround", "Workaround"
+    COMPLAINT = "complaint", "Complaint / Pain Point"
+    BEST_PRACTICE = "best_practice", "Best Practice"
+    FEATURE_REQUEST = "feature_request", "Feature Request"
+    GOTCHA = "gotcha", "Gotcha / Pitfall"
+
+
+# ── Platform ─────────────────────────────────────────────────────────────────
+
+class Platform(models.Model):
+    """
+    Supported workflow platforms.
+    Seeded via fixture (briefs/fixtures/platforms.json).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    slug = models.SlugField(unique=True)
+    name = models.CharField(max_length=100)
+    category = models.CharField(max_length=50, choices=PlatformCategory.choices)
+    concept_labels = models.JSONField(
+        default=dict,
+        help_text="Maps generic concepts to platform terms, "
+                  "e.g. {'container': 'Space', 'workflow_group': 'Folder'}",
+    )
+    supported = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "platforms"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 # ── Layer 0: CaseFile (top-level container) ───────────────────────────────────
 
 class CaseFile(models.Model):
@@ -69,6 +152,41 @@ class CaseFile(models.Model):
     process_frameworks = models.JSONField(default=list)
     workflow_type = models.CharField(max_length=255, blank=True)
     team_size = models.CharField(max_length=50, blank=True)
+
+    # Platform relationship
+    primary_platform = models.ForeignKey(
+        Platform,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="case_files",
+        help_text="Primary workflow platform being configured",
+    )
+    connected_platforms = models.ManyToManyField(
+        Platform,
+        blank=True,
+        related_name="connected_case_files",
+        help_text="Other platforms integrated in this workflow",
+    )
+
+    # Source tracking for ingested vs organic case files
+    source_type = models.CharField(
+        max_length=30,
+        choices=SourceType.choices,
+        default=SourceType.ORGANIC,
+    )
+    source_url = models.URLField(blank=True, default="")
+    source_attribution = models.CharField(max_length=255, blank=True)
+    confidence_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="AI confidence in data quality (0.0–1.0) for ingested case files",
+    )
+    is_training_data = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True for ingested/training case files; False for client project work",
+    )
 
     # Outcome signals — denormalised for filtering
     satisfaction_score = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -179,6 +297,11 @@ class BuildLayer(models.Model):
     automations = models.TextField(blank=True)
     integrations = models.JSONField(default=list)
     build_notes = models.TextField(blank=True)
+    # Platform-agnostic top-level organisational units
+    containers = models.JSONField(
+        default=list,
+        help_text="Top-level organisational units (Spaces in CU, Boards in Monday, etc.)",
+    )
     # Structured multi-workflow build map
     workflows = models.JSONField(default=list)
 
@@ -278,3 +401,156 @@ class OutcomeLayer(models.Model):
 
     class Meta:
         db_table = "outcome_layers"
+
+
+# ── Integration Patterns ─────────────────────────────────────────────────────
+
+class IntegrationPattern(models.Model):
+    """
+    Cross-platform integration patterns and their known limitations.
+    Populated from case file roadblocks and ingested data.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source_platform = models.ForeignKey(
+        Platform, on_delete=models.CASCADE, related_name="outbound_patterns",
+    )
+    target_platform = models.ForeignKey(
+        Platform, on_delete=models.CASCADE, related_name="inbound_patterns",
+    )
+    via_platform = models.ForeignKey(
+        Platform,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="middleware_patterns",
+        help_text="Intermediary platform if not a native integration (e.g. Zapier, Make)",
+    )
+    pattern_type = models.CharField(
+        max_length=50, choices=IntegrationPatternType.choices,
+    )
+    description = models.TextField()
+    known_limitations = models.JSONField(default=list)
+    workarounds = models.JSONField(default=list)
+    success_rate = models.FloatField(null=True, blank=True)
+    case_file_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "integration_patterns"
+        unique_together = ["source_platform", "target_platform", "pattern_type"]
+
+    def __str__(self):
+        via = f" via {self.via_platform}" if self.via_platform else ""
+        return f"{self.source_platform} → {self.target_platform}{via} ({self.get_pattern_type_display()})"
+
+
+# ── Platform Knowledge ───────────────────────────────────────────────────────
+
+class PlatformKnowledge(models.Model):
+    """
+    Factual, structured intelligence about a platform's capabilities,
+    limitations, API details, and integration specs.
+    Sourced from official documentation, changelogs, and verified guides.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    platform = models.ForeignKey(
+        Platform, on_delete=models.CASCADE, related_name="knowledge",
+    )
+    related_platform = models.ForeignKey(
+        Platform,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="related_knowledge",
+        help_text="Second platform if this is about an integration pair",
+    )
+    knowledge_type = models.CharField(
+        max_length=50, choices=KnowledgeType.choices,
+    )
+    category = models.CharField(
+        max_length=50, choices=KnowledgeCategory.choices,
+    )
+    title = models.CharField(max_length=300)
+    content = models.TextField()
+    source_url = models.URLField(blank=True, default="")
+    source_attribution = models.CharField(max_length=255, blank=True)
+    verified_at = models.DateField(
+        null=True, blank=True,
+        help_text="Date this was last confirmed accurate",
+    )
+    platform_version = models.CharField(
+        max_length=50, blank=True,
+        help_text="Platform version if version-specific, e.g. 'ClickUp 3.0'",
+    )
+    confidence_score = models.FloatField(
+        null=True, blank=True,
+        help_text="0.0–1.0 confidence in accuracy",
+    )
+    embedding = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "platform_knowledge"
+        ordering = ["-verified_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["platform", "knowledge_type"]),
+            models.Index(fields=["platform", "category"]),
+            models.Index(fields=["platform", "related_platform"]),
+        ]
+
+    def __str__(self):
+        related = f" + {self.related_platform}" if self.related_platform else ""
+        return f"[{self.platform}{related}] {self.title}"
+
+
+# ── Community Insight ────────────────────────────────────────────────────────
+
+class CommunityInsight(models.Model):
+    """
+    Experiential knowledge from practitioners, community forums, and
+    methodology guides. Less structured than PlatformKnowledge — captures
+    opinions, patterns, workarounds, and gotchas.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    platforms = models.ManyToManyField(
+        Platform, related_name="community_insights",
+        help_text="Platforms this insight relates to",
+    )
+    insight_type = models.CharField(
+        max_length=50, choices=InsightType.choices,
+    )
+    title = models.CharField(max_length=300)
+    content = models.TextField()
+    source_url = models.URLField(blank=True, default="")
+    source_attribution = models.CharField(
+        max_length=255, blank=True,
+        help_text="e.g. 'ZenPilot', 'ClickUp Community', 'Reddit r/clickup'",
+    )
+    source_date = models.DateField(
+        null=True, blank=True,
+        help_text="When the source was published",
+    )
+    confidence_score = models.FloatField(
+        null=True, blank=True,
+        help_text="Reliability: official docs (0.9+) > practitioner blog (0.7) > forum post (0.5)",
+    )
+    applies_to_industries = models.JSONField(
+        default=list, blank=True,
+        help_text="Industry tags if this insight is industry-specific",
+    )
+    embedding = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "community_insights"
+        ordering = ["-source_date", "-created_at"]
+        indexes = [
+            models.Index(fields=["insight_type"]),
+            models.Index(fields=["source_date"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.get_insight_type_display()}] {self.title}"

@@ -12,6 +12,14 @@ class TemplateMatchInputSerializer(serializers.Serializer):
     raw_prompt = serializers.CharField(min_length=20, max_length=5000)
 
 
+class CompileInputSerializer(serializers.Serializer):
+    """Input for POST /api/v1/workflows/compile/"""
+    raw_prompt = serializers.CharField(min_length=20, max_length=5000)
+    num_suggestions = serializers.IntegerField(
+        min_value=1, max_value=5, default=5, required=False,
+    )
+
+
 class WorkflowTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkflowTemplate

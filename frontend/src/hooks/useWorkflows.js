@@ -18,6 +18,18 @@ export function useMatchTemplates() {
   });
 }
 
+export function useCompileSuggestions() {
+  return useMutation({
+    mutationFn: async ({ rawPrompt, numSuggestions = 5 }) => {
+      const { data } = await api.post("/v1/workflows/compile/", {
+        raw_prompt: rawPrompt,
+        num_suggestions: numSuggestions,
+      });
+      return data; // { brief_id, parsed, suggestions: [...] }
+    },
+  });
+}
+
 export function useParsePrompt() {
   return useMutation({
     mutationFn: async (rawPrompt) => {

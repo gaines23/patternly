@@ -651,6 +651,49 @@ export function templateToFormState(template) {
 }
 
 /**
+ * Maps a compiled AI suggestion (from the Agent Compiler) into the build
+ * portion of ProjectForm's form state. The AI output already matches the
+ * workflow/list/automation structure, so this is mostly a normalization pass
+ * that ensures trigger/action types match the form's dropdown values.
+ */
+export function compiledSuggestionToBuildState(suggestion) {
+  return {
+    buildNotes: suggestion.build_notes || "",
+    workflows: (suggestion.workflows || []).map(wf => ({
+      name: wf.name || "",
+      notes: wf.notes || "",
+      pipeline: wf.pipeline || [],
+      status: "Mapping",
+      replaces: "",
+      learnings: { rating: "", whatWorked: "", whatToAvoid: "" },
+      lists: (wf.lists || []).map(l => ({
+        name: l.name || "",
+        space: l.space || "",
+        statuses: l.statuses || "",
+        customFields: l.custom_fields || "",
+        automations: (l.automations || []).map(a => ({
+          platform: a.platform || "clickup",
+          automation_mode: a.automation_mode || "pipeline",
+          third_party_platform: a.third_party_platform || "",
+          pipelinePhase: a.pipeline_phase || "",
+          triggers: (a.triggers || []).map(t => ({
+            type: inferTriggerType(t.type || t.detail || ""),
+            detail: t.detail || "",
+          })),
+          actions: (a.actions || []).map(ac => ({
+            type: inferActionType(ac.type || ac.detail || ""),
+            detail: ac.detail || "",
+          })),
+          instructions: a.instructions || "",
+          map_description: a.map_description || "",
+          use_agent: !!(a.instructions && a.instructions.trim().length > 0),
+        })),
+      })),
+    })),
+  };
+}
+
+/**
  * Format a date string for display.
  */
 export function formatDate(dateStr) {
