@@ -13,6 +13,48 @@ export function usePlatforms(category) {
   });
 }
 
+// ── Fetch platform knowledge records ───────────────────────────────────────
+export function usePlatformKnowledge(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.platform) params.set("platform", filters.platform);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.knowledge_type) params.set("knowledge_type", filters.knowledge_type);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ["platformKnowledge", filters],
+    queryFn: async () => {
+      const { data } = await api.get(`/v1/briefs/knowledge/${qs ? `?${qs}` : ""}`);
+      return data;
+    },
+  });
+}
+
+// ── Fetch community insight records ────────────────────────────────────────
+export function useCommunityInsights(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.platform) params.set("platform", filters.platform);
+  if (filters.type) params.set("type", filters.type);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ["communityInsights", filters],
+    queryFn: async () => {
+      const { data } = await api.get(`/v1/briefs/insights/${qs ? `?${qs}` : ""}`);
+      return data;
+    },
+  });
+}
+
+// ── Fetch training case files ──────────────────────────────────────────────
+export function useTrainingCaseFiles() {
+  return useQuery({
+    queryKey: ["trainingCaseFiles"],
+    queryFn: async () => {
+      const { data } = await api.get("/v1/briefs/?include_training=true");
+      return data;
+    },
+  });
+}
+
 // ── Submit a URL or content for ingestion ───────────────────────────────────
 export function useIngestUrl() {
   return useMutation({

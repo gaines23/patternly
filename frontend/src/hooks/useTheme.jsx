@@ -7,7 +7,7 @@ export function ThemeProvider({ children }) {
   const [mode, setMode] = useState(() => {
     const saved = localStorage.getItem("fp-theme");
     if (saved === "dark" || saved === "light") return saved;
-    return "light";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
 
   useEffect(() => {
