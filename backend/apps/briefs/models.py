@@ -185,7 +185,9 @@ class CaseFile(models.Model):
     is_training_data = models.BooleanField(
         default=False,
         db_index=True,
-        help_text="True for ingested/training case files; False for client project work",
+        help_text="True for ingested-only training data (hidden from project list); "
+                  "False for user-created projects (visible in project list). "
+                  "Both are used by the AI recommendation engine.",
     )
 
     # Outcome signals — denormalised for filtering

@@ -1,19 +1,20 @@
 """
 management command: export_training_data
 
-Exports all ingested training data to a JSON fixture for loading in production.
+Exports all training data to a JSON fixture for loading in production.
 Includes:
-  - CaseFiles where is_training_data=True (and all related layers)
+  - ALL CaseFiles (both user-created projects and ingested data) and their layers
   - All PlatformKnowledge records
   - All CommunityInsight records
   - All IntegrationPattern records
 
-Excludes:
-  - CaseFiles where is_training_data=False (client projects / test data)
+User-created projects (is_training_data=False) are included because they
+provide real-world build patterns for the AI recommendation engine.
 
 Usage:
     python manage.py export_training_data
     python manage.py export_training_data --output custom_path.json
+    python manage.py export_training_data --ingested-only   # legacy: ingested data only
 """
 import json
 from django.core.management.base import BaseCommand
@@ -38,12 +39,20 @@ class Command(BaseCommand):
             default=DEFAULT_OUTPUT,
             help=f"Output file path (default: {DEFAULT_OUTPUT})",
         )
+        parser.add_argument(
+            "--ingested-only",
+            action="store_true",
+            default=False,
+            help="Only export ingested training data (exclude user-created projects)",
+        )
 
     def handle(self, *args, **options):
         output_path = options["output"]
 
-        # Gather all training case files (ingested data only)
-        training_cfs = CaseFile.objects.filter(is_training_data=True)
+        # All case files feed the AI — user projects provide real build patterns
+        training_cfs = CaseFile.objects.all()
+        if options["ingested_only"]:
+            training_cfs = training_cfs.filter(is_training_data=True)
         cf_ids = list(training_cfs.values_list("id", flat=True))
 
         self.stdout.write(f"Found {len(cf_ids)} training case files")

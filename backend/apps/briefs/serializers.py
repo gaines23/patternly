@@ -1,4 +1,3 @@
-from django.conf import settings
 from rest_framework import serializers
 from .models import (
     CaseFile, AuditLayer, CurrentBuild,
@@ -310,9 +309,9 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             validated_data["logged_by"] = request.user
 
-        # In production, user-created projects feed the recommendation engine
-        if not settings.DEBUG:
-            validated_data.setdefault("is_training_data", True)
+        # User-created projects keep is_training_data=False (model default)
+        # so they appear in the project list. Ingested data sets True via
+        # management commands. The AI training pipeline reads ALL case files.
 
         case_file = CaseFile.objects.create(**validated_data)
 
