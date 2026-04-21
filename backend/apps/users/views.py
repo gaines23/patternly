@@ -20,7 +20,7 @@ from .models import (
 from .serializers import (
     UserSerializer, UserAdminSerializer, RegisterSerializer, ChangePasswordSerializer,
     InviteSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
-    AuditLogSerializer,
+    AuditLogSerializer, EmailTokenObtainPairSerializer,
 )
 
 
@@ -55,9 +55,10 @@ class IsAdmin(BasePermission):
 
 
 class AuditedTokenObtainPairView(TokenObtainPairView):
-    throttle_classes = [LoginRateThrottle]
-
     """JWT login view that records success and failure in the audit log."""
+
+    throttle_classes = [LoginRateThrottle]
+    serializer_class = EmailTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
         email = request.data.get("email", "")
