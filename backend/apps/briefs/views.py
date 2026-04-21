@@ -63,9 +63,15 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
         if not is_admin:
             qs = qs.filter(logged_by=user)
 
-        # Exclude training data by default; pass ?include_training=true to see it
+        # Filtering by training data status:
+        #   default          → only user projects (is_training_data=False)
+        #   include_training → all projects (no filter)
+        #   training_only    → only ingested training data (is_training_data=True)
+        training_only = self.request.query_params.get("training_only", "").lower() == "true"
         include_training = self.request.query_params.get("include_training", "").lower() == "true"
-        if not include_training:
+        if training_only:
+            qs = qs.filter(is_training_data=True)
+        elif not include_training:
             qs = qs.filter(is_training_data=False)
 
         # Optional filters via query params
@@ -761,8 +767,9 @@ def knowledge_list(request):
     if category:
         qs = qs.filter(category=category)
 
+    total = qs.count()
     serializer = PlatformKnowledgeSerializer(qs[:100], many=True)
-    return Response(serializer.data)
+    return Response({"count": total, "results": serializer.data})
 
 
 @api_view(["GET"])
@@ -782,8 +789,10 @@ def insights_list(request):
     if i_type:
         qs = qs.filter(insight_type=i_type)
 
-    serializer = CommunityInsightSerializer(qs.distinct()[:100], many=True)
-    return Response(serializer.data)
+    qs = qs.distinct()
+    total = qs.count()
+    serializer = CommunityInsightSerializer(qs[:100], many=True)
+    return Response({"count": total, "results": serializer.data})
 
 
 @api_view(["POST"])

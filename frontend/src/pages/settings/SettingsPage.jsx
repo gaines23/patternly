@@ -446,9 +446,9 @@ function DataTab({ theme }) {
   ];
 
   const subTabs = [
-    { id: "knowledge", label: `Platform Knowledge${knowledge.data ? ` (${knowledge.data.length})` : ""}` },
-    { id: "insights", label: `Community Insights${insights.data ? ` (${insights.data.length})` : ""}` },
-    { id: "cases", label: `Training Cases${trainingCases.data?.results ? ` (${trainingCases.data.results.length})` : ""}` },
+    { id: "knowledge", label: `Platform Knowledge${knowledge.data?.count != null ? ` (${knowledge.data.count})` : ""}` },
+    { id: "insights", label: `Community Insights${insights.data?.count != null ? ` (${insights.data.count})` : ""}` },
+    { id: "cases", label: `Training Cases${trainingCases.data?.count != null ? ` (${trainingCases.data.count})` : ""}` },
   ];
 
   return (
@@ -466,10 +466,10 @@ function DataTab({ theme }) {
             </div>
             {knowledge.isLoading && <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F }}>Loading...</p>}
             {knowledge.isError && <p style={{ fontSize: 13, color: "#DC2626", fontFamily: F }}>Failed to load knowledge data.</p>}
-            {knowledge.data?.length === 0 && <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F }}>No records match the current filters.</p>}
-            {knowledge.data?.length > 0 && (
+            {knowledge.data?.results?.length === 0 && <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F }}>No records match the current filters.</p>}
+            {knowledge.data?.results?.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {knowledge.data.map(item => {
+                {knowledge.data.results.map(item => {
                   const isOpen = expandedId === item.id;
                   return (
                     <div
@@ -527,10 +527,10 @@ function DataTab({ theme }) {
             </div>
             {insights.isLoading && <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F }}>Loading...</p>}
             {insights.isError && <p style={{ fontSize: 13, color: "#DC2626", fontFamily: F }}>Failed to load insights.</p>}
-            {insights.data?.length === 0 && <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F }}>No insights match the current filters.</p>}
-            {insights.data?.length > 0 && (
+            {insights.data?.results?.length === 0 && <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F }}>No insights match the current filters.</p>}
+            {insights.data?.results?.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {insights.data.map(item => {
+                {insights.data.results.map(item => {
                   const isOpen = expandedId === item.id;
                   return (
                     <div
