@@ -1,5 +1,49 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from django.contrib.auth import authenticate
 from .models import User, Invitation, PasswordResetToken, AuditLog
+
+
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Override the default TokenObtainPairSerializer so that the login
+    endpoint accepts ``email`` + ``password`` instead of ``username`` +
+    ``password``.  The User model already sets USERNAME_FIELD = "email",
+    but simplejwt still labels the field "username" in its default
+    serializer, which causes the frontend payload to be rejected.
+    """
+
+    username_field = "email"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Replace the auto-generated "username" field with an explicit
+        # "email" field so that DRF validation accepts the frontend payload.
+        self.fields.pop(User.USERNAME_FIELD, None)
+        self.fields["email"] = serializers.EmailField(write_only=True)
+
+    def validate(self, attrs):
+        email = attrs.get("email", "").strip().lower()
+        password = attrs.get("password", "")
+
+        user = authenticate(
+            request=self.context.get("request"),
+            username=email,
+            password=password,
+        )
+
+        if user is None:
+            raise AuthenticationFailed(
+                "No active account found with the given credentials."
+            )
+
+        # Let the parent class build the token pair now that we have a
+        # validated user.  We temporarily set the expected key so the
+        # parent's validate() can locate the user.
+        attrs[User.USERNAME_FIELD] = email
+        data = super().validate(attrs)
+        return data
 
 
 class UserSerializer(serializers.ModelSerializer):
