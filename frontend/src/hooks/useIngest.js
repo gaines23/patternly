@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../api/client";
 
 // ── Fetch platforms for the dropdown ────────────────────────────────────────
@@ -49,34 +49,50 @@ export function useTrainingCaseFiles() {
   return useQuery({
     queryKey: ["trainingCaseFiles"],
     queryFn: async () => {
-      const { data } = await api.get("/v1/briefs/?include_training=true");
+      const { data } = await api.get("/v1/briefs/?training_only=true");
       return data;
     },
   });
 }
 
+// ── Invalidate all ingested data caches ─────────────────────────────────────
+function useIngestInvalidation() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ["platformKnowledge"] });
+    queryClient.invalidateQueries({ queryKey: ["communityInsights"] });
+    queryClient.invalidateQueries({ queryKey: ["trainingCaseFiles"] });
+    queryClient.invalidateQueries({ queryKey: ["projects"] });
+  };
+}
+
 // ── Submit a URL or content for ingestion ───────────────────────────────────
 export function useIngestUrl() {
+  const invalidate = useIngestInvalidation();
   return useMutation({
     mutationFn: async (payload) => {
       const { data } = await api.post("/v1/briefs/ingest/", payload);
       return data;
     },
+    onSuccess: invalidate,
   });
 }
 
 // ── Ingest a YouTube video transcript ───────────────────────────────────────
 export function useIngestYouTube() {
+  const invalidate = useIngestInvalidation();
   return useMutation({
     mutationFn: async (payload) => {
       const { data } = await api.post("/v1/briefs/ingest/youtube/", payload);
       return data;
     },
+    onSuccess: invalidate,
   });
 }
 
 // ── Upload a PDF for ingestion ──────────────────────────────────────────────
 export function useIngestPdf() {
+  const invalidate = useIngestInvalidation();
   return useMutation({
     mutationFn: async ({ file, platform, sourceAttribution }) => {
       const formData = new FormData();
@@ -88,5 +104,6 @@ export function useIngestPdf() {
       });
       return data;
     },
+    onSuccess: invalidate,
   });
 }
