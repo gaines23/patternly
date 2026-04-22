@@ -108,7 +108,7 @@ function ProjectRow({ cf, theme }) {
       style={{
         textDecoration: "none", display: "block",
         background: theme.surface,
-        border: `1px solid ${hover ? theme.text : theme.border}`,
+        border: `1px solid ${hover ? theme.borderInput : theme.border}`,
         borderRadius: 10,
         padding: "20px 22px", marginBottom: 12,
         transition: "border-color 0.15s, box-shadow 0.15s",
