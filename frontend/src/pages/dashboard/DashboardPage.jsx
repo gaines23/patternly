@@ -318,7 +318,7 @@ export default function DashboardPage() {
                   fontWeight: 600, fontSize: 13, fontFamily: F, textDecoration: "none",
                 }}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 3v10M3 8h10"/></svg>
-                  Log a new build
+                  New Project
                 </Link>
                 <Link to="/projects" style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
@@ -326,7 +326,7 @@ export default function DashboardPage() {
                   border: `1px solid ${theme.border}`, background: theme.surface,
                   fontWeight: 600, fontSize: 13, fontFamily: F, textDecoration: "none", color: theme.textSec,
                 }}>
-                  Browse case files
+                  My Projects
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 4l4 4-4 4"/></svg>
                 </Link>
               </div>

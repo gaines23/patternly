@@ -5,7 +5,7 @@ import { useTheme } from "../../hooks/useTheme";
 
 const WORK_NAV = [
   { to: "/dashboard", label: "Overview",    icon: "dashboard" },
-  { to: "/projects",  label: "Case files",  icon: "projects" },
+  { to: "/projects",  label: "My Projects",  icon: "projects" },
   { to: "/tasks",     label: "Tasks",       icon: "tasks" },
 ];
 const INTEL_NAV = [
@@ -13,7 +13,7 @@ const INTEL_NAV = [
   { to: "/generate",  label: "Generate brief",  icon: "generate" },
 ];
 const QUICK_NAV = [
-  { to: "/projects/new", label: "New case file", icon: "plus", shortcut: "N" },
+  { to: "/projects/new", label: "New Project", icon: "plus", shortcut: "N" },
 ];
 
 function NavIcon({ name, size = 18, color }) {
