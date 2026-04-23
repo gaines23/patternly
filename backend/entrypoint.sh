@@ -46,8 +46,11 @@ python manage.py collectstatic --noinput
 echo "──────────────────────────────────────────────────────────────"
 echo " [entrypoint] Booting gunicorn on port ${PORT:-8000}"
 echo "──────────────────────────────────────────────────────────────"
+# Bind to [::] (dual-stack IPv6+IPv4). Railway's private networking is
+# IPv6-only — binding 0.0.0.0 makes the backend unreachable from other
+# Railway services and the deploy returns 502s at the edge.
 exec gunicorn config.wsgi:application \
-    --bind "0.0.0.0:${PORT:-8000}" \
+    --bind "[::]:${PORT:-8000}" \
     --workers 4 \
     --worker-class gevent \
     --worker-connections 100 \
