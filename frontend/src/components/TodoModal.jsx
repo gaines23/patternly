@@ -15,7 +15,7 @@ const F = "'Plus Jakarta Sans', sans-serif";
  *   onSave   — called with the form data when submitted
  *   isSaving — disables the submit button while a mutation is pending
  */
-export default function TodoModal({ initial, onClose, onSave, isSaving }) {
+export default function TodoModal({ initial, onClose, onSave, onDelete, isSaving, isDeleting }) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { data: projectsData } = useProjects({ page: 1 });
@@ -214,7 +214,14 @@ export default function TodoModal({ initial, onClose, onSave, isSaving }) {
           </div>
 
           {/* Actions */}
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 4 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", paddingTop: 4 }}>
+            {initial && onDelete && (
+              <button type="button" onClick={onDelete} disabled={isDeleting}
+                style={{ padding: "10px 18px", background: "transparent", border: "1px solid #FECACA", borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, color: "#EF4444", cursor: isDeleting ? "not-allowed" : "pointer", opacity: isDeleting ? 0.7 : 1 }}>
+                {isDeleting ? "Deleting…" : "Delete"}
+              </button>
+            )}
+            <div style={{ flex: 1 }} />
             <button type="button" onClick={onClose}
               style={{ padding: "10px 20px", background: "transparent", border: `1px solid ${theme.borderInput}`, borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, color: theme.textMuted, cursor: "pointer" }}>
               Cancel

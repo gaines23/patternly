@@ -16,14 +16,19 @@ def _is_admin(user):
 
 class TodoListCreateView(generics.ListCreateAPIView):
     """
-    GET  /api/v1/todos/   → paginated list of todos (filtered by role)
+    GET  /api/v1/todos/   → list of todos (filtered by role; unpaginated —
+                            the Tasks page groups everything client-side by
+                            due date, so partial pages would hide items)
     POST /api/v1/todos/   → create a new todo
     """
     permission_classes = [IsAuthenticated]
+    pagination_class = None
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["title", "description", "case_file_name"]
     ordering_fields = ["due_date", "priority", "status", "created_at"]
-    ordering = ["status", "due_date"]
+    # Newest first so freshly-created todos are obvious in the list; the
+    # frontend does its own grouping/sorting on top of this.
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         user = self.request.user

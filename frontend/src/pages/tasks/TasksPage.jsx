@@ -92,7 +92,7 @@ function Pill({ cfg, style = {} }) {
 }
 
 // ── Task Card (grid view) ───────────────────────────────────────────────────
-function TaskCard({ todo, onEdit, onToggleDone, theme }) {
+function TaskCard({ todo, onEdit, onDelete, onToggleDone, theme }) {
   const isDone = todo.status === "done";
   const isOverdue = todo.due_date && !isDone && todo.due_date < new Date().toISOString().slice(0, 10);
 
@@ -100,6 +100,7 @@ function TaskCard({ todo, onEdit, onToggleDone, theme }) {
     <div
       onClick={() => onEdit(todo)}
       style={{
+        position: "relative",
         background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 14,
         padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10,
         opacity: isDone ? 0.65 : 1, cursor: "pointer",
@@ -108,8 +109,26 @@ function TaskCard({ todo, onEdit, onToggleDone, theme }) {
       onMouseEnter={e => { e.currentTarget.style.borderColor = theme.blueBorder; e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.06)"; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.boxShadow = "none"; }}
     >
+      {/* Delete ✕ — top-right corner */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(todo); }}
+        title="Delete task"
+        style={{
+          position: "absolute", top: 10, right: 10,
+          width: 24, height: 24, borderRadius: 6,
+          background: "transparent", border: "none", cursor: "pointer",
+          color: theme.textFaint, fontSize: 15, lineHeight: 1,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "background 0.15s, color 0.15s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "#FEF2F2"; e.currentTarget.style.color = "#EF4444"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = theme.textFaint; }}
+      >
+        ×
+      </button>
+
       {/* Top: checkbox + title */}
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", paddingRight: 24 }}>
         <button
           onClick={(e) => { e.stopPropagation(); onToggleDone(todo); }}
           title={isDone ? "Mark open" : "Mark done"}
@@ -222,7 +241,7 @@ function TaskRow({ todo, onEdit, onDelete, onToggleDone, theme }) {
       </div>
       <div style={{ flexShrink: 0, paddingTop: 1, margin: "auto" }}>
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(todo.id); }}
+          onClick={(e) => { e.stopPropagation(); onDelete(todo); }}
           style={{ padding: "4px 10px", background: "transparent", border: "1px solid #FECACA", borderRadius: 6, fontSize: 12, color: "#EF4444", fontFamily: F, cursor: "pointer" }}
         >
           Delete
@@ -238,7 +257,7 @@ function GroupedTasks({ grouped, groupOrder, groupLabels, view, theme, handlers 
   const fmtDate  = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   return groupOrder.filter(g => grouped[g]?.length > 0).map(g => {
-    const flatOnly = g === "today" || g === "tomorrow" || g === "no_date" || g === "done";
+    const flatOnly = g === "no_date" || g === "done";
     const dateSubGroups = flatOnly ? null : (() => {
       const byDate = grouped[g].reduce((acc, t) => { const key = t.due_date || ""; (acc[key] = acc[key] || []).push(t); return acc; }, {});
       return Object.entries(byDate).sort(([a], [b]) => g === "overdue" ? b.localeCompare(a) : a.localeCompare(b));
@@ -291,7 +310,7 @@ function GroupedTasks({ grouped, groupOrder, groupLabels, view, theme, handlers 
 // ── TasksPage ───────────────────────────────────────────────────────────────
 export default function TasksPage() {
   const { theme } = useTheme();
-  const [filters, setFilters] = useState({ status: "all", priority: "all", search: "", case_file_name: null });
+  const [filters, setFilters] = useState({ status: "open", priority: "all", search: "", case_file_name: null });
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [view, setView] = useState("grid");
@@ -326,22 +345,33 @@ export default function TasksPage() {
 
   // Grouping
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
-  const today    = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-  const nextWeek = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+
+  // Local-date ISO (YYYY-MM-DD) — avoids the UTC shift of toISOString().
+  const toLocalISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  // Weeks run Sunday → Saturday. "This week" = today through this Saturday;
+  // "Following week" = next Sunday through the Saturday after. Anything later
+  // falls into "Future".
+  const now = new Date();
+  const today = toLocalISO(now);
+  const thisWeekEndDate = new Date(now);
+  thisWeekEndDate.setDate(now.getDate() + (6 - now.getDay()));
+  const thisWeekEnd = toLocalISO(thisWeekEndDate);
+  const followingWeekEndDate = new Date(thisWeekEndDate);
+  followingWeekEndDate.setDate(thisWeekEndDate.getDate() + 7);
+  const followingWeekEnd = toLocalISO(followingWeekEndDate);
 
   const getGroup = (t) => {
     if (t.status === "done") return "done";
     if (!t.due_date)         return "no_date";
     if (t.due_date < today)  return "overdue";
-    if (t.due_date === today) return "today";
-    if (t.due_date === tomorrow) return "tomorrow";
-    if (t.due_date <= nextWeek) return "this_week";
-    return "later";
+    if (t.due_date <= thisWeekEnd)      return "this_week";
+    if (t.due_date <= followingWeekEnd) return "following_week";
+    return "future";
   };
 
-  const GROUP_ORDER  = ["overdue", "today", "tomorrow", "this_week", "later", "no_date", "done"];
-  const GROUP_LABELS = { overdue: "Overdue", today: "Today", tomorrow: "Tomorrow", this_week: "This Week", later: "Later", no_date: "No Due Date", done: "Done" };
+  const GROUP_ORDER  = ["overdue", "this_week", "following_week", "future", "no_date", "done"];
+  const GROUP_LABELS = { overdue: "Overdue", this_week: "This Week", following_week: "Following Week", future: "Future", no_date: "No Due Date", done: "Done" };
 
   const grouped = filteredTodos.reduce((acc, t) => { const g = getGroup(t); (acc[g] = acc[g] || []).push(t); return acc; }, {});
   Object.values(grouped).forEach(arr => arr.sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1)));
@@ -373,7 +403,13 @@ export default function TasksPage() {
     setModalOpen(false); setEditTarget(null);
   };
   const handleEdit = (todo) => { setEditTarget(todo); setModalOpen(true); };
-  const handleDelete = async (id) => { await deleteTodo.mutateAsync(id); };
+  const handleDelete = async (todo) => {
+    const label = todo?.title ? `"${todo.title}"` : "this task";
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+    await deleteTodo.mutateAsync(todo.id);
+    // If the modal is open for the task we just deleted, close it.
+    if (editTarget?.id === todo.id) { setModalOpen(false); setEditTarget(null); }
+  };
   const handleToggleDone = async (todo) => { await updateTodo.mutateAsync({ id: todo.id, status: todo.status === "done" ? "open" : "done" }); };
 
   const handlers = { onEdit: handleEdit, onDelete: handleDelete, onToggleDone: handleToggleDone };
@@ -569,7 +605,9 @@ export default function TasksPage() {
           initial={editTarget}
           onClose={() => { setModalOpen(false); setEditTarget(null); }}
           onSave={handleSave}
+          onDelete={editTarget ? () => handleDelete(editTarget) : undefined}
           isSaving={createTodo.isPending || updateTodo.isPending}
+          isDeleting={deleteTodo.isPending}
         />
       )}
     </div>
