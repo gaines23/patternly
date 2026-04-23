@@ -270,6 +270,26 @@ def _strip_json_fences(text: str) -> str:
     return text.strip()
 
 
+def _parse_ai_json(text: str):
+    """Parse the first complete JSON value from an AI response.
+
+    Tolerates markdown fences, leading/trailing prose, and trailing content
+    after the JSON value (which otherwise raises `json.JSONDecodeError:
+    Extra data`). Use this for any `client.messages.create` response that
+    is expected to be JSON.
+    """
+    cleaned = _strip_json_fences(text)
+    start = min(
+        (i for i in (cleaned.find("{"), cleaned.find("[")) if i != -1),
+        default=-1,
+    )
+    if start > 0:
+        cleaned = cleaned[start:]
+    decoder = json.JSONDecoder()
+    data, _end = decoder.raw_decode(cleaned)
+    return data
+
+
 # ── Core service ──────────────────────────────────────────────────────────────
 
 class PatternlyAIService:
@@ -305,8 +325,7 @@ class PatternlyAIService:
                 system=PARSE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": raw_prompt}],
             )
-            raw = _strip_json_fences(message.content[0].text)
-            data = json.loads(raw)
+            data = _parse_ai_json(message.content[0].text)
             return ParsedScenario(
                 raw_prompt=raw_prompt,
                 client_name=data.get("client_name", ""),
@@ -597,8 +616,7 @@ class PatternlyAIService:
                 system=RECOMMEND_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_message}],
             )
-            raw = _strip_json_fences(message.content[0].text)
-            data = json.loads(raw)
+            data = _parse_ai_json(message.content[0].text)
         except json.JSONDecodeError as e:
             logger.error("AI recommendation JSON parse error: %s", e)
             raise AIServiceError(f"AI returned invalid JSON: {e}")
@@ -805,8 +823,7 @@ class PatternlyAIService:
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_message}],
             )
-            raw = _strip_json_fences(message.content[0].text)
-            data = json.loads(raw)
+            data = _parse_ai_json(message.content[0].text)
         except json.JSONDecodeError as e:
             logger.error("Compiler JSON parse error: %s", e)
             raise AIServiceError(f"AI returned invalid JSON: {e}")
