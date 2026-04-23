@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useProjects, useProjectStats } from "@hooks/useProjects";
+import { useTodos } from "@hooks/useTodos";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
 import { formatDate } from "../../utils/transforms";
@@ -273,11 +274,18 @@ export default function DashboardPage() {
   const { theme } = useTheme();
   const { data: stats, isLoading: statsLoading } = useProjectStats();
   const { data: recentData, isLoading: listLoading } = useProjects({ page: 1 });
+  const { todos, isLoading: todosLoading } = useTodos({ status: "open" });
 
   const recent = recentData?.results || [];
   const totalCases = stats?.total_case_files ?? 0;
   const avgSat = stats?.avg_satisfaction ?? 0;
   const totalRoadblocks = stats?.total_roadblocks ?? 0;
+
+  // Open tasks with a due date within the next 7 days (matches TasksPage "This week" grouping)
+  const today = new Date().toISOString().slice(0, 10);
+  const nextWeek = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+  const tasksDueThisWeek = todos.filter(t => t.due_date && t.due_date <= nextWeek);
+  const overdueThisWeek = tasksDueThisWeek.filter(t => t.due_date < today).length;
 
   // Find the lowest sat workflow for the insight footer
   const satByWf = stats?.sat_by_workflow || [];
@@ -303,7 +311,7 @@ export default function DashboardPage() {
             {/* Left: editorial */}
             <div style={{ padding: "28px 32px" }}>
               <h1 style={{ margin: "8px 0 12px", fontSize: 32, fontWeight: 600, fontFamily: F, letterSpacing: "-0.03em", lineHeight: 1.15 }}>
-                The knowledge base is <em style={{ fontStyle: "italic", color: theme.blue, fontWeight: 400 }}>catching up with reality</em>.
+                From Step One to <em style={{ fontStyle: "italic", color: theme.blue, fontWeight: 400 }}>Step Done</em>.
               </h1>
               <p style={{ margin: 0, fontSize: 14.5, color: theme.textSec, maxWidth: "52ch", lineHeight: 1.6, fontFamily: F }}>
                 {totalCases > 0
@@ -338,7 +346,16 @@ export default function DashboardPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <PulseRow value={statsLoading ? "—" : totalCases} label="Documented builds" sub={`across ${stats?.sat_by_industry?.length || 0} industries`} theme={theme} />
                 <PulseRow value={statsLoading ? "—" : avgSat || "—"} label="Median satisfaction" sub="score out of 5, across outcomes" valueColor="#3F7A52" theme={theme} />
-                <PulseRow value={statsLoading ? "—" : totalRoadblocks} label="Roadblocks on file" sub={`~${stats?.avg_roadblock_hours || 0}h lost per event`} valueColor="#B47A2B" last theme={theme} />
+                <PulseRow
+                  value={todosLoading ? "—" : tasksDueThisWeek.length}
+                  label="Tasks due this week"
+                  sub={overdueThisWeek > 0 ? `${overdueThisWeek} overdue` : "next 7 days"}
+                  valueColor={overdueThisWeek > 0 ? "#B0412B" : "#B47A2B"}
+                  linkTo="/tasks"
+                  linkLabel="View tasks →"
+                  last
+                  theme={theme}
+                />
               </div>
             </div>
           </div>
@@ -482,8 +499,8 @@ export default function DashboardPage() {
 
 // ── Pulse row (overview card right side) ──────────────────────────────────────
 
-function PulseRow({ value, label, sub, valueColor, last, theme }) {
-  return (
+function PulseRow({ value, label, sub, valueColor, last, linkTo, linkLabel, theme }) {
+  const body = (
     <div style={{
       display: "flex", alignItems: "baseline", gap: 14,
       paddingBottom: last ? 0 : 12,
@@ -494,6 +511,20 @@ function PulseRow({ value, label, sub, valueColor, last, theme }) {
         {label}
         {sub && <small style={{ display: "block", color: theme.textFaint, fontSize: 11.5, marginTop: 2 }}>{sub}</small>}
       </div>
+      {linkTo && (
+        <span style={{ fontSize: 11.5, fontFamily: F, color: theme.blue, fontWeight: 600, whiteSpace: "nowrap" }}>
+          {linkLabel || "View →"}
+        </span>
+      )}
     </div>
   );
+
+  if (linkTo) {
+    return (
+      <Link to={linkTo} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+        {body}
+      </Link>
+    );
+  }
+  return body;
 }
