@@ -12,4 +12,5 @@ export { default as Alert }      from "./Alert";
 export { default as Section }    from "./Section";
 export { default as DataRow }    from "./DataRow";
 export { default as PageHeader } from "./PageHeader";
+export { default as PageActionButton } from "./PageActionButton";
 export { default as AuthLayout } from "./AuthLayout";

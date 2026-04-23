@@ -22,6 +22,7 @@ import SharedBriefPage from "./pages/shared/SharedBriefPage";
 import ClientBriefPage from "./pages/shared/ClientBriefPage";
 import TasksPage from "./pages/tasks/TasksPage";
 import IngestPage from "./pages/ingest/IngestPage";
+import PatternsPage from "./pages/patterns/PatternsPage";
 
 function Protected({ children }) {
   return (
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/projects/:id/edit" element={<Protected><EditProjectPage /></Protected>} />
           <Route path="/tasks" element={<Protected><TasksPage /></Protected>} />
           <Route path="/ingest" element={<Protected><IngestPage /></Protected>} />
+          <Route path="/patterns" element={<Protected><PatternsPage /></Protected>} />
           <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

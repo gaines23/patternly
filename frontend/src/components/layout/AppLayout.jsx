@@ -2,16 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
+import TopBar from "./TopBar";
 
-const MAIN_NAV = [
-  { to: "/dashboard", label: "Dashboard",  icon: "dashboard" },
-  { to: "/generate",  label: "Generate",   icon: "generate" },
-  { to: "/projects",  label: "Projects",   icon: "projects" },
-  { to: "/tasks",     label: "Tasks",      icon: "tasks" },
-  { to: "/ingest",    label: "Ingest",     icon: "ingest" },
+const WORK_NAV = [
+  { to: "/dashboard", label: "Overview",    icon: "dashboard" },
+  { to: "/projects",  label: "My Projects",  icon: "projects" },
+  { to: "/tasks",     label: "Tasks",       icon: "tasks" },
+];
+const INTEL_NAV = [
+  { to: "/patterns",  label: "Patterns",       icon: "patterns" },
+  { to: "/generate",  label: "Generate brief",  icon: "generate" },
 ];
 const QUICK_NAV = [
-  { to: "/projects/new", label: "New Project", icon: "plus" },
+  { to: "/projects/new", label: "New Project", icon: "plus", shortcut: "N" },
 ];
 
 function NavIcon({ name, size = 18, color }) {
@@ -41,6 +44,11 @@ function NavIcon({ name, size = 18, color }) {
     case "ingest": return (
       <svg style={s} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M10 3v10M6 9l4 4 4-4"/><path d="M4 15h12"/>
+      </svg>
+    );
+    case "patterns": return (
+      <svg style={s} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="10" cy="10" r="7"/><path d="M7 10l2.5-3L13 10M7 13h6"/>
       </svg>
     );
     case "plus": return (
@@ -150,6 +158,7 @@ export default function AppLayout({ children }) {
     : to === "/projects" ? location.pathname === "/projects"
     : to === "/tasks"    ? location.pathname === "/tasks"
     : to === "/ingest"   ? location.pathname === "/ingest"
+    : to === "/patterns" ? location.pathname === "/patterns"
     : location.pathname.startsWith(to);
 
   const NavLink = ({ item, isCollapsed }) => {
@@ -266,9 +275,38 @@ export default function AppLayout({ children }) {
           </Link>
         </div>
         <nav className="fp-sidebar-nav" style={{ flex: 1, padding: collapsed ? "12px 6px" : "12px 10px", overflowY: "auto" }}>
-          {MAIN_NAV.map(item => <NavLink key={item.to} item={item} isCollapsed={collapsed} />)}
-          <div style={{ height: 1, background: theme.borderSubtle, margin: collapsed ? "10px 4px" : "10px 14px" }} />
-          {QUICK_NAV.map(item => <NavLink key={item.to} item={item} isCollapsed={collapsed} />)}
+          {!collapsed && <p style={{ margin: "0 0 6px", padding: "0 14px", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: theme.textFaint, fontFamily: F }}>Work</p>}
+          {WORK_NAV.map(item => <NavLink key={item.to} item={item} isCollapsed={collapsed} />)}
+          {!collapsed ? (
+            <div style={{ padding: "6px 0 0" }}>
+              <Link to="/projects/new" onClick={() => setMobileOpen(false)} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 14px", borderRadius: 10, textDecoration: "none",
+                background: "#9B93E8", color: "#fff",
+                fontFamily: F, fontSize: 13, fontWeight: 600,
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+                <span>New Project</span>
+                <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11, opacity: 0.6 }}>
+                  <kbd style={{ padding: "1px 5px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.3)", fontSize: 11, fontFamily: F }}>&#8984;</kbd>
+                  <kbd style={{ padding: "1px 5px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.3)", fontSize: 11, fontFamily: F }}>N</kbd>
+                </span>
+              </Link>
+            </div>
+          ) : (
+            <Link to="/projects/new" onClick={() => setMobileOpen(false)} title="New Project" style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              padding: "10px 0", borderRadius: 10, textDecoration: "none",
+              background: "#9B93E8", marginBottom: 2,
+            }}>
+              <NavIcon name="plus" size={18} color="#fff" />
+            </Link>
+          )}
+          {!collapsed && <p style={{ margin: "14px 0 6px", padding: "0 14px", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: theme.textFaint, fontFamily: F }}>Intelligence</p>}
+          {collapsed && <div style={{ height: 1, background: theme.borderSubtle, margin: "10px 4px" }} />}
+          {INTEL_NAV.map(item => <NavLink key={item.to} item={item} isCollapsed={collapsed} />)}
         </nav>
         <button
           onClick={() => setCollapsed(c => !c)}
@@ -314,9 +352,10 @@ export default function AppLayout({ children }) {
               <button onClick={() => setMobileOpen(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: theme.textMuted }}>✕</button>
             </div>
             <nav style={{ flex: 1, padding: "12px 10px" }}>
-              {MAIN_NAV.map(item => <NavLink key={item.to} item={item} />)}
-              <div style={{ height: 1, background: theme.borderSubtle, margin: "10px 14px" }} />
-              {QUICK_NAV.map(item => <NavLink key={item.to} item={item} />)}
+              <p style={{ margin: "0 0 6px", padding: "0 14px", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: theme.textFaint, fontFamily: F }}>Work</p>
+              {WORK_NAV.map(item => <NavLink key={item.to} item={item} />)}
+              <p style={{ margin: "14px 0 6px", padding: "0 14px", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: theme.textFaint, fontFamily: F }}>Intelligence</p>
+              {INTEL_NAV.map(item => <NavLink key={item.to} item={item} />)}
             </nav>
             <SidebarFooter />
           </div>
@@ -324,7 +363,8 @@ export default function AppLayout({ children }) {
       )}
 
       {/* Main content */}
-      <main className="fp-main" style={{ marginLeft: collapsed ? 64 : 220, flex: 1, minHeight: "100vh", overflowX: "hidden", transition: "margin-left 0.2s ease" }}>
+      <main className="fp-main" style={{ marginLeft: collapsed ? 64 : 220, flex: 1, minHeight: "100vh", overflowX: "clip", transition: "margin-left 0.2s ease" }}>
+        {!location.pathname.startsWith("/settings") && <TopBar />}
         <div key={location.pathname} className="fp-page-enter">
           {children}
         </div>

@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import publicApi from "../../api/publicClient";
+import ProjectDetailHeader from "../../components/ProjectDetailHeader";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
@@ -70,33 +71,9 @@ export default function ClientBriefPage() {
         </span>
       </div>
 
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "40px 24px 80px" }}>
-        {/* Header */}
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={{ margin: "0 0 6px", fontSize: 26, fontFamily: "'Fraunces', serif", color: "#111827" }}>
-            {cf.name || cf.workflow_type || "Project Update"}
-          </h1>
-          {cf.name && cf.workflow_type && (
-            <p style={{ margin: "0 0 10px", fontSize: 15, color: "#6B7280", fontFamily: F }}>{cf.workflow_type}</p>
-          )}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, color: "#6B7280", fontFamily: F }}>
-            {cf.logged_by_name && (
-              <span>Prepared by <strong style={{ color: "#374151" }}>{cf.logged_by_name}</strong></span>
-            )}
-          </div>
-        </div>
-
-        {/* Industry / tool chips */}
-        {(cf.industries?.length > 0 || cf.tools?.length > 0) && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
-            {cf.industries?.map(i => (
-              <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EEEAF8", border: "1px solid #C8C2E8", color: "#9B93E8", fontFamily: F, fontWeight: 500 }}>{i}</span>
-            ))}
-            {cf.tools?.slice(0, 6).map(t => (
-              <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F3F4F6", border: "1px solid #E5E7EB", color: "#6B7280", fontFamily: F }}>{t}</span>
-            ))}
-          </div>
-        )}
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 32px 80px" }}>
+        {/* Header (shared component) */}
+        <ProjectDetailHeader cf={cf} />
 
         {/* Progress Overview */}
         <div style={{ marginBottom: 28 }}>

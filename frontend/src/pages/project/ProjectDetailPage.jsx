@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@hooks/useTheme";
 import { useProject, useDeleteProject, useUpdateProject, useToggleProjectStatus } from "@hooks/useProjects";
@@ -161,6 +161,23 @@ export default function CaseFileDetailPage() {
   const [w,              setW]              = useState(typeof window !== "undefined" ? window.innerWidth : 900);
   const isMobile = w < 640;
 
+  // Refs for each section anchor
+  const sectionRefs = useRef({});
+  const suppressObserverUntilRef = useRef(0);
+
+  // Offset for the sticky TopBar (54px) + a little breathing room, matches
+  // the `.layer-nav { top: 80px }` pattern from the reference design.
+  const STICKY_OFFSET = 80;
+
+  const scrollToSection = (sectionId, index) => {
+    const el = sectionRefs.current[sectionId];
+    if (!el) return;
+    suppressObserverUntilRef.current = Date.now() + 800;
+    setActiveSection(index);
+    const top = el.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET;
+    window.scrollTo({ top, behavior: "smooth" });
+  };
+
   // Auto-hide success banner
   useEffect(() => {
     if (!justCreated) return;
@@ -185,6 +202,24 @@ export default function CaseFileDetailPage() {
       window.removeEventListener("beforeprint", onBefore);
       window.removeEventListener("afterprint",  onAfter);
     };
+  }, []);
+
+  // Track which section is currently in view (natural window scroll).
+  useEffect(() => {
+    const handler = () => {
+      if (Date.now() < suppressObserverUntilRef.current) return;
+      const viewportTop = STICKY_OFFSET + 20;
+      let best = 0;
+      DETAIL_SECTIONS.forEach((s, i) => {
+        const el = sectionRefs.current[s.id];
+        if (!el) return;
+        if (el.getBoundingClientRect().top - viewportTop <= 0) best = i;
+      });
+      setActiveSection(best);
+    };
+    window.addEventListener("scroll", handler, { passive: true });
+    handler();
+    return () => window.removeEventListener("scroll", handler);
   }, []);
 
   // ── Data ───────────────────────────────────────────────────────────────────
@@ -295,100 +330,120 @@ export default function CaseFileDetailPage() {
         <PrintView cf={cf} />
       </div>
 
-      {/* ── App shell ───────────────────────────────────────────────────────── */}
-      <div className="fp-no-print" style={{ height: isMobile ? "calc(100vh - 56px)" : "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* ── App shell — single wrapper so header + layers share width/padding ── */}
+      <div
+        className="fp-no-print"
+        style={{
+          maxWidth: 1060,
+          margin: "0 auto",
+          padding: isMobile ? "0 16px" : "0 32px",
+        }}
+      >
 
-        {/* ── Pinned header ─────────────────────────────────────────────────── */}
-        <div style={{ flexShrink: 0, borderBottom: `1px solid ${theme.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.04)", background: theme.surface }}>
-          <div style={{ maxWidth: 1060, margin: "0 auto", padding: isMobile ? "0 16px" : "0 32px" }}>
-
-            {showBanner && (
-              <div style={{ padding: "10px 14px", background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 10, margin: "12px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 16 }}>✅</span>
-                <span style={{ fontSize: 13, color: "#065F46", fontFamily: F, fontWeight: 600, flex: 1 }}>Project saved successfully. It's now part of the knowledge base.</span>
-                <button onClick={() => setShowBanner(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#6EE7B7", lineHeight: 1, padding: 0 }}>×</button>
-              </div>
-            )}
-
-            <CaseFileHeader
-              cf={cf}
-              theme={theme}
-              onEdit={() => setIsEditing(true)}
-              onShare={() => setShowShare(true)}
-              onDelete={handleDelete}
-              onToggleStatus={() => statusMutation.mutate()}
-              statusPending={statusMutation.isPending}
-              deletePending={deleteMutation.isPending}
-              showOptions={showOptions}
-              setShowOptions={setShowOptions}
-              setIsPrinting={setIsPrinting}
-            />
-
-            <div className="fp-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 12 }}>
-              {cf.industries?.map(i => (
-                <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, color: theme.blue, fontFamily: F, fontWeight: 500 }}>{i}</span>
-              ))}
-              {cf.tools?.slice(0, 6).map(t => (
-                <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: theme.surfaceAlt, border: `1px solid ${theme.borderInput}`, color: theme.textMuted, fontFamily: F }}>{t}</span>
-              ))}
-              {cf.process_frameworks?.slice(0, 4).map(f => (
-                <span key={f} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#7C3AED", fontFamily: F }}>{f}</span>
-              ))}
-            </div>
-
-            {/* Mobile: horizontal scrollable section tabs */}
-            {isMobile && (
-              <div style={{ display: "flex", gap: 0, overflowX: "auto", scrollbarWidth: "none", borderTop: `1px solid ${theme.border}` }}>
-                {DETAIL_SECTIONS.map((s, i) => (
-                  <button key={s.id} onClick={() => setActiveSection(i)}
-                    style={{ display: "flex", alignItems: "center", gap: 4, padding: "10px 12px", background: "transparent", border: "none", cursor: "pointer", flexShrink: 0, borderBottom: i === activeSection ? `3px solid ${s.color}` : "3px solid transparent", transition: "border-color 0.2s" }}>
-                    <span style={{ fontSize: 11, fontWeight: i === activeSection ? 700 : 500, color: i === activeSection ? s.color : theme.textFaint, fontFamily: F, whiteSpace: "nowrap" }}>{s.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+        {showBanner && (
+          <div style={{ padding: "10px 14px", background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 10, margin: "12px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 16 }}>✅</span>
+            <span style={{ fontSize: 13, color: "#065F46", fontFamily: F, fontWeight: 600, flex: 1 }}>Project saved successfully. It's now part of the knowledge base.</span>
+            <button onClick={() => setShowBanner(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#6EE7B7", lineHeight: 1, padding: 0 }}>×</button>
           </div>
-        </div>
+        )}
 
-        {/* ── Body: sidebar + scrollable content ────────────────────────────── */}
-        <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
-          <div style={{ maxWidth: 1060, margin: "0 auto", width: "100%", display: "flex" }}>
+        {/* Header — scrolls off naturally as the page scrolls */}
+        <CaseFileHeader
+          cf={cf}
+          theme={theme}
+          onEdit={() => setIsEditing(true)}
+          onShare={() => setShowShare(true)}
+          onDelete={handleDelete}
+          onToggleStatus={() => statusMutation.mutate()}
+          statusPending={statusMutation.isPending}
+          deletePending={deleteMutation.isPending}
+          showOptions={showOptions}
+          setShowOptions={setShowOptions}
+          setIsPrinting={setIsPrinting}
+        />
 
-            {/* Left sidebar nav (desktop only) */}
-            {!isMobile && (
-              <div style={{ width: 210, flexShrink: 0, overflowY: "auto", borderRight: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", padding: "20px 0" }}>
-                {[...new Set(DETAIL_SECTIONS.map(s => s.group))].map(group => (
-                  <div key={group} style={{ marginBottom: 8 }}>
-                    <p style={{ margin: "0 0 4px", padding: "0 16px", fontSize: 10, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.08em" }}>{group}</p>
-                    {DETAIL_SECTIONS.filter(s => s.group === group).map(s => {
-                      const i = DETAIL_SECTIONS.indexOf(s);
-                      const active = i === activeSection;
-                      return (
-                        <button key={s.id} onClick={() => setActiveSection(i)}
-                          style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 16px", background: active ? `${s.color}10` : "transparent", border: "none", borderLeft: active ? `3px solid ${s.color}` : "3px solid transparent", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
-                          <span style={{ fontSize: 12, fontWeight: active ? 700 : 500, color: active ? s.color : theme.textSec, fontFamily: F, lineHeight: 1.3 }}>{s.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Active section content — only this scrolls */}
-            <div id="fp-print-root" style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: isMobile ? "20px 16px" : "28px 32px" }}>
-              {activeSection === 0 && <SummarySection    caseFileId={id} projectName={cf.name || cf.workflow_type || "Project"} preparedBy={cf.logged_by_name} summaryType="full" title="Full Project Summary" subtitle="AI summary of the full project for reporting" color="#6366F1" workflows={build?.workflows} onOpenMap={setMapWfIndex} savedSummary={cf.full_summary} savedGeneratedAt={cf.full_summary_generated_at} />}
-              {activeSection === 1 && <ProjectUpdatesView projectUpdates={project_updates} theme={theme} caseFileId={id} projectName={cf.name || cf.workflow_type || "Project"} preparedBy={cf.logged_by_name} savedUpdatesSummary={cf.updates_summary} savedUpdatesGeneratedAt={cf.updates_summary_generated_at} />}
-              {activeSection === 2 && <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} />}
-              {activeSection === 3 && <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} />}
-              {activeSection === 4 && <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} />}
-              {activeSection === 5 && <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} />}
-              {activeSection === 6 && <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} />}
-              {activeSection === 7 && <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} />}
-              {activeSection === 8 && <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} />}
-            </div>
-
+        {/* Mobile: horizontal section tabs */}
+        {isMobile && (
+          <div style={{ display: "flex", gap: 0, overflowX: "auto", scrollbarWidth: "none", borderTop: `1px solid ${theme.border}`, background: theme.bg }}>
+            {DETAIL_SECTIONS.map((s, i) => (
+              <button key={s.id} onClick={() => scrollToSection(s.id, i)}
+                style={{ display: "flex", alignItems: "center", gap: 4, padding: "10px 12px", background: "transparent", border: "none", cursor: "pointer", flexShrink: 0, borderBottom: i === activeSection ? `3px solid ${s.color}` : "3px solid transparent", transition: "border-color 0.2s" }}>
+                <span style={{ fontSize: 11, fontWeight: i === activeSection ? 700 : 500, color: i === activeSection ? s.color : theme.textFaint, fontFamily: F, whiteSpace: "nowrap" }}>{s.label}</span>
+              </button>
+            ))}
           </div>
+        )}
+
+        {/* Layers row — CSS grid so nav can sit in its own column with gap,
+            matching the HTML reference's `.layers { grid-template-columns: 180px 1fr; gap: 48px }`. */}
+        <div
+          style={{
+            display: isMobile ? "block" : "grid",
+            gridTemplateColumns: isMobile ? undefined : "210px 1fr",
+            gap: isMobile ? undefined : 48,
+            alignItems: "flex-start",
+            paddingTop: isMobile ? 20 : 28,
+            paddingBottom: 80,
+          }}
+        >
+
+          {/* Left sidebar nav (desktop only) — sticky once it reaches top: 80px */}
+          {!isMobile && (
+            <nav style={{
+              position: "sticky",
+              top: STICKY_OFFSET,
+              maxHeight: `calc(100vh - ${STICKY_OFFSET}px)`,
+              overflowY: "auto",
+              display: "flex", flexDirection: "column",
+              paddingRight: 4,
+            }}>
+              {[...new Set(DETAIL_SECTIONS.map(s => s.group))].map(group => (
+                <div key={group} style={{ marginBottom: 8 }}>
+                  <p style={{ margin: "0 0 4px", padding: "0 12px", fontSize: 10, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.08em" }}>{group}</p>
+                  {DETAIL_SECTIONS.filter(s => s.group === group).map(s => {
+                    const i = DETAIL_SECTIONS.indexOf(s);
+                    const active = i === activeSection;
+                    return (
+                      <button key={s.id} onClick={() => scrollToSection(s.id, i)}
+                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: active ? `${s.color}10` : "transparent", border: "none", borderLeft: active ? `3px solid ${s.color}` : "3px solid transparent", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
+                        <span style={{ fontSize: 12, fontWeight: active ? 700 : 500, color: active ? s.color : theme.textSec, fontFamily: F, lineHeight: 1.3 }}>{s.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+          )}
+
+          {/* Content column — scrolls naturally with the page */}
+          <div id="fp-print-root" style={{ minWidth: 0 }}>
+            {DETAIL_SECTIONS.map((s) => {
+              const setRef = (el) => { sectionRefs.current[s.id] = el; };
+              let body = null;
+              if (s.id === "fullSummary")    body = <SummarySection    caseFileId={id} projectName={cf.name || cf.workflow_type || "Project"} preparedBy={cf.logged_by_name} summaryType="full" title="Full Project Summary" subtitle="AI summary of the full project for reporting" color="#6366F1" workflows={build?.workflows} onOpenMap={setMapWfIndex} savedSummary={cf.full_summary} savedGeneratedAt={cf.full_summary_generated_at} />;
+              if (s.id === "projectUpdates") body = <ProjectUpdatesView projectUpdates={project_updates} theme={theme} caseFileId={id} projectName={cf.name || cf.workflow_type || "Project"} preparedBy={cf.logged_by_name} savedUpdatesSummary={cf.updates_summary} savedUpdatesGeneratedAt={cf.updates_summary_generated_at} />;
+              if (s.id === "scopeCreep")     body = <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} />;
+              if (s.id === "intake")         body = <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} />;
+              if (s.id === "audit")          body = <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} />;
+              if (s.id === "build")          body = <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} />;
+              if (s.id === "delta")          body = <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} />;
+              if (s.id === "reasoning")      body = <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} />;
+              if (s.id === "outcome")        body = <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} />;
+
+              return (
+                <section
+                  key={s.id}
+                  id={`section-${s.id}`}
+                  ref={setRef}
+                  style={{ scrollMarginTop: STICKY_OFFSET, marginBottom: 32 }}
+                >
+                  {body}
+                </section>
+              );
+            })}
+          </div>
+
         </div>
 
       </div>

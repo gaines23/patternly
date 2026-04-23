@@ -298,13 +298,6 @@ export default function AgentCompilerPanel({ onApplyBuild, existingPrompt = "" }
         onClick={() => suggestions && setCollapsed(c => !c)}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            width: 28, height: 28, background: "#9B93E818", border: "1px solid #9B93E830",
-            borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 14,
-          }}>
-            *
-          </div>
           <span style={{ fontSize: 14, fontWeight: 700, color: theme.text, fontFamily: F }}>
             Agent Compiler
           </span>

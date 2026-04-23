@@ -6,6 +6,7 @@ import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo } from "../../hoo
 import { useProjects } from "../../hooks/useProjects";
 import { formatDate } from "../../utils/transforms";
 import TodoModal from "../../components/TodoModal";
+import PageActionButton from "../../components/ui/PageActionButton";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 
@@ -494,15 +495,9 @@ export default function TasksPage() {
         </div>
 
         {/* New Task button */}
-        <button
-          onClick={() => { setEditTarget(null); setModalOpen(true); }}
-          style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "10px 18px",
-            background: theme.blue, border: "none", borderRadius: 10,
-            color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer",
-          }}>
-          + New Task
-        </button>
+        <PageActionButton onClick={() => { setEditTarget(null); setModalOpen(true); }}>
+          New Task
+        </PageActionButton>
 
         {/* View toggle */}
         <div style={{ display: "flex", border: `1.5px solid ${theme.borderInput}`, borderRadius: 10, overflow: "hidden" }}>
@@ -559,10 +554,9 @@ export default function TasksPage() {
               : "No tasks yet. Add your first one."}
           </p>
           {!filters.search && filters.status === "all" && (
-            <button onClick={() => { setEditTarget(null); setModalOpen(true); }}
-              style={{ padding: "9px 20px", background: theme.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
-              + New Task
-            </button>
+            <PageActionButton onClick={() => { setEditTarget(null); setModalOpen(true); }}>
+              New Task
+            </PageActionButton>
           )}
         </div>
       ) : (

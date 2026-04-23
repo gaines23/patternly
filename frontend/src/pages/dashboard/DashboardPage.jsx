@@ -1,17 +1,11 @@
 import { Link } from "react-router-dom";
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList, Legend,
-  PieChart, Pie, Cell, Label,
-} from "recharts";
 import { useProjects, useProjectStats } from "@hooks/useProjects";
+import { useTodos } from "@hooks/useTodos";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
-import { formatDate, satisfactionLabel } from "../../utils/transforms";
+import { formatDate } from "../../utils/transforms";
 
 const F = "'Plus Jakarta Sans', sans-serif";
-const GREEN = "#059669";
-const ORANGE = "#EA580C";
-const AMBER = "#D97706";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -22,11 +16,16 @@ function getTimeOfDay() {
   return "evening";
 }
 
+function getDayOfWeek() {
+  return new Date().toLocaleDateString("en-US", { weekday: "long" });
+}
+
+function getFormattedDate() {
+  return new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
+}
+
 function labelFromKey(key = "") {
-  return key
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  return key.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
@@ -36,8 +35,8 @@ function Card({ children, style = {}, theme }) {
     <div style={{
       background: theme.surface,
       border: `1px solid ${theme.border}`,
-      borderRadius: 12,
-      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+      borderRadius: 10,
+      overflow: "hidden",
       ...style,
     }}>
       {children}
@@ -45,366 +44,227 @@ function Card({ children, style = {}, theme }) {
   );
 }
 
-function CardHeader({ title, sub, theme }) {
+function CardHead({ title, sub, right, theme }) {
   return (
-    <div style={{ marginBottom: 20 }}>
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme.textSec, fontFamily: F }}>{title}</p>
-      {sub && <p style={{ margin: "3px 0 0", fontSize: 11, color: theme.textFaint, fontFamily: F }}>{sub}</p>}
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "14px 20px",
+      borderBottom: `1px solid ${theme.borderSubtle}`,
+    }}>
+      <div>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: theme.text, fontFamily: F }}>{title}</p>
+        {sub && <p style={{ margin: "1px 0 0", fontSize: 11.5, color: theme.textFaint, fontFamily: F }}>{sub}</p>}
+      </div>
+      {right}
     </div>
   );
 }
 
-function Skeleton({ theme }) {
+function CardFoot({ left, right, theme }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
-      {[80, 65, 90, 50, 72].map((w, i) => (
-        <div key={i} style={{ height: 14, background: theme.skeleton, borderRadius: 6, width: `${w}%` }} />
+    <div style={{
+      padding: "12px 20px",
+      borderTop: `1px solid ${theme.borderSubtle}`,
+      fontSize: 12, color: theme.textFaint, fontFamily: F,
+      display: "flex", justifyContent: "space-between", alignItems: "center",
+      background: theme.bg,
+    }}>
+      <span>{left}</span>
+      {right}
+    </div>
+  );
+}
+
+function SectionHead({ title, sub, right, theme }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "32px 0 16px" }}>
+      <div>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, fontFamily: F, letterSpacing: "-0.02em" }}>{title}</h2>
+        {sub && <p style={{ margin: "2px 0 0", fontSize: 12, color: theme.textFaint, fontFamily: F }}>{sub}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function Eyebrow({ children, theme }) {
+  return (
+    <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", color: theme.textFaint, fontWeight: 600, fontFamily: F, display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ width: 6, height: 6, borderRadius: 999, background: theme.blue, display: "inline-block" }} />
+      {children}
+    </div>
+  );
+}
+
+// ── Stat cards ────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, sub, delta, deltaDir, theme }) {
+  return (
+    <div style={{
+      background: theme.surface, border: `1px solid ${theme.border}`,
+      borderRadius: 10, padding: "16px 18px",
+    }}>
+      <p style={{ margin: 0, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.12em", color: theme.textFaint, fontWeight: 600, fontFamily: F }}>{label}</p>
+      <p style={{ margin: "6px 0 0", fontSize: 28, fontWeight: 500, fontFamily: F, letterSpacing: "-0.02em", color: theme.text }}>{value}</p>
+      {sub && <p style={{ margin: "2px 0 0", fontSize: 11.5, color: theme.textFaint, fontFamily: F }}>{sub}</p>}
+      {delta && (
+        <p style={{
+          margin: "8px 0 0", fontSize: 11, fontFamily: "'monospace', monospace",
+          color: deltaDir === "up" ? "#3F7A52" : deltaDir === "down" ? "#B0412B" : theme.textFaint,
+        }}>
+          {deltaDir === "up" ? "▲ " : deltaDir === "down" ? "▲ " : "— "}{delta}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Stacked bar rows (roadblocks) ─────────────────────────────────────────────
+
+function StackedBarRows({ types = [], loading, theme }) {
+  if (loading) return <LoadingSkeleton theme={theme} />;
+  const rows = types.slice(0, 5);
+  if (!rows.length) return <EmptyState text="No roadblocks logged yet" theme={theme} />;
+
+  const toolTotals = {};
+  rows.forEach(rb => rb.tools?.forEach(({ tool, count }) => { toolTotals[tool] = (toolTotals[tool] || 0) + count; }));
+  const topTools = Object.entries(toolTotals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
+  const COLORS = ["#6B5BD6", "#3B2F9C", "#B47A2B", "#6B6B74", "#9A9AA2"];
+
+  return (
+    <>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {rows.map(rb => {
+          const total = rb.count;
+          const maxCount = rows[0]?.count || 1;
+          return (
+            <div key={rb.type} style={{ display: "grid", gridTemplateColumns: "150px 1fr 48px", alignItems: "center", gap: 12, fontSize: 12.5 }}>
+              <span style={{ color: theme.textSec, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F }}>{labelFromKey(rb.type)}</span>
+              <div style={{ height: 8, background: theme.borderSubtle, borderRadius: 999, display: "flex", overflow: "hidden" }}>
+                {rb.tools?.sort((a, b) => b.count - a.count).map((t, i) => {
+                  const pct = (t.count / maxCount) * 100;
+                  const colorIdx = topTools.indexOf(t.tool);
+                  return <span key={t.tool} style={{ width: `${pct}%`, background: COLORS[colorIdx >= 0 ? colorIdx : 4], height: "100%" }} />;
+                })}
+              </div>
+              <span style={{ fontFamily: "monospace", fontSize: 11.5, color: theme.textFaint, textAlign: "right" }}>{total}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14, fontSize: 11.5, color: theme.textFaint, fontFamily: F }}>
+        {topTools.map((tool, i) => (
+          <span key={tool} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <i style={{ width: 9, height: 9, borderRadius: 2, display: "inline-block", background: COLORS[i] }} />
+            {tool}
+          </span>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── Satisfaction stems ────────────────────────────────────────────────────────
+
+function SatStems({ data = [], loading, theme }) {
+  if (loading) return <LoadingSkeleton theme={theme} />;
+  if (!data.length) return <EmptyState text="No data yet" theme={theme} />;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {data.map(r => {
+        const pct = ((r.avg_sat / 5) * 100);
+        return (
+          <div key={r.workflow_type} style={{ display: "grid", gridTemplateColumns: "150px 1fr 50px", alignItems: "center", gap: 12, fontSize: 12.5 }}>
+            <span style={{ color: theme.textSec, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F }}>{r.workflow_type}</span>
+            <div style={{ position: "relative", height: 18 }}>
+              <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
+                {[0,1,2,3,4].map(i => <i key={i} style={{ borderRight: `1px dashed ${theme.borderSubtle}` }} />)}
+              </div>
+              <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: theme.border }} />
+              <div style={{
+                position: "absolute", top: "50%", left: `${pct}%`,
+                transform: "translate(-50%, -50%)",
+                width: 10, height: 10, borderRadius: 999,
+                background: theme.blue,
+                boxShadow: `0 0 0 3px ${theme.blueLight}`,
+              }} />
+            </div>
+            <span style={{ fontFamily: "monospace", fontSize: 11.5, color: theme.textFaint, textAlign: "right" }}>{r.avg_sat}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Tool chips ────────────────────────────────────────────────────────────────
+
+function ToolChips({ tools = [], loading, theme }) {
+  if (loading || !tools.length) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 8px" }}>
+      {tools.map(({ tool, count }, i) => (
+        <span key={tool} style={{
+          display: "inline-flex", alignItems: "baseline", gap: 6,
+          padding: "4px 10px", borderRadius: 999,
+          background: i === 0 ? theme.blueLight : theme.surface,
+          border: `1px solid ${i === 0 ? "transparent" : theme.border}`,
+          fontSize: 12, fontFamily: F,
+          color: i === 0 ? theme.blue : theme.textSec,
+        }}>
+          <b style={{ fontWeight: 600 }}>{tool}</b>
+          <span style={{ fontFamily: "monospace", fontSize: 10.5, color: i === 0 ? theme.blue : theme.textFaint }}>×{count}</span>
+        </span>
       ))}
     </div>
   );
 }
 
-function Empty({ text, theme }) {
+// ── Sat bars (inline) ─────────────────────────────────────────────────────────
+
+function SatBars({ score }) {
   return (
-    <div style={{ padding: "28px 0", textAlign: "center" }}>
-      <p style={{ margin: 0, fontSize: 12, color: theme.borderInput, fontFamily: F }}>{text}</p>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#6B6B74", fontFamily: F }}>
+      <span>sat</span>
+      <div style={{ display: "flex", gap: 2 }}>
+        {[1,2,3,4,5].map(i => (
+          <i key={i} style={{ width: 4, height: 11, background: i <= score ? "#6B5BD6" : "#E4E0D6", borderRadius: 1, display: "block" }} />
+        ))}
+      </div>
     </div>
   );
 }
 
-// ── Custom tooltip ────────────────────────────────────────────────────────────
+// ── Status tag ────────────────────────────────────────────────────────────────
 
-function ChartTooltip({ active, payload, label, unit = "", theme }) {
-  if (!active || !payload?.length) return null;
+function StatusTag({ status, theme }) {
+  const isOpen = status !== "closed";
   return (
-    <div style={{
-      background: theme.tooltipBg, color: theme.tooltipText, borderRadius: 8,
-      padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+    <span style={{
+      fontFamily: "monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em",
+      padding: "3px 8px", borderRadius: 4,
+      background: isOpen ? theme.blueLight : "#E8F1EB",
+      color: isOpen ? theme.blue : "#3F7A52",
+      fontWeight: 600, whiteSpace: "nowrap",
     }}>
-      <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{label}</p>
-      <p style={{ margin: 0, color: theme.tooltipSub }}>{payload[0].value}{unit}</p>
-    </div>
-  );
-}
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, sub, color, theme }) {
-  return (
-    <Card style={{ padding: "20px 22px" }} theme={theme}>
-      <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</p>
-      <p style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, color: color || theme.blue, fontFamily: "'Fraunces', serif", letterSpacing: "-0.02em" }}>{value}</p>
-      {sub && <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>{sub}</p>}
-    </Card>
-  );
-}
-
-function SatisfactionDot({ score, theme }) {
-  const colors = { 1: "#EF4444", 2: "#F97316", 3: "#F59E0B", 4: "#10B981", 5: "#059669" };
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-      <span style={{ width: 8, height: 8, borderRadius: "50%", background: colors[score] || theme.skeleton, display: "inline-block" }} />
-      <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: F }}>{satisfactionLabel(score)}</span>
+      {isOpen ? "Open" : "Closed"}
     </span>
   );
 }
 
-// ── Horizontal bar chart wrapper ──────────────────────────────────────────────
+// ── Loading / Empty ──────────────────────────────────────────────────────────
 
-function HorizBarChart({ data, barColor, unit = "", height = 220, tickWidth = 130, theme }) {
+function LoadingSkeleton({ theme }) {
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <BarChart
-        data={data}
-        layout="vertical"
-        margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
-        barSize={12}
-      >
-        <XAxis
-          type="number"
-          tick={{ fontSize: 11, fill: theme.textFaint, fontFamily: F }}
-          axisLine={false}
-          tickLine={false}
-          allowDecimals={false}
-        />
-        <YAxis
-          type="category"
-          dataKey="name"
-          width={tickWidth}
-          tick={{ fontSize: 11, fill: theme.textMuted, fontFamily: F }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip content={<ChartTooltip unit={unit} theme={theme} />} cursor={{ fill: theme.chartCursor }} />
-        <Bar dataKey="value" radius={[0, 6, 6, 0]} fill={barColor} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-// ── Roadblock types stacked bar chart ────────────────────────────────────────
-
-function RoadblockTypesChart({ types = [], loading, theme }) {
-  const rows = types.slice(0, 7);
-
-  const toolTotals = {};
-  rows.forEach((rb) => rb.tools?.forEach(({ tool, count }) => {
-    toolTotals[tool] = (toolTotals[tool] || 0) + count;
-  }));
-  const topTools = Object.entries(toolTotals)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 7)
-    .map(([tool]) => tool);
-
-  const data = rows.map((rb) => {
-    const row = { name: labelFromKey(rb.type) };
-    let other = 0;
-    rb.tools?.forEach(({ tool, count }) => {
-      if (topTools.includes(tool)) row[tool] = count;
-      else other += count;
-    });
-    if (other > 0) row["Other"] = other;
-    return row;
-  });
-
-  const allKeys = [...topTools, ...(data.some((r) => r["Other"]) ? ["Other"] : [])];
-  const COLORS = ["#9B93E8", "#059669", "#D97706", "#7C3AED", "#0891B2", "#DB2777", "#65A30D", "#9CA3AF"];
-  const tickWidth = 148;
-
-  return (
-    <Card style={{ padding: "20px 22px" }} theme={theme}>
-      <CardHeader title="Top Roadblock Types" sub="Stacked by tools affected" theme={theme} />
-      {loading ? <Skeleton theme={theme} /> : data.length === 0 ? <Empty text="No roadblocks logged yet" theme={theme} /> : (
-        <ResponsiveContainer width="100%" height={Math.max(220, rows.length * 42 + 40)}>
-          <BarChart
-            data={data}
-            layout="vertical"
-            margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
-            barSize={16}
-          >
-            <XAxis
-              type="number"
-              allowDecimals={false}
-              tick={{ fontSize: 11, fill: theme.textFaint, fontFamily: F }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              type="category"
-              dataKey="name"
-              width={tickWidth}
-              tick={{ fontSize: 11, fill: theme.textMuted, fontFamily: F }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (!active || !payload?.length) return null;
-                return (
-                  <div style={{ background: theme.tooltipBg, color: theme.tooltipText, borderRadius: 8, padding: "10px 14px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
-                    <p style={{ margin: "0 0 6px", fontWeight: 700 }}>{label}</p>
-                    {[...payload].reverse().map((p) => (
-                      <p key={p.dataKey} style={{ margin: "2px 0", color: theme.tooltipSub }}>
-                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: p.fill, marginRight: 6 }} />
-                        {p.dataKey}: {p.value}
-                      </p>
-                    ))}
-                  </div>
-                );
-              }}
-              cursor={{ fill: theme.chartCursor }}
-            />
-            <Legend
-              iconType="circle"
-              iconSize={8}
-              formatter={(value) => <span style={{ fontSize: 11, color: theme.textMuted, fontFamily: F }}>{value}</span>}
-            />
-            {allKeys.map((tool, i) => (
-              <Bar
-                key={tool}
-                dataKey={tool}
-                stackId="a"
-                fill={COLORS[i % COLORS.length]}
-                radius={i === allKeys.length - 1 ? [0, 4, 4, 0] : [0, 0, 0, 0]}
-              />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </Card>
-  );
-}
-
-// ── Scope creep chart ─────────────────────────────────────────────────────────
-
-function ScopeCreepChart({ tools = [], loading, theme }) {
-  const data = tools.map((t) => ({ name: t.tool, value: t.count }));
-
-  return (
-    <Card style={{ padding: "20px 22px" }} theme={theme}>
-      <CardHeader title="Scope Creep by Tool" sub="Tools most often present in diverged builds" theme={theme} />
-      {loading ? <Skeleton theme={theme} /> : data.length === 0 ? <Empty text="No diverged builds recorded" theme={theme} /> : (
-        <HorizBarChart data={data} barColor={AMBER} unit=" cases" height={Math.max(180, data.length * 36)} tickWidth={110} theme={theme} />
-      )}
-    </Card>
-  );
-}
-
-// ── Satisfaction charts ───────────────────────────────────────────────────────
-
-function SatTooltip({ active, payload, label, theme }) {
-  if (!active || !payload?.length) return null;
-  const score = payload[0].value;
-  return (
-    <div style={{
-      background: theme.tooltipBg, color: theme.tooltipText, borderRadius: 8,
-      padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-    }}>
-      <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{label}</p>
-      <p style={{ margin: 0, color: theme.tooltipSub }}>{score} / 5 · {payload[0].payload.count} file{payload[0].payload.count !== 1 ? "s" : ""}</p>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
+      {[80,65,90,50,72].map((w, i) => <div key={i} style={{ height: 14, background: theme.skeleton, borderRadius: 6, width: `${w}%` }} />)}
     </div>
   );
 }
 
-function SatBarChart({ data, height = 200, tickWidth = 130, theme }) {
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <BarChart
-        data={data}
-        layout="vertical"
-        margin={{ top: 0, right: 32, left: 0, bottom: 0 }}
-        barSize={12}
-      >
-        <XAxis
-          type="number"
-          domain={[0, 5]}
-          ticks={[1, 2, 3, 4, 5]}
-          tick={{ fontSize: 11, fill: theme.textFaint, fontFamily: F }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <YAxis
-          type="category"
-          dataKey="name"
-          width={tickWidth}
-          tick={{ fontSize: 11, fill: theme.textMuted, fontFamily: F }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip content={<SatTooltip theme={theme} />} cursor={{ fill: theme.chartCursor }} />
-        <Bar dataKey="value" radius={[0, 6, 6, 0]} fill={theme.blue}>
-          <LabelList dataKey="value" position="right" style={{ fontSize: 11, fill: theme.textMuted, fontFamily: F }} formatter={(v) => `${v}/5`} />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-const PIE_COLORS = ["#9B93E8", "#059669", "#D97706", "#EA580C", "#7C3AED", "#0891B2", "#DB2777", "#65A30D"];
-
-function IndustryPieChart({ data, loading, theme }) {
-  if (loading) return <Skeleton theme={theme} />;
-  if (!data?.length) return <Empty text="No data yet" theme={theme} />;
-
-  const total = data.reduce((s, r) => s + r.count, 0);
-
-  const sorted = [...data].sort((a, b) => b.count - a.count);
-  const top = sorted.slice(0, 7);
-  const otherCount = sorted.slice(7).reduce((s, r) => s + r.count, 0);
-
-  const pieData = [
-    ...top.map((r) => ({ name: r.industry, value: r.count, avg_sat: r.avg_sat })),
-    ...(otherCount > 0 ? [{ name: "Other", value: otherCount, avg_sat: null }] : []),
-  ];
-
-  return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-      <div style={{ width: 170, height: 200, flexShrink: 0 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={pieData}
-              dataKey="value"
-              cx="50%"
-              cy="50%"
-              innerRadius={52}
-              outerRadius={78}
-              paddingAngle={2}
-              strokeWidth={0}
-            >
-              <Label
-                content={({ viewBox: { cx, cy } }) => (
-                  <>
-                    <text x={cx} y={cy - 5} textAnchor="middle" fill={theme.text} fontSize={22} fontWeight={700} fontFamily={F}>{total}</text>
-                    <text x={cx} y={cy + 13} textAnchor="middle" fill={theme.textFaint} fontSize={10} fontFamily={F}>total files</text>
-                  </>
-                )}
-              />
-              {pieData.map((_, i) => (
-                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              content={({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const d = payload[0].payload;
-                const pct = Math.round((d.value / total) * 100);
-                return (
-                  <div style={{ background: theme.tooltipBg, color: theme.tooltipText, borderRadius: 8, padding: "8px 12px", fontSize: 12, fontFamily: F, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
-                    <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{d.name}</p>
-                    <p style={{ margin: 0, color: theme.tooltipSub }}>
-                      {d.value} file{d.value !== 1 ? "s" : ""} · {pct}%
-                      {d.avg_sat ? ` · avg ${d.avg_sat}/5` : ""}
-                    </p>
-                  </div>
-                );
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
-        {pieData.map((item, i) => {
-          const pct = Math.round((item.value / total) * 100);
-          return (
-            <div key={item.name} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 11, color: theme.textSec, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {item.name}
-              </span>
-              <span style={{ fontSize: 11, color: theme.textFaint, fontFamily: F, whiteSpace: "nowrap" }}>{pct}%</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function SatisfactionPanel({ byWorkflow = [], byIndustry = [], loading, theme }) {
-  const wfData = byWorkflow.map((r) => ({ name: r.workflow_type, value: r.avg_sat, count: r.count }));
-
-  const colStyle = { flex: 1, minWidth: 0 };
-  const labelStyle = { margin: "0 0 14px", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" };
-
-  return (
-    <Card style={{ padding: "20px 22px" }} theme={theme}>
-      <CardHeader title="Satisfaction Breakdown" sub="Average score (1–5) by workflow type · project distribution by industry" theme={theme} />
-      <div className="fp-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" }}>
-        <div style={colStyle}>
-          <p style={labelStyle}>By Workflow Type</p>
-          {loading ? <Skeleton theme={theme} /> : wfData.length === 0 ? <Empty text="No data yet" theme={theme} /> : (
-            <SatBarChart data={wfData} height={Math.max(160, wfData.length * 36)} tickWidth={130} theme={theme} />
-          )}
-        </div>
-        <div style={colStyle}>
-          <p style={labelStyle}>By Industry</p>
-          <IndustryPieChart data={byIndustry} loading={loading} theme={theme} />
-        </div>
-      </div>
-    </Card>
-  );
+function EmptyState({ text, theme }) {
+  return <div style={{ padding: "28px 0", textAlign: "center" }}><p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>{text}</p></div>;
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -414,134 +274,257 @@ export default function DashboardPage() {
   const { theme } = useTheme();
   const { data: stats, isLoading: statsLoading } = useProjectStats();
   const { data: recentData, isLoading: listLoading } = useProjects({ page: 1 });
+  const { todos, isLoading: todosLoading } = useTodos({ status: "open" });
 
   const recent = recentData?.results || [];
+  const totalCases = stats?.total_case_files ?? 0;
+  const avgSat = stats?.avg_satisfaction ?? 0;
+  const totalRoadblocks = stats?.total_roadblocks ?? 0;
+
+  // Open tasks with a due date within the next 7 days (matches TasksPage "This week" grouping)
+  const today = new Date().toISOString().slice(0, 10);
+  const nextWeek = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+  const tasksDueThisWeek = todos.filter(t => t.due_date && t.due_date <= nextWeek);
+  const overdueThisWeek = tasksDueThisWeek.filter(t => t.due_date < today).length;
+
+  // Find the lowest sat workflow for the insight footer
+  const satByWf = stats?.sat_by_workflow || [];
+  const lowestSat = satByWf.length > 0 ? [...satByWf].sort((a, b) => a.avg_sat - b.avg_sat)[0] : null;
 
   return (
-    <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 1100 }}>
+    <div className="fp-page-wrap" style={{ padding: "28px 32px 80px", maxWidth: 1180 }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ margin: "0 0 6px", fontSize: 26, fontFamily: "'Fraunces', serif" }}>
-          Good {getTimeOfDay()}, {user?.first_name || "there"}
-        </h1>
-        <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F }}>
-          Here's what the knowledge base looks like today.
+      {/* Page head */}
+      <div style={{ paddingBottom: 20, marginBottom: 24, borderBottom: `1px solid ${theme.border}` }}>
+        <Eyebrow theme={theme}>{getDayOfWeek()} · {getFormattedDate()}</Eyebrow>
+        <h1 style={{ margin: "8px 0 4px", fontSize: 30, fontWeight: 500, fontFamily: F, letterSpacing: "-0.025em" }}>Overview</h1>
+        <p style={{ margin: 0, fontSize: 13.5, color: theme.textFaint, fontFamily: F }}>
+          Good {getTimeOfDay()}, {user?.first_name || "there"}.
+          {totalCases > 0 && ` You have ${totalCases} documented build${totalCases !== 1 ? "s" : ""} across the knowledge base.`}
         </p>
       </div>
 
-      {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 28 }}>
-        <StatCard label="Total projects" value={statsLoading ? "—" : stats?.total_case_files ?? 0} sub="builds documented" theme={theme} />
-        <StatCard label="Avg satisfaction" value={statsLoading ? "—" : stats?.avg_satisfaction ? `${stats.avg_satisfaction}/5` : "—"} sub="across all outcomes" color={GREEN} theme={theme} />
-        <StatCard label="Roadblocks logged" value={statsLoading ? "—" : stats?.total_roadblocks ?? 0} sub="known failure patterns" color={ORANGE} theme={theme} />
-        <StatCard label="Avg hours lost" value={statsLoading ? "—" : stats?.avg_roadblock_hours ? `${stats.avg_roadblock_hours}h` : "—"} sub="per roadblock" color={AMBER} theme={theme} />
-      </div>
+      {/* Overview card — editorial + pulse */}
+      <div style={{ marginBottom: 32 }}>
+        <Card theme={theme}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr" }}>
+            {/* Left: editorial */}
+            <div style={{ padding: "28px 32px" }}>
+              <h1 style={{ margin: "8px 0 12px", fontSize: 32, fontWeight: 600, fontFamily: F, letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+                From Step One to <em style={{ fontStyle: "italic", color: theme.blue, fontWeight: 400 }}>Step Done</em>.
+              </h1>
+              <p style={{ margin: 0, fontSize: 14.5, color: theme.textSec, maxWidth: "52ch", lineHeight: 1.6, fontFamily: F }}>
+                {totalCases > 0
+                  ? `${totalCases} case files documented so far. ${totalRoadblocks > 0 ? `${totalRoadblocks} roadblocks on file — each one makes the next recommendation sharper.` : "Start logging builds to surface patterns."}`
+                  : "Start documenting workflow builds to train the system."}
+              </p>
+              <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                <Link to="/projects/new" style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "9px 16px", borderRadius: 8,
+                  background: theme.text, color: theme.bg,
+                  fontWeight: 600, fontSize: 13, fontFamily: F, textDecoration: "none",
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 3v10M3 8h10"/></svg>
+                  New Project
+                </Link>
+                <Link to="/projects" style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "8px 14px", borderRadius: 8,
+                  border: `1px solid ${theme.border}`, background: theme.surface,
+                  fontWeight: 600, fontSize: 13, fontFamily: F, textDecoration: "none", color: theme.textSec,
+                }}>
+                  My Projects
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 4l4 4-4 4"/></svg>
+                </Link>
+              </div>
+            </div>
 
-      {/* Roadblock types + Scope creep */}
-      <div className="fp-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <RoadblockTypesChart types={stats?.roadblock_types} loading={statsLoading} theme={theme} />
-        <ScopeCreepChart tools={stats?.scope_creep_tools} loading={statsLoading} theme={theme} />
-      </div>
-
-      {/* Satisfaction breakdown */}
-      <div style={{ marginBottom: 28 }}>
-        <SatisfactionPanel
-          byWorkflow={stats?.sat_by_workflow}
-          byIndustry={stats?.sat_by_industry}
-          loading={statsLoading}
-          theme={theme}
-        />
-      </div>
-
-      {/* Top tools */}
-      {stats?.top_tools?.length > 0 && (
-        <Card style={{ padding: "20px 22px", marginBottom: 28 }} theme={theme}>
-          <CardHeader title="Most common tools" theme={theme} />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {stats.top_tools.map(({ tool, count }) => (
-              <span key={tool} style={{ padding: "5px 12px", background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 20, fontSize: 12, color: theme.blue, fontFamily: F, fontWeight: 600 }}>
-                {tool} <span style={{ fontWeight: 400, color: theme.blueSubtle }}>×{count}</span>
-              </span>
-            ))}
+            {/* Right: pulse */}
+            <div style={{ padding: "24px 28px", borderLeft: `1px solid ${theme.borderSubtle}`, background: theme.bg }}>
+              <p style={{ margin: "0 0 14px", fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.12em", color: theme.textFaint, fontWeight: 600, fontFamily: F }}>This week at a glance</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <PulseRow value={statsLoading ? "—" : totalCases} label="Documented builds" sub={`across ${stats?.sat_by_industry?.length || 0} industries`} theme={theme} />
+                <PulseRow value={statsLoading ? "—" : avgSat || "—"} label="Median satisfaction" sub="score out of 5, across outcomes" valueColor="#3F7A52" theme={theme} />
+                <PulseRow
+                  value={todosLoading ? "—" : tasksDueThisWeek.length}
+                  label="Tasks due this week"
+                  sub={overdueThisWeek > 0 ? `${overdueThisWeek} overdue` : "next 7 days"}
+                  valueColor={overdueThisWeek > 0 ? "#B0412B" : "#B47A2B"}
+                  linkTo="/tasks"
+                  linkLabel="View tasks →"
+                  last
+                  theme={theme}
+                />
+              </div>
+            </div>
           </div>
         </Card>
-      )}
-
-      {/* Recent projects */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: theme.text, fontFamily: F }}>Recent projects</p>
-        <Link to="/projects" style={{ fontSize: 13, color: theme.blue, fontFamily: F, fontWeight: 600 }}>View all →</Link>
       </div>
 
-      {listLoading ? (
-        <div style={{ padding: 40, textAlign: "center", color: theme.textFaint, fontFamily: F }}>Loading…</div>
-      ) : recent.length === 0 ? (
-        <Card style={{ padding: "40px 20px", textAlign: "center" }} theme={theme}>
-          <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: theme.textSec, fontFamily: F }}>No projects yet</p>
-          <p style={{ margin: "0 0 20px", fontSize: 13, color: theme.textFaint, fontFamily: F }}>Start documenting workflow builds to train the system.</p>
-          <Link to="/projects/new">
-            <button style={{ padding: "10px 22px", background: theme.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
-              Log first build
-            </button>
-          </Link>
+      {/* Metrics — 4 stat cards */}
+      <SectionHead title="Metrics" sub="Snapshot, last 30 days" theme={theme} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 8 }}>
+        <StatCard label="Case files" value={statsLoading ? "—" : totalCases} sub="documented" theme={theme} />
+        <StatCard label="Avg satisfaction" value={statsLoading ? "—" : avgSat ? `${avgSat} / 5` : "—"} sub="across all outcomes" theme={theme} />
+        <StatCard label="Open roadblocks" value={statsLoading ? "—" : totalRoadblocks} sub="awaiting resolution" theme={theme} />
+        <StatCard label="Avg hours lost" value={statsLoading ? "—" : stats?.avg_roadblock_hours ? `${stats.avg_roadblock_hours}h` : "—"} sub="per roadblock" theme={theme} />
+      </div>
+
+      {/* Patterns — two insight cards side by side */}
+      <SectionHead title="Patterns" sub="What keeps going wrong, and what's working" theme={theme} />
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, marginBottom: 8 }}>
+        {/* Roadblock patterns */}
+        <Card theme={theme}>
+          <CardHead title="Top roadblock patterns" sub="Stacked by tools most often implicated" theme={theme} />
+          <div style={{ padding: 20 }}>
+            <StackedBarRows types={stats?.roadblock_types} loading={statsLoading} theme={theme} />
+          </div>
         </Card>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {recent.slice(0, 8).map((cf) => (
-            <Link key={cf.id} to={`/projects/${cf.id}`} style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  background: theme.surface,
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: 12,
-                  padding: "16px 20px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                  transition: "border-color 0.15s, box-shadow 0.15s",
-                  gap: 16,
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = theme.blueBorder; e.currentTarget.style.boxShadow = `0 2px 8px rgba(37,99,235,0.08)`; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 600, color: theme.text, fontFamily: F }}>
-                    {cf.name} - {cf.workflow_type || "Untitled workflow"}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 12, color: theme.textFaint, fontFamily: F }}>
-                    {cf.industries?.slice(0, 2).join(", ") || "No industry"}
-                    {" · "}
-                    {cf.logged_by_name}
-                    {" · "}
-                    {formatDate(cf.created_at)}
-                  </p>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-                  {cf.roadblock_count > 0 && (
-                    <span style={{ fontSize: 12, color: ORANGE, fontFamily: F, fontWeight: 600 }}>
-                      {cf.roadblock_count} roadblock{cf.roadblock_count !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                  {cf.satisfaction_score && <SatisfactionDot score={cf.satisfaction_score} theme={theme} />}
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 10,
-                    background: cf.status === "closed" ? "#ECFDF5" : "#EEEAF8",
-                    border: `1px solid ${cf.status === "closed" ? "#6EE7B7" : "#C8C2E8"}`,
-                    color: cf.status === "closed" ? "#065F46" : "#7B72B8",
-                    fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                  }}>
-                    {cf.status === "closed" ? "Closed" : "Open"}
-                  </span>
-                  <span style={{ color: theme.borderInput, fontSize: 16 }}>›</span>
-                </div>
-              </div>
-            </Link>
-          ))}
+
+        {/* Satisfaction by workflow */}
+        <Card theme={theme}>
+          <CardHead title="Satisfaction by workflow" sub="Average outcome score, 1–5" theme={theme} />
+          <div style={{ padding: 20 }}>
+            <SatStems data={stats?.sat_by_workflow} loading={statsLoading} theme={theme} />
+          </div>
+          {lowestSat && (
+            <CardFoot
+              left={<>Biggest gap: <b style={{ color: theme.text, fontWeight: 600 }}>{lowestSat.workflow_type}</b> at {lowestSat.avg_sat}/5</>}
+              theme={theme}
+            />
+          )}
+        </Card>
+      </div>
+
+      {/* Tools in rotation */}
+      <SectionHead
+        title="Tools in rotation"
+        sub={`From ${totalCases} case files — click any to filter`}
+        right={<Link to="/patterns" style={{ fontSize: 12.5, color: theme.blue, fontWeight: 600, fontFamily: F, textDecoration: "none" }}>See tool report →</Link>}
+        theme={theme}
+      />
+      <Card theme={theme}>
+        <div style={{ padding: 20 }}>
+          <ToolChips tools={stats?.top_tools} loading={statsLoading} theme={theme} />
         </div>
+      </Card>
+
+      {/* Recently logged */}
+      <SectionHead
+        title="Recently logged"
+        sub={`Last ${Math.min(recent.length, 6)} case files, newest first`}
+        right={<Link to="/projects" style={{ fontSize: 12.5, color: theme.blue, fontWeight: 600, fontFamily: F, textDecoration: "none" }}>All case files →</Link>}
+        theme={theme}
+      />
+      <Card theme={theme}>
+        {listLoading ? (
+          <div style={{ padding: 40, textAlign: "center", color: theme.textFaint, fontFamily: F }}>Loading…</div>
+        ) : recent.length === 0 ? (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: theme.textSec, fontFamily: F }}>No projects yet</p>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: theme.textFaint, fontFamily: F }}>Start documenting workflow builds to train the system.</p>
+            <Link to="/projects/new">
+              <button style={{ padding: "10px 22px", background: theme.text, border: "none", borderRadius: 8, color: theme.bg, fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>
+                Log first build
+              </button>
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {recent.slice(0, 6).map((cf, i) => (
+                <Link key={cf.id} to={`/projects/${cf.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "44px 1fr auto auto",
+                      gap: 18, alignItems: "center",
+                      padding: "14px 20px",
+                      borderBottom: i < Math.min(recent.length, 6) - 1 ? `1px solid ${theme.borderSubtle}` : "none",
+                      transition: "background 0.12s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = theme.bg}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    {/* Index */}
+                    <span style={{ fontSize: 22, fontWeight: 400, color: theme.textFaint, fontFamily: F, letterSpacing: "-0.02em" }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+
+                    {/* Body */}
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: theme.text, fontFamily: F, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {cf.name}{cf.workflow_type ? <span style={{ color: theme.textFaint, fontWeight: 500 }}> — {cf.workflow_type}</span> : ""}
+                      </p>
+                      <div style={{ margin: "3px 0 0", fontSize: 12, color: theme.textFaint, fontFamily: F, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <span>{cf.industries?.slice(0, 1).join(", ") || "—"}</span>
+                        <span>·</span>
+                        <span>{cf.logged_by_name}</span>
+                        <span>·</span>
+                        <span>{formatDate(cf.created_at)}</span>
+                        {cf.tools?.slice(0, 3).map(tool => (
+                          <span key={tool} style={{
+                            fontFamily: "monospace", fontSize: 10.5,
+                            padding: "1px 7px", border: `1px solid ${theme.border}`, borderRadius: 4,
+                            background: theme.bg, color: theme.textSec,
+                          }}>{tool}</span>
+                        ))}
+                        {cf.roadblock_count > 0 && (
+                          <span style={{ color: "#B47A2B" }}>· {cf.roadblock_count} roadblock{cf.roadblock_count !== 1 ? "s" : ""}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Satisfaction */}
+                    {cf.satisfaction_score ? <SatBars score={cf.satisfaction_score} /> : <span />}
+
+                    {/* Status */}
+                    <StatusTag status={cf.status} theme={theme} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <CardFoot
+              left={`Showing ${Math.min(recent.length, 6)} of ${totalCases}`}
+              right={<Link to="/projects" style={{ color: theme.blue, fontWeight: 600, fontSize: 12, fontFamily: F, textDecoration: "none" }}>View all case files →</Link>}
+              theme={theme}
+            />
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ── Pulse row (overview card right side) ──────────────────────────────────────
+
+function PulseRow({ value, label, sub, valueColor, last, linkTo, linkLabel, theme }) {
+  const body = (
+    <div style={{
+      display: "flex", alignItems: "baseline", gap: 14,
+      paddingBottom: last ? 0 : 12,
+      borderBottom: last ? "none" : `1px dashed ${theme.borderSubtle}`,
+    }}>
+      <span style={{ fontFamily: F, fontWeight: 400, fontSize: 28, letterSpacing: "-0.02em", minWidth: 72, color: valueColor || theme.text }}>{value}</span>
+      <div style={{ flex: 1, fontSize: 13, color: theme.textSec, fontFamily: F }}>
+        {label}
+        {sub && <small style={{ display: "block", color: theme.textFaint, fontSize: 11.5, marginTop: 2 }}>{sub}</small>}
+      </div>
+      {linkTo && (
+        <span style={{ fontSize: 11.5, fontFamily: F, color: theme.blue, fontWeight: 600, whiteSpace: "nowrap" }}>
+          {linkLabel || "View →"}
+        </span>
       )}
     </div>
   );
+
+  if (linkTo) {
+    return (
+      <Link to={linkTo} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+        {body}
+      </Link>
+    );
+  }
+  return body;
 }

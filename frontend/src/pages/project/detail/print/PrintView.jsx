@@ -1,4 +1,5 @@
 import { PF } from "../constants";
+import ProjectDetailHeader from "@components/ProjectDetailHeader";
 import PrintSection from "./PrintSection";
 import PrintRow from "./PrintRow";
 import PrintTagList from "./PrintTagList";
@@ -29,36 +30,8 @@ export default function PrintView({ cf }) {
         </span>
       </div>
 
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: "0 0 6px", fontSize: 28, fontFamily: "'Fraunces', serif", color: "#111827" }}>
-          {cf.name || cf.workflow_type || "Untitled workflow"}
-        </h1>
-        {cf.name && cf.workflow_type && (
-          <p style={{ margin: "0 0 10px", fontSize: 15, color: "#6B7280", fontFamily: PF }}>{cf.workflow_type}</p>
-        )}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, color: "#6B7280", fontFamily: PF }}>
-          {cf.logged_by_name && (
-            <span>Prepared by <strong style={{ color: "#374151" }}>{cf.logged_by_name}</strong></span>
-          )}
-          {cf.team_size && <><span>·</span><span>{cf.team_size} team</span></>}
-        </div>
-      </div>
-
-      {/* Meta chips */}
-      {(cf.industries?.length > 0 || cf.tools?.length > 0 || cf.process_frameworks?.length > 0) && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
-          {cf.industries?.map(i => (
-            <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EEEAF8", border: "1px solid #C8C2E8", color: "#9B93E8", fontFamily: PF, fontWeight: 500 }}>{i}</span>
-          ))}
-          {cf.tools?.slice(0, 6).map(t => (
-            <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F3F4F6", border: "1px solid #E5E7EB", color: "#6B7280", fontFamily: PF }}>{t}</span>
-          ))}
-          {cf.process_frameworks?.slice(0, 4).map(f => (
-            <span key={f} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#7C3AED", fontFamily: PF }}>{f}</span>
-          ))}
-        </div>
-      )}
+      {/* Header (shared component) */}
+      <ProjectDetailHeader cf={cf} />
 
       {/* Progress Overview & Key Updates (AI summary) */}
       {cf.updates_summary && (

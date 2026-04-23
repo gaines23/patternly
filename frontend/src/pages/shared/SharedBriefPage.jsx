@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import publicApi from "../../api/publicClient";
+import ProjectDetailHeader from "../../components/ProjectDetailHeader";
+import { WorkflowMapPanel } from "../../components/WorkflowMapPanel";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 const BLUE = "#9B93E8";
@@ -78,7 +80,7 @@ function TagList({ items, color = BLUE }) {
 }
 
 function CurrentBuildCard({ build, index }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const urgColors = { low: "#10B981", medium: "#F59E0B", high: "#F97316", critical: "#EF4444" };
   const uc = urgColors[build.urgency?.toLowerCase()] || "#9CA3AF";
   return (
@@ -119,8 +121,8 @@ function CurrentBuildCard({ build, index }) {
   );
 }
 
-function CollapsibleCard({ title, badge, children }) {
-  const [open, setOpen] = useState(true);
+function CollapsibleCard({ title, badge, action, children }) {
+  const [open, setOpen] = useState(false);
   return (
     <div style={{ border: "1px solid #BAE6FD", borderRadius: 12, marginBottom: 14, background: "#0284C710", overflow: "hidden" }}>
       <div
@@ -129,6 +131,11 @@ function CollapsibleCard({ title, badge, children }) {
       >
         {badge}
         <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: "#111827", fontFamily: F }}>{title}</span>
+        {action && (
+          <span onClick={e => e.stopPropagation()} style={{ display: "inline-flex" }}>
+            {action}
+          </span>
+        )}
         <span style={{ fontSize: 11, color: "#0284C7", opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
       </div>
       {open && (
@@ -172,6 +179,7 @@ function RoadblockCard({ rb, index }) {
 
 export default function SharedBriefPage() {
   const { shareToken } = useParams();
+  const [mapWfIndex, setMapWfIndex] = useState(null);
 
   const { data: cf, isLoading, isError, error } = useQuery({
     queryKey: ["publicBrief", shareToken],
@@ -217,37 +225,9 @@ export default function SharedBriefPage() {
         </span>
       </div>
 
-      <div style={{ maxWidth: 780, margin: "0 auto", padding: "36px 24px 80px" }}>
-        {/* Header */}
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={{ margin: "0 0 6px", fontSize: 28, fontFamily: "'Fraunces', serif", color: "#111827" }}>
-            {cf.name || cf.workflow_type || "Workspace Blueprint"}
-          </h1>
-          {cf.name && cf.workflow_type && (
-            <p style={{ margin: "0 0 10px", fontSize: 15, color: "#6B7280", fontFamily: F }}>{cf.workflow_type}</p>
-          )}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, color: "#6B7280", fontFamily: F }}>
-            {cf.logged_by_name && (
-              <span>Prepared by <strong style={{ color: "#374151" }}>{cf.logged_by_name}</strong></span>
-            )}
-            {cf.team_size && <><span>·</span><span>{cf.team_size} team</span></>}
-          </div>
-        </div>
-
-        {/* Meta chips */}
-        {(cf.industries?.length > 0 || cf.tools?.length > 0 || cf.process_frameworks?.length > 0) && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
-            {cf.industries?.map(i => (
-              <span key={i} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#EEEAF8", border: "1px solid #C8C2E8", color: BLUE, fontFamily: F, fontWeight: 500 }}>{i}</span>
-            ))}
-            {cf.tools?.slice(0, 8).map(t => (
-              <span key={t} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F3F4F6", border: "1px solid #E5E7EB", color: "#6B7280", fontFamily: F }}>{t}</span>
-            ))}
-            {cf.process_frameworks?.slice(0, 4).map(f => (
-              <span key={f} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 12, background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#7C3AED", fontFamily: F }}>{f}</span>
-            ))}
-          </div>
-        )}
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 32px 80px" }}>
+        {/* Header (shared component) */}
+        <ProjectDetailHeader cf={cf} />
 
         {/* Progress Overview & Key Updates (AI summary) */}
         {cf.updates_summary && (
@@ -398,6 +378,21 @@ export default function SharedBriefPage() {
                     key={wi}
                     title={wf.name || `Workflow ${wi + 1}`}
                     badge={<span style={{ width: 24, height: 24, borderRadius: 6, background: "#0284C7", color: "#fff", fontSize: 12, fontWeight: 700, fontFamily: F, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{wi + 1}</span>}
+                    action={
+                      <button
+                        onClick={() => setMapWfIndex(mapWfIndex === wi ? null : wi)}
+                        style={{
+                          fontSize: 11, fontWeight: 600, fontFamily: F,
+                          color: mapWfIndex === wi ? "#fff" : "#0284C7",
+                          background: mapWfIndex === wi ? "#0284C7" : "#E0F2FE",
+                          border: "1px solid #BAE6FD",
+                          borderRadius: 6, padding: "3px 10px",
+                          cursor: "pointer", lineHeight: 1.4,
+                        }}
+                      >
+                        {mapWfIndex === wi ? "✕ Map" : "Map ↗"}
+                      </button>
+                    }
                   >
                     {wf.notes && <p style={{ margin: "0 0 12px", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.6, fontStyle: "italic" }}>{wf.notes}</p>}
                     {wf.lists?.map((l, li) => (
@@ -523,6 +518,15 @@ export default function SharedBriefPage() {
           </p>
         </div>
       </div>
+
+      {/* Workflow map modal */}
+      {mapWfIndex !== null && build?.workflows?.[mapWfIndex] && (
+        <WorkflowMapPanel
+          workflow={build.workflows[mapWfIndex]}
+          onClose={() => setMapWfIndex(null)}
+          asModal
+        />
+      )}
     </div>
   );
 }

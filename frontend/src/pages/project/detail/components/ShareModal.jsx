@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "@hooks/useTheme";
 import { useShareProject, useClientShareProject } from "@hooks/useProjects";
 import { F, BLUE } from "../constants";
@@ -81,7 +82,7 @@ export default function ShareModal({ cf, onClose }) {
     ? `${window.location.origin}/client-brief/${cf.client_share_token}`
     : null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
@@ -137,6 +138,7 @@ export default function ShareModal({ cf, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
