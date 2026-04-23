@@ -2,6 +2,7 @@ import { F } from "../constants";
 import Section from "../components/Section";
 import DetailRow from "../components/DetailRow";
 import RoadblockCard from "../components/RoadblockCard";
+import EditButton from "../components/EditButton";
 
 /**
  * Layer 4 — Intent vs Reality (Delta)
@@ -10,8 +11,9 @@ import RoadblockCard from "../components/RoadblockCard";
  *   delta      — cf.delta object
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
+ *   onEdit     — optional callback to jump into the edit form at this section
  */
-export default function DeltaSection({ delta, theme, layerTodos = [] }) {
+export default function DeltaSection({ delta, theme, layerTodos = [], onEdit }) {
   if (!delta) return null;
 
   return (
@@ -20,6 +22,7 @@ export default function DeltaSection({ delta, theme, layerTodos = [] }) {
       subtitle="Log the gap between what was wanted and what was delivered"
       color="#059669"
       layerTodos={layerTodos}
+      headerRight={onEdit ? <EditButton color="#059669" onClick={onEdit} /> : null}
     >
       <DetailRow label="User intent " value={delta.user_intent} fullWidth />
       <DetailRow label="Success criteria " value={delta.success_criteria} fullWidth />

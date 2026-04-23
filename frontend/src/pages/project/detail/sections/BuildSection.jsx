@@ -3,6 +3,7 @@ import Section from "../components/Section";
 import CollapsibleCard from "../components/CollapsibleCard";
 import DetailRow from "../components/DetailRow";
 import ViewAutoCard from "../components/ViewAutoCard";
+import EditButton from "../components/EditButton";
 
 /**
  * Layer 3 — Build Documentation
@@ -18,7 +19,7 @@ import ViewAutoCard from "../components/ViewAutoCard";
  *   mapWfIndex     — currently-selected workflow index for the map panel (or null)
  *   setMapWfIndex  — setter to toggle the workflow map
  */
-export default function BuildSection({ build, isPrinting, theme, mapWfIndex, setMapWfIndex, layerTodos = [] }) {
+export default function BuildSection({ build, isPrinting, theme, mapWfIndex, setMapWfIndex, layerTodos = [], onEdit }) {
   if (!build) return null;
 
   return (
@@ -27,6 +28,7 @@ export default function BuildSection({ build, isPrinting, theme, mapWfIndex, set
       subtitle="Document everything that was built"
       color="#0284C7"
       layerTodos={layerTodos}
+      headerRight={onEdit ? <EditButton color="#0284C7" onClick={onEdit} /> : null}
     >
       {/* Spaces */}
       {build.spaces && (

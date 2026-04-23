@@ -2,6 +2,7 @@ import { F, BLUE } from "../constants";
 import Section from "../components/Section";
 import DetailRow from "../components/DetailRow";
 import TagList from "../components/TagList";
+import EditButton from "../components/EditButton";
 
 /**
  * Layer 2 — Who's the client? (Intake)
@@ -10,8 +11,9 @@ import TagList from "../components/TagList";
  *   intake     — cf.intake object
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
+ *   onEdit     — optional callback to jump into the edit form at this section
  */
-export default function IntakeSection({ intake, theme, layerTodos = [] }) {
+export default function IntakeSection({ intake, theme, layerTodos = [], onEdit }) {
   if (!intake) return null;
 
   return (
@@ -20,6 +22,7 @@ export default function IntakeSection({ intake, theme, layerTodos = [] }) {
       subtitle="Capture the scenario, industry, team, and tools"
       color="#7C3AED"
       layerTodos={layerTodos}
+      headerRight={onEdit ? <EditButton color="#7C3AED" onClick={onEdit} /> : null}
     >
       <DetailRow label="Team size" value={intake.team_size} />
       <DetailRow label="Workflow type" value={intake.workflow_type} />

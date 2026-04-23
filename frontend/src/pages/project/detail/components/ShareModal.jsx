@@ -74,6 +74,12 @@ export default function ShareModal({ cf, onClose }) {
   const shareMutation = useShareProject(cf.id);
   const clientShareMutation = useClientShareProject(cf.id);
 
+  if (!cf.id) {
+    // Defensive — without a project id both toggle endpoints would 404.
+    // eslint-disable-next-line no-console
+    console.error("ShareModal received a project object without `id`", cf);
+  }
+
   const fullShareUrl = cf.share_token
     ? `${window.location.origin}/brief/${cf.share_token}`
     : null;
@@ -113,7 +119,7 @@ export default function ShareModal({ cf, onClose }) {
           description="Shares only the progress overview summary. Ideal for client-facing updates."
           isEnabled={cf.client_share_enabled}
           isPending={clientShareMutation.isPending}
-          onToggle={() => clientShareMutation.mutate()}
+          onToggle={() => clientShareMutation.mutate(cf.id)}
           shareUrl={clientShareUrl}
           color="#6366F1"
         />
@@ -124,7 +130,7 @@ export default function ShareModal({ cf, onClose }) {
           description="Shares the complete workspace blueprint — all layers, notes, and build details."
           isEnabled={cf.share_enabled}
           isPending={shareMutation.isPending}
-          onToggle={() => shareMutation.mutate()}
+          onToggle={() => shareMutation.mutate(cf.id)}
           shareUrl={fullShareUrl}
           color={BLUE}
         />

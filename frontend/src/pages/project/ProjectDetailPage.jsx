@@ -13,6 +13,7 @@ import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
 import CaseFileHeader  from "./detail/components/ProjectHeader";
 import ShareModal      from "./detail/components/ShareModal";
 import Section         from "./detail/components/Section";
+import EditButton      from "./detail/components/EditButton";
 
 // Section render blocks
 import AuditSection     from "./detail/sections/AuditSection";
@@ -31,28 +32,64 @@ import { F } from "./detail/constants";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ProjectUpdatesView({ projectUpdates, theme, caseFileId, projectName, preparedBy, savedUpdatesSummary, savedUpdatesGeneratedAt }) {
+function ProjectUpdateItem({ pu }) {
+  const [open, setOpen] = useState(false);
+  const dateLabel = pu.created_at
+    ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
+    : "—";
+  return (
+    <div style={{ border: "1.5px solid #BAE6FD", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F0F9FF", borderBottom: open ? "1px solid #BAE6FD" : "none", cursor: "pointer", userSelect: "none" }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>{dateLabel}</span>
+        {pu.attachments?.length > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>📎 {pu.attachments.length}</span>
+        )}
+        <span style={{ marginLeft: "auto", fontSize: 14, color: "#0284C7", display: "inline-block", transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}>▾</span>
+      </div>
+      {open && (
+        <div style={{ padding: "12px 14px" }}>
+          {pu.content && <p style={{ margin: 0, fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{pu.content}</p>}
+          {pu.attachments?.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {pu.attachments.map((att, ai) => att.url && (
+                <span key={ai} style={{ fontSize: 12, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "3px 10px", fontFamily: F, fontWeight: 500 }}>{att.name || att.url}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProjectUpdatesView({ projectUpdates, theme, caseFileId, projectName, preparedBy, savedUpdatesSummary, savedUpdatesGeneratedAt, onEdit }) {
   const [view, setView] = useState("notes"); // "notes" | "summary"
 
-  const toggleBtn = (
-    <button
-      onClick={(e) => { e.stopPropagation(); setView(v => v === "notes" ? "summary" : "notes"); }}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 6,
-        padding: "4px 12px", borderRadius: 6, cursor: "pointer",
-        background: view === "summary" ? "#8B5CF6" : "transparent",
-        border: `1px solid ${view === "summary" ? "#8B5CF6" : "#8B5CF660"}`,
-        color: view === "summary" ? "#fff" : "#8B5CF6",
-        fontSize: 11, fontWeight: 700, fontFamily: F,
-        transition: "all 0.15s",
-      }}
-    >
-      {view === "summary" ? "← Back to Notes" : "AI Summary"}
-    </button>
+  const headerActions = (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setView(v => v === "notes" ? "summary" : "notes"); }}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          padding: "4px 12px", borderRadius: 6, cursor: "pointer",
+          background: view === "summary" ? "#8B5CF6" : "transparent",
+          border: `1px solid ${view === "summary" ? "#8B5CF6" : "#8B5CF660"}`,
+          color: view === "summary" ? "#fff" : "#8B5CF6",
+          fontSize: 11, fontWeight: 700, fontFamily: F,
+          transition: "all 0.15s",
+        }}
+      >
+        {view === "summary" ? "← Back to Notes" : "AI Summary"}
+      </button>
+      {onEdit && <EditButton color="#0284C7" onClick={onEdit} />}
+    </div>
   );
 
   return (
-    <Section title="Project Updates" subtitle="Timestamped notes and attachments" color="#0284C7" headerRight={toggleBtn}>
+    <Section title="Project Updates" subtitle="Timestamped notes and attachments" color="#0284C7" headerRight={headerActions}>
       {view === "summary" ? (
         <SummarySection
           caseFileId={caseFileId}
@@ -69,39 +106,18 @@ function ProjectUpdatesView({ projectUpdates, theme, caseFileId, projectName, pr
       ) : (
         !projectUpdates?.length
           ? <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, fontStyle: "italic", margin: 0 }}>No updates logged.</p>
-          : <div>{[...projectUpdates].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")).map((pu, i) => {
-            const dateLabel = pu.created_at
-              ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
-              : "—";
-            return (
-              <div key={pu.id || i} style={{ border: "1.5px solid #BAE6FD", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F0F9FF", borderBottom: "1px solid #BAE6FD" }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>{dateLabel}</span>
-                  {pu.attachments?.length > 0 && (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>📎 {pu.attachments.length}</span>
-                  )}
-                </div>
-                <div style={{ padding: "12px 14px" }}>
-                  {pu.content && <p style={{ margin: 0, fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{pu.content}</p>}
-                  {pu.attachments?.length > 0 && (
-                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {pu.attachments.map((att, ai) => att.url && (
-                        <span key={ai} style={{ fontSize: 12, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "3px 10px", fontFamily: F, fontWeight: 500 }}>{att.name || att.url}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}</div>
+          : <div>{[...projectUpdates]
+              .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
+              .map((pu, i) => <ProjectUpdateItem key={pu.id || i} pu={pu} />)
+            }</div>
       )}
     </Section>
   );
 }
 
-function ScopeCreepView({ scopeCreep, theme }) {
+function ScopeCreepView({ scopeCreep, theme, onEdit }) {
   return (
-    <Section title="Scope Creep" subtitle="Unplanned additions to the build" color="#D97706">
+    <Section title="Scope Creep" subtitle="Unplanned additions to the build" color="#D97706" headerRight={onEdit ? <EditButton color="#D97706" onClick={onEdit} /> : null}>
       {!scopeCreep?.length
         ? <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, fontStyle: "italic", margin: 0 }}>No scope creep logged.</p>
         : <div>{scopeCreep.map((sc, i) => (
@@ -152,6 +168,7 @@ export default function CaseFileDetailPage() {
   const [showBanner,     setShowBanner]     = useState(!!justCreated);
   const [deleteTarget,   setDeleteTarget]   = useState(false);
   const [isEditing,      setIsEditing]      = useState(false);
+  const [editStartStep,  setEditStartStep]  = useState(0);
   const [apiError,       setApiError]       = useState(null);
   const [mapWfIndex,     setMapWfIndex]     = useState(null);
   const [showShare,      setShowShare]      = useState(false);
@@ -168,6 +185,25 @@ export default function CaseFileDetailPage() {
   // Offset for the sticky TopBar (54px) + a little breathing room, matches
   // the `.layer-nav { top: 80px }` pattern from the reference design.
   const STICKY_OFFSET = 80;
+
+  // Map detail-page section id → ProjectForm step index (see SECTIONS in ProjectForm.jsx)
+  const SECTION_TO_FORM_STEP = {
+    projectUpdates: 0,
+    scopeCreep:     1,
+    audit:          2,
+    intake:         3,
+    build:          4,
+    delta:          5,
+    reasoning:      6,
+    outcome:        7,
+  };
+
+  const handleEditSection = (sectionId) => {
+    const stepIndex = SECTION_TO_FORM_STEP[sectionId];
+    setEditStartStep(typeof stepIndex === "number" ? stepIndex : 0);
+    setIsEditing(true);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+  };
 
   const scrollToSection = (sectionId, index) => {
     const el = sectionRefs.current[sectionId];
@@ -291,6 +327,7 @@ export default function CaseFileDetailPage() {
           onSubmit={handleEditSubmit}
           isSaving={updateMutation.isPending}
           isEditing
+          initialStep={editStartStep}
           onCancel={() => { setIsEditing(false); setApiError(null); }}
           suggestedAutomations={suggestedAutomations}
         />
@@ -422,14 +459,14 @@ export default function CaseFileDetailPage() {
               const setRef = (el) => { sectionRefs.current[s.id] = el; };
               let body = null;
               if (s.id === "fullSummary")    body = <SummarySection    caseFileId={id} projectName={cf.name || cf.workflow_type || "Project"} preparedBy={cf.logged_by_name} summaryType="full" title="Full Project Summary" subtitle="AI summary of the full project for reporting" color="#6366F1" workflows={build?.workflows} onOpenMap={setMapWfIndex} savedSummary={cf.full_summary} savedGeneratedAt={cf.full_summary_generated_at} />;
-              if (s.id === "projectUpdates") body = <ProjectUpdatesView projectUpdates={project_updates} theme={theme} caseFileId={id} projectName={cf.name || cf.workflow_type || "Project"} preparedBy={cf.logged_by_name} savedUpdatesSummary={cf.updates_summary} savedUpdatesGeneratedAt={cf.updates_summary_generated_at} />;
-              if (s.id === "scopeCreep")     body = <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} />;
-              if (s.id === "intake")         body = <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} />;
-              if (s.id === "audit")          body = <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} />;
-              if (s.id === "build")          body = <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} />;
-              if (s.id === "delta")          body = <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} />;
-              if (s.id === "reasoning")      body = <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} />;
-              if (s.id === "outcome")        body = <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} />;
+              if (s.id === "projectUpdates") body = <ProjectUpdatesView projectUpdates={project_updates} theme={theme} caseFileId={id} projectName={cf.name || cf.workflow_type || "Project"} preparedBy={cf.logged_by_name} savedUpdatesSummary={cf.updates_summary} savedUpdatesGeneratedAt={cf.updates_summary_generated_at} onEdit={() => handleEditSection("projectUpdates")} />;
+              if (s.id === "scopeCreep")     body = <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} onEdit={() => handleEditSection("scopeCreep")} />;
+              if (s.id === "intake")         body = <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} onEdit={() => handleEditSection("intake")} />;
+              if (s.id === "audit")          body = <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} onEdit={() => handleEditSection("audit")} />;
+              if (s.id === "build")          body = <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} onEdit={() => handleEditSection("build")} />;
+              if (s.id === "delta")          body = <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} onEdit={() => handleEditSection("delta")} />;
+              if (s.id === "reasoning")      body = <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} onEdit={() => handleEditSection("reasoning")} />;
+              if (s.id === "outcome")        body = <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} onEdit={() => handleEditSection("outcome")} />;
 
               return (
                 <section

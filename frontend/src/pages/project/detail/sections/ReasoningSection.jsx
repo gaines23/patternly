@@ -1,6 +1,7 @@
 import { F } from "../constants";
 import Section from "../components/Section";
 import DetailRow from "../components/DetailRow";
+import EditButton from "../components/EditButton";
 
 /**
  * Layer 5 — Decision Reasoning
@@ -9,8 +10,9 @@ import DetailRow from "../components/DetailRow";
  *   reasoning  — cf.reasoning object
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
+ *   onEdit     — optional callback to jump into the edit form at this section
  */
-export default function ReasoningSection({ reasoning, theme, layerTodos = [] }) {
+export default function ReasoningSection({ reasoning, theme, layerTodos = [], onEdit }) {
   if (!reasoning) return null;
 
   return (
@@ -19,6 +21,7 @@ export default function ReasoningSection({ reasoning, theme, layerTodos = [] }) 
       subtitle="Record the reasoning behind every major decision"
       color="#059669"
       layerTodos={layerTodos}
+      headerRight={onEdit ? <EditButton color="#059669" onClick={onEdit} /> : null}
     >
       <DetailRow label="Why this structure" value={reasoning.why_structure} fullWidth />
       <DetailRow label="Alternatives considered" value={reasoning.alternatives} fullWidth />

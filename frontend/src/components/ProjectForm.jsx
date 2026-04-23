@@ -622,7 +622,7 @@ function AuditScopeCreepCard({ item, index, onChange, onRemove }) {
 
 function AuditProjectUpdateCard({ item, onChange, onRemove }) {
   const { theme } = useTheme();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!item._new);
   const dateLabel = item.createdAt
     ? (() => { const [y,m,d] = item.createdAt.slice(0,10).split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); })()
     : "New update";
@@ -685,7 +685,10 @@ function StepProjectUpdates({ projectUpdates, onProjectUpdatesChange, isEditing 
           <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Project Updates</p>
           <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Timestamped notes & attachments</p>
         </div>
-        <button type="button" onClick={() => onProjectUpdatesChange([...pu, {content:"",attachments:[],createdAt:new Date().toISOString()}])}
+        <button type="button" onClick={() => {
+          const _key = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+          onProjectUpdatesChange([{content:"",attachments:[],createdAt:new Date().toISOString(),_new:true,_key}, ...pu]);
+        }}
           style={{ fontSize:12, fontWeight:600, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontFamily:F, flexShrink:0 }}>
           + Add
         </button>
@@ -693,7 +696,7 @@ function StepProjectUpdates({ projectUpdates, onProjectUpdatesChange, isEditing 
       {pu.length === 0
         ? <p style={{ margin:0, fontSize:12, color:theme.textFaint, fontFamily:F }}>No updates yet — click Add to log progress notes.</p>
         : pu.map((item, i) => (
-            <AuditProjectUpdateCard key={i} item={item}
+            <AuditProjectUpdateCard key={item.id || item._key || i} item={item}
               onChange={v => { const next=[...pu]; next[i]=v; onProjectUpdatesChange(next); }}
               onRemove={() => onProjectUpdatesChange(pu.filter((_,idx)=>idx!==i))}/>
           ))
@@ -1383,9 +1386,9 @@ function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color,
 const LIFECYCLE_STAGES = ["Mapping","In Review","Client Approved","Live","Archived"];
 const LIFECYCLE_COLORS = { "Mapping":"#D97706","In Review":"#7C3AED","Client Approved":"#0284C7","Live":"#059669","Archived":"#6B7280" };
 
-function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomations, previousBuilds, isMapActive, onToggleMap }) {
+function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomations, previousBuilds, isMapActive, onToggleMap, defaultCollapsed = false }) {
   const { theme } = useTheme();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const color = "#0284C7";
   const status = wf.status || "Mapping";
   const sc = LIFECYCLE_COLORS[status] || "#D97706";
@@ -1485,7 +1488,7 @@ function formWfToMapWf(wf) {
   };
 }
 
-function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [], intakePrompt = "" }) {
+function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [], intakePrompt = "", isEditing = false }) {
   const { theme } = useTheme();
   const [mapWfIndex, setMapWfIndex] = useState(null);
   const workflows = data.workflows || [];
@@ -1546,7 +1549,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBui
         </div>
       ) : (<>
         {workflows.map((wf,i) => (
-          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds} isMapActive={mapWfIndex===i} onToggleMap={()=>setMapWfIndex(mapWfIndex===i?null:i)}/>
+          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds} isMapActive={mapWfIndex===i} onToggleMap={()=>setMapWfIndex(mapWfIndex===i?null:i)} defaultCollapsed={isEditing}/>
         ))}
         <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #C8C2E8", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
           + Add another workflow
@@ -1714,9 +1717,11 @@ function computeConfidence(data) {
 }
 
 // ── Main CaseFileForm ─────────────────────────────────────────────────────────
-export default function ProjectForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel, hideRawPrompt, suggestedAutomations }) {
+export default function ProjectForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel, hideRawPrompt, suggestedAutomations, initialStep }) {
   const shouldHidePrompt = hideRawPrompt || isEditing;
-  const [step, setStep] = useState(isEditing ? 0 : 2);
+  const [step, setStep] = useState(
+    typeof initialStep === "number" ? initialStep : (isEditing ? 0 : 2)
+  );
   const [data, setData] = useState(initialData || DEFAULT_STATE);
   const [enteredBy, setEnteredBy] = useState(initialEnteredBy || "");
   const [caseName, setCaseName] = useState(initialName || "");
@@ -2023,7 +2028,7 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
                 auditData={data.audit} setAudit={v=>setSD("audit",v)} w={w} isEditing={isEditing}/>
             )}
             {step===3 && <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
-            {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds} intakePrompt={data.intake?.rawPrompt || ""}/>}
+            {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds} intakePrompt={data.intake?.rawPrompt || ""} isEditing={isEditing}/>}
             {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w} aiSuggestedFields={aiSuggestedFields}/>}
             {step===6 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
             {step===7 && <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>}

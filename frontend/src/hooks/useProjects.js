@@ -107,15 +107,20 @@ export function useToggleProjectStatus(id) {
 }
 
 // ── Toggle shareable link ─────────────────────────────────────────────────────
-export function useShareProject(id) {
+// Accepts the project id as a fallback when `mutate()` is invoked without one,
+// so existing callers (`useShareProject(id)` + `mutate()`) keep working while
+// new callers can pass the id directly at click time (`mutate(id)`).
+export function useShareProject(fallbackId) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post(`/v1/briefs/${id}/share/`);
-      return data;
+    mutationFn: async (id) => {
+      const resolvedId = id ?? fallbackId;
+      if (!resolvedId) throw new Error("useShareProject: missing project id");
+      const { data } = await api.post(`/v1/briefs/${resolvedId}/share/`);
+      return { id: resolvedId, ...data };
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(projectKeys.detail(id), (old) =>
+      queryClient.setQueryData(projectKeys.detail(data.id), (old) =>
         old ? { ...old, share_enabled: data.share_enabled, share_token: data.share_token } : old
       );
     },
@@ -123,15 +128,17 @@ export function useShareProject(id) {
 }
 
 // ── Toggle client share link ──────────────────────────────────────────────
-export function useClientShareProject(id) {
+export function useClientShareProject(fallbackId) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post(`/v1/briefs/${id}/client-share/`);
-      return data;
+    mutationFn: async (id) => {
+      const resolvedId = id ?? fallbackId;
+      if (!resolvedId) throw new Error("useClientShareProject: missing project id");
+      const { data } = await api.post(`/v1/briefs/${resolvedId}/client-share/`);
+      return { id: resolvedId, ...data };
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(projectKeys.detail(id), (old) =>
+      queryClient.setQueryData(projectKeys.detail(data.id), (old) =>
         old ? { ...old, client_share_enabled: data.client_share_enabled, client_share_token: data.client_share_token } : old
       );
     },

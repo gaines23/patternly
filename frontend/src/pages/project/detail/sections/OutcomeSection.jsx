@@ -2,6 +2,7 @@ import { F } from "../constants";
 import Section from "../components/Section";
 import DetailRow from "../components/DetailRow";
 import SatisfactionStars from "../components/SatisfactionStars";
+import EditButton from "../components/EditButton";
 
 /**
  * Layer 6 — Outcome
@@ -10,8 +11,9 @@ import SatisfactionStars from "../components/SatisfactionStars";
  *   outcome    — cf.outcome object
  *   isPrinting — force all collapsibles open during print
  *   theme      — theme object from useTheme()
+ *   onEdit     — optional callback to jump into the edit form at this section
  */
-export default function OutcomeSection({ outcome, theme, layerTodos = [] }) {
+export default function OutcomeSection({ outcome, theme, layerTodos = [], onEdit }) {
   if (!outcome) return null;
 
   return (
@@ -20,6 +22,7 @@ export default function OutcomeSection({ outcome, theme, layerTodos = [] }) {
       subtitle="Capture the post-build result and long-term usage signal"
       color="#059669"
       layerTodos={layerTodos}
+      headerRight={onEdit ? <EditButton color="#059669" onClick={onEdit} /> : null}
     >
       <DetailRow label="Did they build it" value={outcome.built ? outcome.built.charAt(0).toUpperCase() + outcome.built.slice(1) : null} />
       <DetailRow label="Block reason" value={outcome.block_reason} fullWidth />

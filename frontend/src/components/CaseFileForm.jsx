@@ -619,7 +619,7 @@ function AuditScopeCreepCard({ item, index, onChange, onRemove }) {
 
 function AuditProjectUpdateCard({ item, onChange, onRemove }) {
   const { theme } = useTheme();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!item._new);
   const dateLabel = item.createdAt
     ? (() => { const [y,m,d] = item.createdAt.slice(0,10).split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); })()
     : "New update";
@@ -759,7 +759,10 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
               <p style={{ margin:0, fontSize:14, fontWeight:700, color:theme.text, fontFamily:F }}>Project Updates</p>
               <p style={{ margin:"2px 0 0", fontSize:12, color:theme.textFaint, fontFamily:F }}>Timestamped notes & attachments</p>
             </div>
-            <button type="button" onClick={() => onProjectUpdatesChange([...pu, {content:"",attachments:[],createdAt:new Date().toISOString()}])}
+            <button type="button" onClick={() => {
+              const _key = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+              onProjectUpdatesChange([{content:"",attachments:[],createdAt:new Date().toISOString(),_new:true,_key}, ...pu]);
+            }}
               style={{ fontSize:12, fontWeight:600, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontFamily:F, flexShrink:0 }}>
               + Add
             </button>
@@ -767,7 +770,7 @@ function StepAudit({ data, set, caseName, setCaseName, projectUpdates, onProject
           {pu.length === 0
             ? <p style={{ margin:0, fontSize:12, color:theme.textFaint, fontFamily:F }}>No updates yet — click Add to log progress notes.</p>
             : pu.map((item, i) => (
-                <AuditProjectUpdateCard key={i} item={item}
+                <AuditProjectUpdateCard key={item.id || item._key || i} item={item}
                   onChange={v => { const next=[...pu]; next[i]=v; onProjectUpdatesChange(next); }}
                   onRemove={() => onProjectUpdatesChange(pu.filter((_,idx)=>idx!==i))}/>
               ))

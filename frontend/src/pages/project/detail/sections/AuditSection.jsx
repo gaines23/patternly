@@ -2,6 +2,7 @@ import { F } from "../constants";
 import Section from "../components/Section";
 import DetailRow from "../components/DetailRow";
 import CurrentBuildCard from "../components/CurrentBuildCard";
+import EditButton from "../components/EditButton";
 
 /**
  * Layer 1 — What's in place now? (Audit)
@@ -9,8 +10,9 @@ import CurrentBuildCard from "../components/CurrentBuildCard";
  * Props:
  *   audit  — cf.audit object
  *   theme  — theme object from useTheme()
+ *   onEdit — optional callback to jump into the edit form at this section
  */
-export default function AuditSection({ audit, theme, layerTodos = [] }) {
+export default function AuditSection({ audit, theme, layerTodos = [], onEdit }) {
   if (!audit) return null;
 
   return (
@@ -19,6 +21,7 @@ export default function AuditSection({ audit, theme, layerTodos = [] }) {
       subtitle="Document the client's current setup and what's breaking"
       color="#7C3AED"
       layerTodos={layerTodos}
+      headerRight={onEdit ? <EditButton color="#7C3AED" onClick={onEdit} /> : null}
     >
       <DetailRow label="Has existing setup" value={audit.has_existing === true ? "Yes" : audit.has_existing === false ? "No — greenfield" : "—"} />
       <DetailRow label="Overall assessment " value={audit.overall_assessment} fullWidth />
