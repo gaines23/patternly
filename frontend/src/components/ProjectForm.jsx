@@ -13,7 +13,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useParsePrompt, useMatchTemplates } from "../hooks/useWorkflows";
 import { WorkflowMapPanel } from "./WorkflowMapPanel";
 import AgentCompilerPanel from "./AgentCompilerPanel";
-import { compiledSuggestionToBuildState } from "../utils/transforms";
+import { compiledSuggestionToBuildState, formatMinutes } from "../utils/transforms";
 
 // ── All data constants (same as workflow-intake.jsx) ──────────────────────────
 const INDUSTRY_MAP = {
@@ -626,12 +626,16 @@ function AuditProjectUpdateCard({ item, onChange, onRemove }) {
   const dateLabel = item.createdAt
     ? (() => { const [y,m,d] = item.createdAt.slice(0,10).split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); })()
     : "New update";
+  const hoursNum = item.hours === "" || item.hours == null ? 0 : parseInt(item.hours, 10) || 0;
+  const minsNum = item.minutes === "" || item.minutes == null ? 0 : parseInt(item.minutes, 10) || 0;
+  const durationLabel = formatMinutes(hoursNum * 60 + minsNum);
   return (
     <div style={{ border:"1.5px solid #BAE6FD", borderRadius:10, marginBottom:8, overflow:"hidden" }}>
       <button type="button" onClick={() => setOpen(o => !o)}
         style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"#0284C710", border:"none", cursor:"pointer", borderBottom: open ? "1px solid #BAE6FD" : "none" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:12, fontWeight:700, color:"#0284C7", fontFamily:F }}>{dateLabel}</span>
+          {durationLabel && <span style={{ fontSize:10, fontWeight:700, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"2px 7px", fontFamily:F }}>⏱ {durationLabel}</span>}
           {(item.attachments||[]).length > 0 && <span style={{ fontSize:10, fontWeight:700, color:"#0284C7", background:"#E0F2FE", border:"1px solid #BAE6FD", borderRadius:8, padding:"2px 7px", fontFamily:F }}>📎 {item.attachments.length}</span>}
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -641,11 +645,25 @@ function AuditProjectUpdateCard({ item, onChange, onRemove }) {
       </button>
       {open && (
         <div style={{ padding:"14px 16px", background:theme.surface }}>
-          <Field label="Date">
-            <input type="date" value={item.createdAt ? item.createdAt.slice(0,10) : ""}
-              onChange={e=>onChange({...item, createdAt: e.target.value || ""})}
-              style={{ fontFamily:F, fontSize:13, color:theme.text, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg }}/>
-          </Field>
+          <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+            <Field label="Date">
+              <input type="date" value={item.createdAt ? item.createdAt.slice(0,10) : ""}
+                onChange={e=>onChange({...item, createdAt: e.target.value || ""})}
+                style={{ fontFamily:F, fontSize:13, color:theme.text, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg }}/>
+            </Field>
+            <Field label="Hours">
+              <input type="number" min="0" step="1" value={item.hours ?? ""}
+                onChange={e=>onChange({...item, hours: e.target.value})}
+                placeholder="0"
+                style={{ fontFamily:F, fontSize:13, color:theme.text, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg, width:90 }}/>
+            </Field>
+            <Field label="Minutes">
+              <input type="number" min="0" max="59" step="1" value={item.minutes ?? ""}
+                onChange={e=>onChange({...item, minutes: e.target.value})}
+                placeholder="0"
+                style={{ fontFamily:F, fontSize:13, color:theme.text, border:`1.5px solid ${theme.borderInput}`, borderRadius:9, padding:"9px 12px", outline:"none", background:theme.inputBg, width:90 }}/>
+            </Field>
+          </div>
           <Field label="Update"><TI rows={4} value={item.content} onChange={v=>onChange({...item,content:v})} placeholder="Describe what changed, what was decided, any relevant progress notes…"/></Field>
           <div style={{ marginTop:4 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>

@@ -176,6 +176,17 @@ class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
             details={"case_file_id": str(instance.id)},
         )
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        # Re-render with the detail serializer so the response always includes
+        # id, share fields, and every other read-only attribute the UI needs.
+        instance.refresh_from_db()
+        return Response(CaseFileDetailSerializer(instance).data)
+
     def perform_destroy(self, instance):
         log_action(
             user=self.request.user,
@@ -264,7 +275,9 @@ def public_client_brief(request, share_token):
     Public read-only endpoint — shows only progress overview (updates summary).
     """
     try:
-        case_file = CaseFile.objects.select_related("logged_by").get(
+        case_file = CaseFile.objects.select_related("logged_by").prefetch_related(
+            "project_updates",
+        ).get(
             client_share_token=share_token, client_share_enabled=True,
         )
     except CaseFile.DoesNotExist:
@@ -272,6 +285,17 @@ def public_client_brief(request, share_token):
             {"detail": "This link is invalid or has been disabled."},
             status=status.HTTP_404_NOT_FOUND,
         )
+
+    project_updates = [
+        {
+            "id": str(pu.id),
+            "content": pu.content,
+            "attachments": pu.attachments,
+            "created_at": pu.created_at,
+            "minutes_spent": pu.minutes_spent,
+        }
+        for pu in case_file.project_updates.all()
+    ]
 
     return Response({
         "id": str(case_file.id),
@@ -284,6 +308,8 @@ def public_client_brief(request, share_token):
         "updates_summary_generated_at": case_file.updates_summary_generated_at,
         "status": case_file.status,
         "created_at": case_file.created_at,
+        "updated_at": case_file.updated_at,
+        "project_updates": project_updates,
     })
 
 
@@ -525,11 +551,12 @@ You will receive:
 - Project name and metadata
 - Build notes (implementation notes, gotchas, dependencies)
 - Build maps (workflow structures including lists, spaces, statuses, custom fields, automations, pipeline phases, and learnings)
-- Project updates (timestamped progress notes)
+- Total Time Spent on Updates (aggregate of logged time)
+- Project updates (timestamped progress notes, each optionally tagged with `[time: Xh Ymin]`)
 - Scope creep items (unplanned additions with area, reason, impact, and communication status)
 
 Produce a structured summary with these sections:
-1. **Overview** — 2-3 sentence high-level summary of the project state
+1. **Overview** — 2-3 sentence high-level summary of the project state. If Total Time Spent is provided, state it here (e.g. "Total time logged: 4h 30min").
 2. **Build Summary** — For each workflow, use this exact format:
 
 **{Workflow Name}**
@@ -541,7 +568,7 @@ Automations:
 3. (continue numbering in order)
 
 Repeat for each workflow. Keep descriptions brief and actionable. Do NOT include spaces, lists, custom fields, or pipeline details — only the workflow name, description, status flow, and numbered automations.
-3. **Key Updates** — Organize updates by date. Use the date (MM/DD/YYYY) in **bold** as a header, then list the relevant notes as bullet points beneath it. Group multiple notes from the same date together under one date header.
+3. **Key Updates** — Organize updates by date. Use the date (MM/DD/YYYY) in **bold** as a header, then list the relevant notes as bullet points beneath it. Group multiple notes from the same date together under one date header. When an update has logged time, include the duration in parentheses at the end of that bullet (e.g. "- Wrapped up automations (1h 15min)"). When a date has a daily total, append it to the date header like "**MM/DD/YYYY** (2h total)".
 4. **Scope Changes** — Summary of scope creep: what was added, why, how it impacted the project, and whether changes were communicated to the client
 5. **Risks & Concerns** — Any patterns, recurring issues, or uncommunicated scope changes worth flagging
 
@@ -557,14 +584,15 @@ Your job is to produce clear, professional summaries of project updates and scop
 
 You will receive:
 - Project name and metadata
-- Project updates (timestamped progress notes)
+- Total Time Spent on Updates (aggregate of logged time)
+- Project updates (timestamped progress notes, each optionally tagged with `[time: Xh Ymin]`)
 - Scope creep items (unplanned additions with area, reason, impact, and communication status)
 
 Focus ONLY on the project updates and scope creep — do NOT reference build notes or technical implementation details.
 
 Produce a structured summary with these sections:
-1. **Progress Overview** — 2-3 sentence summary of how the project has progressed
-2. **Key Updates** — Organize updates by date. Use the date (MM/DD/YYYY) in **bold** as a header, then list the relevant notes as bullet points beneath it. Group multiple notes from the same date together under one date header.
+1. **Progress Overview** — 2-3 sentence summary of how the project has progressed. If Total Time Spent is provided, state it here (e.g. "Total time logged: 4h 30min").
+2. **Key Updates** — Organize updates by date. Use the date (MM/DD/YYYY) in **bold** as a header, then list the relevant notes as bullet points beneath it. Group multiple notes from the same date together under one date header. When an update has logged time, include the duration in parentheses at the end of that bullet (e.g. "- Wrapped up automations (1h 15min)"). When a date has a daily total, append it to the date header like "**MM/DD/YYYY** (2h total)".
 3. **Scope Changes** — Summary of scope creep: what was added, why, how it impacted the project, and whether changes were communicated to the client
 4. **Action Items & Concerns** — Any unresolved issues, uncommunicated scope changes, or items needing follow-up
 
@@ -635,9 +663,21 @@ def project_summary(request, pk):
         {
             "date": pu.created_at.strftime("%m/%d/%Y"),
             "content": pu.content,
+            "minutes_spent": pu.minutes_spent,
         }
         for pu in updates_qs
     ]
+    total_minutes = sum(pu["minutes_spent"] or 0 for pu in project_updates)
+
+    def _fmt_minutes(mins):
+        if not mins:
+            return None
+        h, m = divmod(int(mins), 60)
+        if h and m:
+            return f"{h}h {m}min"
+        if h:
+            return f"{h}h"
+        return f"{m}min"
 
     # Scope creep items
     scope_creep = []
@@ -702,16 +742,25 @@ def project_summary(request, pk):
                     parts.append(f"  What to avoid: {lr['whatToAvoid']}")
 
     if project_updates:
+        total_label = _fmt_minutes(total_minutes) or "not logged"
+        parts.append(f"\nTotal Time Spent on Updates: {total_label}")
         parts.append("\nProject Updates (grouped by date):")
         # Group updates by date for cleaner input
         from collections import OrderedDict
         grouped = OrderedDict()
         for pu in project_updates:
-            grouped.setdefault(pu["date"], []).append(pu["content"])
+            grouped.setdefault(pu["date"], []).append(pu)
         for date, notes in grouped.items():
-            parts.append(f"\n{date}:")
+            day_total = sum(n["minutes_spent"] or 0 for n in notes)
+            day_label = _fmt_minutes(day_total)
+            header = f"\n{date}" + (f" (time spent: {day_label})" if day_label else "") + ":"
+            parts.append(header)
             for note in notes:
-                parts.append(f"- {note}")
+                per_label = _fmt_minutes(note["minutes_spent"])
+                line = f"- {note['content']}"
+                if per_label:
+                    line += f"  [time: {per_label}]"
+                parts.append(line)
     else:
         parts.append("\nProject Updates:\nNo updates in this time range.")
 

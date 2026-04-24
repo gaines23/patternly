@@ -1,4 +1,26 @@
 /**
+ * Format a duration stored as whole minutes into "1h 15min" / "45min" / "2h".
+ * Returns null when there's nothing to show.
+ */
+export function formatMinutes(mins) {
+  if (mins == null || mins === "") return null;
+  const n = Number(mins);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const h = Math.floor(n / 60);
+  const m = Math.round(n % 60);
+  if (h && m) return `${h}h ${m}min`;
+  if (h) return `${h}h`;
+  return `${m}min`;
+}
+
+/** Sum minutes_spent across an updates list and format it. Null if the total is zero/empty. */
+export function totalUpdatesDuration(updates) {
+  if (!updates?.length) return null;
+  const total = updates.reduce((sum, u) => sum + (Number(u.minutes_spent) || 0), 0);
+  return formatMinutes(total);
+}
+
+/**
  * Transforms the local React form state (from workflow-intake.jsx)
  * into the shape expected by POST /api/v1/briefs/
  */
@@ -132,12 +154,18 @@ export function formToProjectPayload(formData, loggedByName = "", name = "") {
     },
 
     // Project updates
-    project_updates: (projectUpdates || []).map((u, i) => ({
-      content: u.content || "",
-      attachments: (u.attachments || []).map(a => ({ name: a.name || "", url: a.url || "" })),
-      created_at: u.createdAt,
-      order: i,
-    })),
+    project_updates: (projectUpdates || []).map((u, i) => {
+      const h = u.hours === "" || u.hours == null ? 0 : parseInt(u.hours, 10) || 0;
+      const m = u.minutes === "" || u.minutes == null ? 0 : parseInt(u.minutes, 10) || 0;
+      const total = h * 60 + m;
+      return {
+        content: u.content || "",
+        attachments: (u.attachments || []).map(a => ({ name: a.name || "", url: a.url || "" })),
+        created_at: u.createdAt,
+        minutes_spent: total > 0 ? total : null,
+        order: i,
+      };
+    }),
 
     // Layer 6 – Outcome
     outcome: {
@@ -273,12 +301,17 @@ export function projectToFormState(caseFile) {
       lessons: reasoning?.lessons || "",
       complexity: reasoning?.complexity || 3,
     },
-    projectUpdates: (project_updates || []).map(u => ({
-      id: u.id,
-      content: u.content || "",
-      attachments: (u.attachments || []).map(a => ({ name: a.name || "", url: a.url || "" })),
-      createdAt: u.created_at,
-    })),
+    projectUpdates: (project_updates || []).map(u => {
+      const mins = u.minutes_spent != null ? Number(u.minutes_spent) : null;
+      return {
+        id: u.id,
+        content: u.content || "",
+        attachments: (u.attachments || []).map(a => ({ name: a.name || "", url: a.url || "" })),
+        createdAt: u.created_at,
+        hours: mins != null && mins > 0 ? Math.floor(mins / 60).toString() : "",
+        minutes: mins != null && mins > 0 ? (mins % 60).toString() : "",
+      };
+    }),
     outcome: {
       built: outcome?.built
         ? outcome.built.charAt(0).toUpperCase() + outcome.built.slice(1)

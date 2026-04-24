@@ -372,6 +372,7 @@ class ProjectUpdate(models.Model):
     content = models.TextField(blank=True)
     attachments = models.JSONField(default=list)  # [{name, url}]
     created_at = models.DateTimeField()
+    minutes_spent = models.PositiveIntegerField(null=True, blank=True)
     order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
