@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { F } from "../constants";
 import DetailRow from "./DetailRow";
+import { formatMinutes, totalUpdatesDuration } from "@utils/transforms";
 
 function UpdateItem({ pu, theme }) {
   const [open, setOpen] = useState(false);
   const dateLabel = pu.created_at
     ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
     : "—";
+  const durationLabel = formatMinutes(pu.minutes_spent);
   return (
     <div style={{ border: "1.5px solid #BAE6FD", borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
       <div
@@ -14,6 +16,11 @@ function UpdateItem({ pu, theme }) {
         style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#0284C712", borderBottom: open ? "1px solid #BAE6FD" : "none", cursor: "pointer", userSelect: "none" }}
       >
         <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>{dateLabel}</span>
+        {durationLabel && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>
+            ⏱ {durationLabel}
+          </span>
+        )}
         {pu.attachments?.length > 0 && (
           <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>
             📎 {pu.attachments.length}
@@ -60,14 +67,22 @@ function UpdateItem({ pu, theme }) {
  */
 export default function CaseFileSidebar({ cf, theme }) {
   const { project_updates, delta } = cf;
+  const totalDuration = totalUpdatesDuration(project_updates);
 
   return (
     <>
       {/* Project Updates */}
       <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 14, padding: "16px 16px 12px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme.text, fontFamily: F }}>Project Updates</p>
-          <p style={{ margin: "2px 0 0", fontSize: 11, color: theme.textFaint, fontFamily: F }}>Timestamped notes & attachments</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 8 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme.text, fontFamily: F }}>Project Updates</p>
+            <p style={{ margin: "2px 0 0", fontSize: 11, color: theme.textFaint, fontFamily: F }}>Timestamped notes & attachments</p>
+          </div>
+          {totalDuration && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "3px 10px", fontFamily: F, flexShrink: 0 }}>
+              ⏱ {totalDuration}
+            </span>
+          )}
         </div>
 
         {!project_updates?.length

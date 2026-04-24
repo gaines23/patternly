@@ -4,7 +4,7 @@ import { useTheme } from "@hooks/useTheme";
 import { useCaseFile, useDeleteCaseFile, useUpdateCaseFile, useToggleCaseFileStatus } from "@hooks/useCaseFiles";
 import { useBriefByCaseFile } from "@hooks/useWorkflows";
 import { useTodos } from "@hooks/useTodos";
-import { formStateToCaseFilePayload, caseFileToFormState, briefToSuggestedAutomations } from "@utils/transforms";
+import { formStateToCaseFilePayload, caseFileToFormState, briefToSuggestedAutomations, formatMinutes, totalUpdatesDuration } from "@utils/transforms";
 import CaseFileForm from "@components/CaseFileForm";
 import DeleteConfirmModal from "@components/DeleteConfirmModal";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
@@ -235,15 +235,21 @@ export default function CaseFileDetailPage() {
             {/* Print-only: Project Updates + Scope Creep (screen sections are in sidebar) */}
             <div className="fp-print-only">
               {project_updates?.length > 0 && (
-                <Section title="Project Updates" color="#0284C7">
+                <Section
+                  title="Project Updates"
+                  subtitle={totalUpdatesDuration(project_updates) ? `Total time spent: ${totalUpdatesDuration(project_updates)}` : null}
+                  color="#0284C7"
+                >
                   {project_updates.map((pu, i) => {
                     const dateLabel = pu.created_at
                       ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
                       : "—";
+                    const durationLabel = formatMinutes(pu.minutes_spent);
                     return (
                       <div key={pu.id || i} style={{ border: "1.5px solid #BAE6FD", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F0F9FF", borderBottom: "1px solid #BAE6FD" }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>{dateLabel}</span>
+                          {durationLabel && <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>⏱ {durationLabel}</span>}
                           {pu.attachments?.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>📎 {pu.attachments.length}</span>}
                         </div>
                         <div style={{ padding: "12px 14px" }}>

@@ -4,7 +4,7 @@ import { useTheme } from "@hooks/useTheme";
 import { useProject, useDeleteProject, useUpdateProject, useToggleProjectStatus } from "@hooks/useProjects";
 import { useBriefByProject } from "@hooks/useWorkflows";
 import { useTodos } from "@hooks/useTodos";
-import { formToProjectPayload, projectToFormState, briefToSuggestedAutomations } from "@utils/transforms";
+import { formToProjectPayload, projectToFormState, briefToSuggestedAutomations, formatMinutes, totalUpdatesDuration } from "@utils/transforms";
 import ProjectForm from "@components/ProjectForm";
 import DeleteConfirmModal from "@components/DeleteConfirmModal";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
@@ -37,6 +37,7 @@ function ProjectUpdateItem({ pu }) {
   const dateLabel = pu.created_at
     ? (() => { const [y, m, d] = pu.created_at.slice(0, 10).split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
     : "—";
+  const durationLabel = formatMinutes(pu.minutes_spent);
   return (
     <div style={{ border: "1.5px solid #BAE6FD", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
       <div
@@ -44,6 +45,9 @@ function ProjectUpdateItem({ pu }) {
         style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F0F9FF", borderBottom: open ? "1px solid #BAE6FD" : "none", cursor: "pointer", userSelect: "none" }}
       >
         <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>{dateLabel}</span>
+        {durationLabel && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>⏱ {durationLabel}</span>
+        )}
         {pu.attachments?.length > 0 && (
           <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>📎 {pu.attachments.length}</span>
         )}
@@ -67,9 +71,15 @@ function ProjectUpdateItem({ pu }) {
 
 function ProjectUpdatesView({ projectUpdates, theme, caseFileId, projectName, preparedBy, savedUpdatesSummary, savedUpdatesGeneratedAt, onEdit }) {
   const [view, setView] = useState("notes"); // "notes" | "summary"
+  const totalDuration = totalUpdatesDuration(projectUpdates);
 
   const headerActions = (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      {totalDuration && (
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "3px 10px", fontFamily: F }}>
+          ⏱ Total: {totalDuration}
+        </span>
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); setView(v => v === "notes" ? "summary" : "notes"); }}
         style={{

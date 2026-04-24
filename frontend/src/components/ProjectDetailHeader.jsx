@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { formatDate } from "@utils/transforms";
+import { formatDate, totalUpdatesDuration } from "@utils/transforms";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 const DISPLAY = "'Plus Jakarta Sans', sans-serif";
@@ -110,8 +110,10 @@ export default function ProjectDetailHeader({
   backTo,
   backLabel = "Back to projects",
   actions,
+  hideMetrics = [],
 }) {
   const theme = themeProp || LIGHT_THEME;
+  const hidden = new Set(hideMetrics);
 
   // Derive stat values
   const hasSat = cf.satisfaction_score != null;
@@ -136,6 +138,13 @@ export default function ProjectDetailHeader({
 
   const { label: durationLabel, range: durationRange } =
     computeBuildDuration(cf.created_at, cf.updated_at);
+
+  const updates = cf.project_updates || [];
+  const timeSpentLabel = totalUpdatesDuration(updates) || "—";
+  const updatesWithTime = updates.filter(u => u.minutes_spent != null && u.minutes_spent > 0).length;
+  const timeSpentSub = updatesWithTime > 0
+    ? `Across ${pluralize(updatesWithTime, "update", "updates")}`
+    : "None logged";
 
   // Summary lede: prefer intake.raw_prompt → outcome.what_worked → reasoning.why_structure.
   // Cap at 3 sentences so the header stays compact regardless of source length.
@@ -220,18 +229,28 @@ export default function ProjectDetailHeader({
         )}
       </div>
 
-      {/* 4-up metrics grid */}
-      <div style={{
-        marginTop: 24,
-        display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
-        border: `1px solid ${theme.border}`, borderRadius: 10,
-        background: theme.surface, overflow: "hidden",
-      }}>
-        <StatCard label="Satisfaction"   value={satValue}       sub={satSub}         theme={theme} />
-        <StatCard label="Roadblocks"     value={roadblocks}     sub={roadblockSub}   warn={roadblocks > 0} theme={theme} />
-        <StatCard label="Tools in scope" value={toolsValue}     sub={toolsSub}       theme={theme} />
-        <StatCard label="Build duration" value={durationLabel}  sub={durationRange}  theme={theme} last />
-      </div>
+      {/* Metrics grid — auto-sizes based on hidden set */}
+      {(() => {
+        const cards = [
+          !hidden.has("satisfaction") && { label: "Satisfaction",   value: satValue,       sub: satSub },
+          !hidden.has("roadblocks")   && { label: "Roadblocks",     value: roadblocks,     sub: roadblockSub, warn: roadblocks > 0 },
+          !hidden.has("tools")        && { label: "Tools in scope", value: toolsValue,     sub: toolsSub },
+          !hidden.has("timeSpent")    && { label: "Time spent",     value: timeSpentLabel, sub: timeSpentSub },
+          !hidden.has("buildDuration")&& { label: "Build duration", value: durationLabel,  sub: durationRange },
+        ].filter(Boolean);
+        return (
+          <div style={{
+            marginTop: 24,
+            display: "grid", gridTemplateColumns: `repeat(${cards.length}, 1fr)`,
+            border: `1px solid ${theme.border}`, borderRadius: 10,
+            background: theme.surface, overflow: "hidden",
+          }}>
+            {cards.map((c, i) => (
+              <StatCard key={c.label} {...c} theme={theme} last={i === cards.length - 1} />
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
