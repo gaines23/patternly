@@ -539,7 +539,7 @@ export default function AllProjectsPage() {
 
       {/* ── All logged reports ─────────────────────────────────────────────── */}
       <SectionHead
-        title="All logged reports"
+        title="All reports"
         sub="Every case file, filterable and sortable"
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
