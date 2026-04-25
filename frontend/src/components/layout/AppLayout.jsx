@@ -5,9 +5,10 @@ import { useTheme } from "../../hooks/useTheme";
 import TopBar from "./TopBar";
 
 const WORK_NAV = [
-  { to: "/dashboard", label: "Overview",    icon: "dashboard" },
-  { to: "/projects",  label: "My Projects",  icon: "projects" },
-  { to: "/tasks",     label: "Tasks",       icon: "tasks" },
+  { to: "/dashboard",    label: "Overview",     icon: "dashboard" },
+  { to: "/projects",     label: "My Projects",  icon: "projects" },
+  { to: "/all-projects", label: "All Projects", icon: "allProjects" },
+  { to: "/tasks",        label: "Tasks",        icon: "tasks" },
 ];
 const INTEL_NAV = [
   { to: "/patterns",  label: "Patterns",       icon: "patterns" },
@@ -34,6 +35,11 @@ function NavIcon({ name, size = 18, color }) {
     case "projects": return (
       <svg style={s} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 7V15a2 2 0 002 2h10a2 2 0 002-2V7"/><path d="M3 7V5.5A1.5 1.5 0 014.5 4H8l1.5 2h6a1.5 1.5 0 011.5 1.5V7"/>
+      </svg>
+    );
+    case "allProjects": return (
+      <svg style={s} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6l7 3.5L17 6"/><path d="M3 10l7 3.5L17 10"/><path d="M3 14l7 3.5L17 14"/>
       </svg>
     );
     case "tasks": return (
@@ -154,11 +160,12 @@ export default function AppLayout({ children }) {
   const handleLogout = () => { logout(); navigate("/login"); };
 
   const isActive = (to) =>
-    to === "/dashboard" ? location.pathname === "/dashboard"
-    : to === "/projects" ? location.pathname === "/projects"
-    : to === "/tasks"    ? location.pathname === "/tasks"
-    : to === "/ingest"   ? location.pathname === "/ingest"
-    : to === "/patterns" ? location.pathname === "/patterns"
+    to === "/dashboard"    ? location.pathname === "/dashboard"
+    : to === "/projects"    ? location.pathname === "/projects"
+    : to === "/all-projects" ? location.pathname === "/all-projects"
+    : to === "/tasks"       ? location.pathname === "/tasks"
+    : to === "/ingest"      ? location.pathname === "/ingest"
+    : to === "/patterns"    ? location.pathname === "/patterns"
     : location.pathname.startsWith(to);
 
   const NavLink = ({ item, isCollapsed }) => {

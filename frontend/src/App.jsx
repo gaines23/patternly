@@ -13,6 +13,7 @@ import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import ProjectListPage from "./pages/project/ProjectListPage";
+import AllProjectsPage from "./pages/project/AllProjectsPage";
 import NewProjectPage from "./pages/project/NewProjectPage";
 import ProjectDetailPage from "./pages/project/ProjectDetailPage";
 import EditProjectPage from "./pages/project/EditProjectPage";
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
           <Route path="/generate" element={<Protected><GeneratePage /></Protected>} />
           <Route path="/projects" element={<Protected><ProjectListPage /></Protected>} />
+          <Route path="/all-projects" element={<Protected><AllProjectsPage /></Protected>} />
           <Route path="/projects/new" element={<Protected><NewProjectPage /></Protected>} />
           <Route path="/projects/:id" element={<Protected><ProjectDetailPage /></Protected>} />
           <Route path="/projects/:id/edit" element={<Protected><EditProjectPage /></Protected>} />
