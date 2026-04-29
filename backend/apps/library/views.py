@@ -129,6 +129,7 @@ class LibraryPromoteView(APIView):
         data = serializer.validated_data
 
         team = _user_team(request.user)
+        case_file = data["case_file"]
         item = LibraryItem.objects.create(
             team=team,
             kind=data["kind"],
@@ -136,7 +137,11 @@ class LibraryPromoteView(APIView):
             description=data.get("description", ""),
             body=data.get("body") or {},
             tags=data.get("tags") or [],
-            source_case_file=data["case_file"],
+            platform=getattr(case_file, "primary_platform", None),
+            industries=list(case_file.industries or []),
+            tools=list(case_file.tools or []),
+            workflow_types=[case_file.workflow_type] if case_file.workflow_type else [],
+            source_case_file=case_file,
             source_layer=data["source_layer"],
             source_path=data.get("source_path", ""),
             created_by=request.user,

@@ -23,7 +23,6 @@ function KindBadge({ kind }) {
 
 function ItemCard({ item, theme }) {
   const subtitle = [
-    item.platform?.name,
     item.source_case_file_name && `from ${item.source_case_file_name}`,
     item.created_by_name,
   ].filter(Boolean).join(" · ");
@@ -45,8 +44,21 @@ function ItemCard({ item, theme }) {
           cursor: "pointer",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-          <KindBadge kind={item.kind} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <KindBadge kind={item.kind} />
+            {item.platform?.name && (
+              <span style={{
+                fontSize: 10.5, fontWeight: 700, fontFamily: F,
+                color: theme.text, background: theme.surfaceAlt,
+                border: `1px solid ${theme.border}`, borderRadius: 6,
+                padding: "2px 8px", letterSpacing: "0.02em",
+                whiteSpace: "nowrap",
+              }}>
+                {item.platform.name}
+              </span>
+            )}
+          </div>
           {item.usage_count > 0 && (
             <span style={{ fontSize: 10.5, fontWeight: 600, color: theme.textFaint, fontFamily: MONO }}>
               ↑ {item.usage_count}× used
@@ -123,15 +135,26 @@ export default function LibraryPage() {
   const { theme } = useTheme();
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState("");
+  const [platform, setPlatform] = useState("");
   const [sort, setSort] = useState("recent");
+
+  const { data: platforms = [] } = useQuery({
+    queryKey: ["platforms"],
+    queryFn: async () => {
+      const { data } = await api.get("/v1/briefs/platforms/");
+      return Array.isArray(data) ? data : (data?.results || []);
+    },
+    staleTime: 5 * 60_000,
+  });
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
     if (search.trim().length >= 2) p.set("search", search.trim());
     if (kind) p.set("kind", kind);
+    if (platform) p.set("platform", platform);
     if (sort) p.set("sort", sort);
     return p.toString();
-  }, [search, kind, sort]);
+  }, [search, kind, platform, sort]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["library", queryString],
@@ -177,6 +200,20 @@ export default function LibraryPage() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+          <select
+            value={platform}
+            onChange={e => setPlatform(e.target.value)}
+            style={{
+              padding: "8px 12px", fontSize: 13, fontFamily: F,
+              borderRadius: 8, border: `1px solid ${theme.border}`,
+              background: theme.surface, color: theme.text, cursor: "pointer",
+            }}
+          >
+            <option value="">All platforms</option>
+            {platforms.map(p => (
+              <option key={p.slug} value={p.slug}>{p.name}</option>
+            ))}
+          </select>
           <select
             value={sort}
             onChange={e => setSort(e.target.value)}

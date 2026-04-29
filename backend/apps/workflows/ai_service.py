@@ -580,8 +580,8 @@ class PatternlyAIService:
     def _get_matched_library_items(self, scenario: ParsedScenario, limit: int = 6) -> list:
         """
         Score LibraryItems against the parsed scenario by overlap of workflow_types,
-        industries, tools, and tags. Returns the top matches with a compact body
-        suitable for prompt injection.
+        industries, tools, platform, and tags. Returns the top matches with a
+        compact body suitable for prompt injection.
         """
         parsed_wf = (scenario.workflow_type or "").lower()
         parsed_industries = set(i.lower() for i in scenario.industries)
@@ -601,6 +601,17 @@ class PatternlyAIService:
             score += min(len(shared_ind) * 12, 30)
             shared_tools = parsed_tools & set(t.lower() for t in (item.tools or []))
             score += min(len(shared_tools) * 8, 24)
+
+            # Platform alignment — strong signal that the item was built for this stack.
+            # Match on platform name OR slug appearing in the scenario's tools list.
+            if item.platform_id and parsed_tools:
+                platform_name = (item.platform.name or "").lower()
+                platform_slug = (item.platform.slug or "").lower()
+                if platform_name and platform_name in parsed_tools:
+                    score += 20
+                elif platform_slug and platform_slug in parsed_tools:
+                    score += 20
+
             shared_tags = parsed_industries & set(t.lower() for t in (item.tags or []))
             score += min(len(shared_tags) * 4, 16)
 
