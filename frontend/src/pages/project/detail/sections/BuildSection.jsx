@@ -133,25 +133,10 @@ export default function BuildSection({ build, isPrinting, theme, mapWfIndex, set
                     const pipeline = l.automations.map((a, i) => ({ a, i })).filter(({ a }) => (a.automation_mode || "pipeline") !== "standalone");
                     const standalone = l.automations.map((a, i) => ({ a, i })).filter(({ a }) => a.automation_mode === "standalone");
                     const hasMix = pipeline.length > 0 && standalone.length > 0;
-                    const promoteBtn = caseFileId ? (
-                      <PromoteToLibraryButton
-                        caseFileId={caseFileId}
-                        sourceLayer="build.automations"
-                        sourcePath={`build.workflows[${wi}].lists[${li}].automations`}
-                        suggestedKind="automation"
-                        suggestedName={l.name ? `${l.name} — Automations` : `Automations ${li + 1}`}
-                        suggestedBody={{
-                          notes: l.automations.map((a, i) => {
-                            const lines = [`Automation ${i + 1} (${a.platform || "clickup"}${a.automation_mode === "standalone" ? ", standalone" : ""})`];
-                            if (a.triggers?.length) lines.push("Triggers: " + a.triggers.map(t => [t.type, t.detail].filter(Boolean).join(" — ")).join("; "));
-                            if (a.actions?.length) lines.push("Actions: " + a.actions.map(t => [t.type, t.detail].filter(Boolean).join(" — ")).join("; "));
-                            if (a.instructions) lines.push("Instructions:\n" + a.instructions);
-                            return lines.join("\n");
-                          }).join("\n\n"),
-                        }}
-                        suggestedTags={[wf.name, l.name].filter(Boolean)}
-                      />
-                    ) : null;
+                    const sourcePathFor = (i) => `build.workflows[${wi}].lists[${li}].automations[${i}]`;
+                    const cardProps = {
+                      caseFileId, listName: l.name, workflowName: wf.name,
+                    };
 
                     return (
                       <div style={{ padding: "8px 0" }}>
@@ -162,10 +147,12 @@ export default function BuildSection({ build, isPrinting, theme, mapWfIndex, set
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                                   <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#0284C7" }} />
                                   <span style={{ fontSize: 10, fontWeight: 700, color: "#0284C7", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Pipeline</span>
-                                  <span style={{ marginLeft: "auto" }}>{promoteBtn}</span>
                                 </div>
                                 <div style={{ borderLeft: "2px dashed #BAE6FD", paddingLeft: 12 }}>
-                                  {pipeline.map(({ a, i }) => <ViewAutoCard key={i} auto={a} autoIdx={i} forceOpen={isPrinting} />)}
+                                  {pipeline.map(({ a, i }) => (
+                                    <ViewAutoCard key={i} auto={a} autoIdx={i} forceOpen={isPrinting}
+                                      sourcePath={sourcePathFor(i)} {...cardProps} />
+                                  ))}
                                 </div>
                               </div>
                             )}
@@ -175,7 +162,10 @@ export default function BuildSection({ build, isPrinting, theme, mapWfIndex, set
                                   <div style={{ width: 7, height: 7, borderRadius: 2, background: "#D97706" }} />
                                   <span style={{ fontSize: 10, fontWeight: 700, color: "#D97706", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>Standalone</span>
                                 </div>
-                                {standalone.map(({ a, i }) => <ViewAutoCard key={i} auto={a} autoIdx={i} forceOpen={isPrinting} />)}
+                                {standalone.map(({ a, i }) => (
+                                  <ViewAutoCard key={i} auto={a} autoIdx={i} forceOpen={isPrinting}
+                                    sourcePath={sourcePathFor(i)} {...cardProps} />
+                                ))}
                               </div>
                             )}
                           </>
@@ -183,11 +173,13 @@ export default function BuildSection({ build, isPrinting, theme, mapWfIndex, set
                           <>
                             <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
                               <span style={{ fontSize: 11, fontWeight: 600, color: theme.textFaint, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                                {standalone.length > 0 ? "Standalone automations" : "Automations"}
+                                {standalone.length > 0 ? "Standalone agent automations" : "Agent automations"}
                               </span>
-                              <span style={{ marginLeft: "auto" }}>{promoteBtn}</span>
                             </div>
-                            {l.automations.map((auto, ai) => <ViewAutoCard key={ai} auto={auto} autoIdx={ai} forceOpen={isPrinting} />)}
+                            {l.automations.map((auto, ai) => (
+                              <ViewAutoCard key={ai} auto={auto} autoIdx={ai} forceOpen={isPrinting}
+                                sourcePath={sourcePathFor(ai)} {...cardProps} />
+                            ))}
                           </>
                         )}
                       </div>

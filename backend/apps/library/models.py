@@ -6,7 +6,7 @@ from django.db import models
 
 class LibraryItemKind(models.TextChoices):
     FORMULA = "formula", "Formula"
-    AUTOMATION = "automation", "Automation"
+    AUTOMATION = "automation", "Agent Automation"
     CUSTOM_FIELD_SET = "custom_field_set", "Custom Field Set"
     TEMPLATE = "template", "Template"
     INTEGRATION_RECIPE = "integration_recipe", "Integration Recipe"

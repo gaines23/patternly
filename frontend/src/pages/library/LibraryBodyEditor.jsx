@@ -48,6 +48,8 @@ export default function LibraryBodyEditor({ kind, value, onChange }) {
   }
 
   if (kind === "automation") {
+    // Read instructions from new `body.instructions` (or legacy `body.notes` if older).
+    const instructions = v.instructions ?? v.notes ?? "";
     return (
       <div style={{ display: "grid", gap: 12 }}>
         <Input
@@ -74,11 +76,13 @@ export default function LibraryBodyEditor({ kind, value, onChange }) {
         />
         <Input
           as="textarea"
-          label="Notes / Gotchas"
-          placeholder="Anything to watch out for"
-          value={v.notes || ""}
-          onChange={e => set({ notes: e.target.value })}
-          rows={2}
+          label="Instructions"
+          helper="Agent / automation instructions"
+          placeholder="Describe the logic for this automation, step by step"
+          value={instructions}
+          onChange={e => set({ instructions: e.target.value, notes: undefined })}
+          rows={6}
+          inputStyle={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}
         />
       </div>
     );

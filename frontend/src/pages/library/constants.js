@@ -1,6 +1,6 @@
 export const KIND_LABELS = {
   formula: "Formula",
-  automation: "Automation",
+  automation: "Agent Automation",
   custom_field_set: "Custom Field Set",
   template: "Template",
   integration_recipe: "Integration Recipe",

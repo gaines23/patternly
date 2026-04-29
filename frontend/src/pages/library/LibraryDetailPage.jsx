@@ -48,12 +48,14 @@ function BodyView({ kind, body, theme }) {
     );
   }
   if (kind === "automation") {
+    // Prefer the renamed `instructions` field; fall back to legacy `notes`.
+    const instructions = body.instructions ?? body.notes;
     return (
       <>
         <Row label="Trigger" value={body.trigger} />
         <Row label="Conditions" value={body.conditions} />
         <Row label="Actions" value={body.actions} />
-        <Row label="Notes" value={body.notes} />
+        <Row label="Instructions" value={instructions} mono />
       </>
     );
   }
@@ -391,11 +393,12 @@ function stringifyBody(kind, body) {
   if (kind === "formula") return body.expression || "";
   if (kind === "snippet") return body.content || "";
   if (kind === "automation") {
+    const instructions = body.instructions ?? body.notes;
     return [
       body.trigger && `Trigger: ${body.trigger}`,
       body.conditions && `Conditions:\n${body.conditions}`,
       body.actions && `Actions:\n${body.actions}`,
-      body.notes && `Notes:\n${body.notes}`,
+      instructions && `Instructions:\n${instructions}`,
     ].filter(Boolean).join("\n\n");
   }
   return JSON.stringify(body, null, 2);

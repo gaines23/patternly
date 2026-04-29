@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { useTheme } from "@hooks/useTheme";
 import { F } from "../constants";
+import PromoteToLibraryButton from "../../../library/PromoteToLibraryButton";
+
+function _triggerSummary(triggers) {
+  if (!Array.isArray(triggers)) return "";
+  return triggers.map(t => [t?.type, t?.detail].filter(Boolean).join(" — ")).filter(Boolean).join("; ");
+}
+function _actionSummary(actions) {
+  if (!Array.isArray(actions)) return "";
+  return actions.map(a => [a?.type, a?.detail].filter(Boolean).join(" — ")).filter(Boolean).join("; ");
+}
 
 /**
  * Collapsible automation viewer inside the Build section.
@@ -12,7 +22,7 @@ import { F } from "../constants";
  *   autoIdx   — 0-based index (displayed as "Automation N")
  *   forceOpen — always show body (used during print)
  */
-export default function ViewAutoCard({ auto, autoIdx, forceOpen = false }) {
+export default function ViewAutoCard({ auto, autoIdx, forceOpen = false, caseFileId, sourcePath, listName, workflowName, listTags = [] }) {
   const [collapsed, setCollapsed] = useState(true);
   const { theme } = useTheme();
 
@@ -57,8 +67,25 @@ export default function ViewAutoCard({ auto, autoIdx, forceOpen = false }) {
             AGENT ON
           </span>
         )}
+        {caseFileId && auto.use_agent && (auto.instructions || "").trim() && (
+          <span style={{ marginLeft: "auto", display: "inline-flex" }} onClick={e => e.stopPropagation()}>
+            <PromoteToLibraryButton
+              caseFileId={caseFileId}
+              sourceLayer="build.automations"
+              sourcePath={sourcePath}
+              suggestedKind="automation"
+              suggestedName={(auto.map_description || "").trim() || (listName ? `${listName} — Agent Automation ${autoIdx + 1}` : `Agent Automation ${autoIdx + 1}`)}
+              suggestedBody={{
+                instructions: auto.instructions || "",
+                trigger: _triggerSummary(auto.triggers),
+                actions: _actionSummary(auto.actions),
+              }}
+              suggestedTags={[workflowName, listName, ...listTags].filter(Boolean)}
+            />
+          </span>
+        )}
         {!forceOpen && (
-          <span style={{ color: theme.textFaint, fontSize: 11, marginLeft: "auto" }}>
+          <span style={{ color: theme.textFaint, fontSize: 11, marginLeft: caseFileId && auto.use_agent ? 8 : "auto" }}>
             {collapsed ? "▼" : "▲"}
           </span>
         )}
