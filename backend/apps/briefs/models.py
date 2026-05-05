@@ -142,6 +142,15 @@ class CaseFile(models.Model):
         related_name="case_files",
     )
     logged_by_name = models.CharField(max_length=255, blank=True)  # fallback if no user account
+    team = models.ForeignKey(
+        "users.Team",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="case_files",
+        help_text="Team that owns this case file. Gates visibility; per-project "
+                  "API integrations live alongside this and inherit the same scope.",
+    )
     name = models.CharField(max_length=255, blank=True)  # user-given name for the case file
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

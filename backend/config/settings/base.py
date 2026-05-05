@@ -40,6 +40,7 @@ LOCAL_APPS = [
     "apps.briefs",
     "apps.tasks",
     "apps.library",
+    "apps.integrations",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -150,3 +151,17 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@patternly.app")
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+
+# ── Integrations ──────────────────────────────────────────────────────────────
+# Fernet key (base64-encoded 32 bytes) used by EncryptedTextField on
+# ProjectIntegration.access_token. Generate one with:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY", default="")
+
+# ClickUp OAuth (https://clickup.com/api → "Apps")
+CLICKUP_CLIENT_ID = env("CLICKUP_CLIENT_ID", default="")
+CLICKUP_CLIENT_SECRET = env("CLICKUP_CLIENT_SECRET", default="")
+CLICKUP_REDIRECT_URI = env(
+    "CLICKUP_REDIRECT_URI",
+    default="http://localhost:8000/api/v1/integrations/clickup/callback/",
+)

@@ -14,6 +14,7 @@ import CaseFileHeader  from "./detail/components/ProjectHeader";
 import ShareModal      from "./detail/components/ShareModal";
 import Section         from "./detail/components/Section";
 import EditButton      from "./detail/components/EditButton";
+import IntegrationsCard from "./detail/components/IntegrationsCard";
 
 // Section render blocks
 import AuditSection     from "./detail/sections/AuditSection";
@@ -162,6 +163,7 @@ const DETAIL_SECTIONS = [
   { id:"intake",         label:"Who's the client?",    subtitle:"Scenario, industry, team, and tools",            color:"#7C3AED", group:"The Project"   },
   { id:"audit",          label:"What's in place now?", subtitle:"Current setup and what's breaking",              color:"#7C3AED", group:"The Build"     },
   { id:"build",          label:"The Build",            subtitle:"Everything that was built",                      color:"#0284C7", group:"The Build"     },
+  { id:"integrations",   label:"Integrations",         subtitle:"Push the build to external workspaces",          color:"#0284C7", group:"The Build"     },
   { id:"delta",          label:"Intent vs Reality",    subtitle:"Gap between intent and delivery",                color:"#059668", group:"The Outcome"   },
   { id:"reasoning",      label:"Decision Reasoning",   subtitle:"Reasoning behind every major decision",          color:"#059668", group:"The Outcome"   },
   { id:"outcome",        label:"Outcome",              subtitle:"Post-build result and long-term usage signal",   color:"#059668", group:"The Outcome"   },
@@ -474,6 +476,7 @@ export default function CaseFileDetailPage() {
               if (s.id === "intake")         body = <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} onEdit={() => handleEditSection("intake")} />;
               if (s.id === "audit")          body = <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} onEdit={() => handleEditSection("audit")} />;
               if (s.id === "build")          body = <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} onEdit={() => handleEditSection("build")} caseFileId={id} />;
+              if (s.id === "integrations")   body = <Section title="Integrations" subtitle="Push this project's build to external workspaces" color="#0284C7"><IntegrationsCard caseFileId={id} theme={theme} /></Section>;
               if (s.id === "delta")          body = <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} onEdit={() => handleEditSection("delta")} />;
               if (s.id === "reasoning")      body = <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} onEdit={() => handleEditSection("reasoning")} />;
               if (s.id === "outcome")        body = <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} onEdit={() => handleEditSection("outcome")} />;
