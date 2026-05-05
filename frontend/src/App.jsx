@@ -21,12 +21,14 @@ import GeneratePage from "./pages/generate/GeneratePage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import SharedBriefPage from "./pages/shared/SharedBriefPage";
 import ClientBriefPage from "./pages/shared/ClientBriefPage";
+import BillingReportPage from "./pages/shared/BillingReportPage";
 import TasksPage from "./pages/tasks/TasksPage";
 import IngestPage from "./pages/ingest/IngestPage";
 import PatternsPage from "./pages/patterns/PatternsPage";
 import LibraryPage from "./pages/library/LibraryPage";
 import LibraryNewPage from "./pages/library/LibraryNewPage";
 import LibraryDetailPage from "./pages/library/LibraryDetailPage";
+import BillingPage from "./pages/billing/BillingPage";
 
 function Protected({ children }) {
   return (
@@ -59,6 +61,7 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/brief/:shareToken" element={<SharedBriefPage />} />
           <Route path="/client-brief/:shareToken" element={<ClientBriefPage />} />
+          <Route path="/billing-report/:shareToken" element={<BillingReportPage />} />
 
           <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
           <Route path="/generate" element={<Protected><GeneratePage /></Protected>} />
@@ -73,6 +76,7 @@ export default function App() {
           <Route path="/library" element={<Protected><LibraryPage /></Protected>} />
           <Route path="/library/new" element={<Protected><LibraryNewPage /></Protected>} />
           <Route path="/library/:id" element={<Protected><LibraryDetailPage /></Protected>} />
+          <Route path="/billing" element={<Protected><BillingPage /></Protected>} />
           <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

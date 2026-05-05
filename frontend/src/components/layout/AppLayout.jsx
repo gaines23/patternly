@@ -8,6 +8,7 @@ const WORK_NAV = [
   { to: "/dashboard",    label: "Overview",     icon: "dashboard" },
   { to: "/projects",     label: "My Projects",  icon: "projects" },
   { to: "/tasks",        label: "Tasks",        icon: "tasks" },
+  { to: "/billing",      label: "Billing",      icon: "billing" },
 ];
 const TEAM_NAV = [
   { to: "/all-projects", label: "All Projects", icon: "allProjects" },
@@ -48,6 +49,11 @@ function NavIcon({ name, size = 18, color }) {
     case "tasks": return (
       <svg style={s} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="14" height="14" rx="2.5"/><path d="M7 10l2 2 4-4"/>
+      </svg>
+    );
+    case "billing": return (
+      <svg style={s} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 1.5"/>
       </svg>
     );
     case "ingest": return (
@@ -172,6 +178,7 @@ export default function AppLayout({ children }) {
     : to === "/projects"    ? location.pathname === "/projects"
     : to === "/all-projects" ? location.pathname === "/all-projects"
     : to === "/tasks"       ? location.pathname === "/tasks"
+    : to === "/billing"     ? location.pathname === "/billing"
     : to === "/ingest"      ? location.pathname === "/ingest"
     : to === "/patterns"    ? location.pathname === "/patterns"
     : location.pathname.startsWith(to);

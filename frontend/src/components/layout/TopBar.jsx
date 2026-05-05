@@ -15,6 +15,7 @@ const ROUTE_LABELS = [
   [/^\/projects\/[^/]+\/edit$/,"Edit Project"],
   [/^\/projects\/[^/]+$/,      "Project"],
   [/^\/tasks$/,                "Tasks"],
+  [/^\/billing$/,              "Billing"],
   [/^\/ingest$/,               "Ingest"],
   [/^\/patterns$/,             "Patterns"],
   [/^\/generate$/,             "Generate brief"],

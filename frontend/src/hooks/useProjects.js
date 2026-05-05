@@ -11,6 +11,7 @@ export const projectKeys = {
   stats:    () => [...projectKeys.all, "stats"],
   warnings: (tools) => [...projectKeys.all, "warnings", tools],
   summary:  (id, dates) => [...projectKeys.all, "summary", id, dates],
+  billing:  (params) => [...projectKeys.all, "billing", params],
 };
 
 // ── Fetch all projects (paginated, filterable) ────────────────────────────────
@@ -173,6 +174,38 @@ export function useProjectSummary(id, { summaryType = "full", startDate, endDate
     },
     enabled: !!id && enabled,
     staleTime: 5 * 60 * 1000, // cache for 5 minutes
+  });
+}
+
+// ── Billing — hours/notes across projects within a date range ────────────────
+export function useBilling({ dateFrom, dateTo, caseFile } = {}) {
+  return useQuery({
+    queryKey: projectKeys.billing({ dateFrom, dateTo, caseFile }),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("date_from", dateFrom);
+      if (dateTo)   params.set("date_to",   dateTo);
+      if (caseFile) params.set("case_file", caseFile);
+      const { data } = await api.get(`/v1/briefs/billing/?${params}`);
+      return data;
+    },
+  });
+}
+
+// ── Toggle the current user's billing share link ─────────────────────────────
+export function useToggleBillingShare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post("/v1/briefs/billing/share/");
+      return data; // { enabled, share_token }
+    },
+    onSuccess: (data) => {
+      // Patch any cached billing responses with the new share state.
+      queryClient.setQueriesData({ queryKey: [...projectKeys.all, "billing"] }, (old) =>
+        old ? { ...old, share_enabled: data.enabled, share_token: data.share_token } : old
+      );
+    },
   });
 }
 

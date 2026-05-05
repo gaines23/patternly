@@ -570,3 +570,25 @@ class CommunityInsight(models.Model):
 
     def __str__(self):
         return f"[{self.get_insight_type_display()}] {self.title}"
+
+
+# ── Billing share — one shareable link per user for billing reports ──────────
+
+class BillingShare(models.Model):
+    """
+    A user-scoped shareable link for the billing report.
+    Recipients of the URL can view any date range for that user's logged hours
+    via query params on the public endpoint, until the share is disabled.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="billing_share",
+    )
+    share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    enabled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "billing_shares"
