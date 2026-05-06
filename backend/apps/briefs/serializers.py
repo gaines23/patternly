@@ -224,6 +224,8 @@ class CaseFileDetailSerializer(serializers.ModelSerializer):
 class PublicCaseFileSerializer(CaseFileDetailSerializer):
     """Read-only serializer for unauthenticated client share links."""
 
+    team_logo_url = serializers.SerializerMethodField()
+
     class Meta(CaseFileDetailSerializer.Meta):
         fields = [
             "id", "name", "logged_by_name",
@@ -236,7 +238,16 @@ class PublicCaseFileSerializer(CaseFileDetailSerializer):
             "updates_summary", "updates_summary_generated_at",
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
+            "team_logo_url",
         ]
+
+    def get_team_logo_url(self, obj):
+        team = getattr(obj.logged_by, "team", None) if obj.logged_by else None
+        if not team or not team.logo:
+            return None
+        request = self.context.get("request")
+        url = team.logo.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class CaseFileListSerializer(serializers.ModelSerializer):

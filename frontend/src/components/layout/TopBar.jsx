@@ -15,9 +15,13 @@ const ROUTE_LABELS = [
   [/^\/projects\/[^/]+\/edit$/,"Edit Project"],
   [/^\/projects\/[^/]+$/,      "Project"],
   [/^\/tasks$/,                "Tasks"],
+  [/^\/billing$/,              "Billing"],
   [/^\/ingest$/,               "Ingest"],
   [/^\/patterns$/,             "Patterns"],
   [/^\/generate$/,             "Generate brief"],
+  [/^\/library$/,              "Library"],
+  [/^\/library\/new$/,         "New library item"],
+  [/^\/library\/[^/]+$/,       "Library item"],
   [/^\/settings/,              "Settings"],
 ];
 
@@ -103,6 +107,16 @@ export default function TopBar() {
     staleTime: 30_000,
   });
 
+  const { data: libraryData } = useQuery({
+    queryKey: ["globalSearch", "library", trimmed],
+    queryFn: async () => {
+      const { data } = await api.get(`/v1/library/items/?search=${encodeURIComponent(trimmed)}`);
+      return data;
+    },
+    enabled: trimmed.length >= 2,
+    staleTime: 30_000,
+  });
+
   const projectResults = useMemo(() => {
     const items = briefData?.results || [];
     return items.slice(0, 6).map(cf => ({
@@ -131,10 +145,26 @@ export default function TopBar() {
     }));
   }, [todoData]);
 
-  // Flat list drives keyboard focus across both sections.
+  const libraryResults = useMemo(() => {
+    const items = (libraryData?.results || libraryData || []);
+    return items.slice(0, 6).map(it => ({
+      kind: "library",
+      id: it.id,
+      to: `/library/${it.id}`,
+      title: it.name,
+      sub: [
+        it.kind ? it.kind.replace(/_/g, " ") : null,
+        it.platform?.name || null,
+        it.source_case_file_name ? `from ${it.source_case_file_name}` : null,
+      ].filter(Boolean).join(" · "),
+      kindLabel: it.kind,
+    }));
+  }, [libraryData]);
+
+  // Flat list drives keyboard focus across all sections.
   const results = useMemo(
-    () => [...projectResults, ...todoResults],
-    [projectResults, todoResults],
+    () => [...projectResults, ...todoResults, ...libraryResults],
+    [projectResults, todoResults, libraryResults],
   );
 
   useEffect(() => { setFocusIdx(0); }, [results.length]);
@@ -345,6 +375,51 @@ export default function TopBar() {
                       }}>
                         {r.status === "done" ? "Done" : r.status === "in_progress" ? "In Progress" : "Open"}
                       </span>
+                    </button>
+                  );
+                })}
+
+                {libraryResults.length > 0 && (
+                  <div style={{
+                    padding: "8px 14px", fontSize: 10.5, fontWeight: 600, color: theme.textFaint,
+                    fontFamily: F, textTransform: "uppercase", letterSpacing: "0.1em",
+                    borderTop: (projectResults.length + todoResults.length) > 0 ? `1px solid ${theme.borderSubtle}` : "none",
+                    borderBottom: `1px solid ${theme.borderSubtle}`,
+                  }}>
+                    Library
+                  </div>
+                )}
+                {libraryResults.map((r, i) => {
+                  const idx = projectResults.length + todoResults.length + i;
+                  return (
+                    <button
+                      key={`l-${r.id}`}
+                      onMouseEnter={() => setFocusIdx(idx)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectResult(idx)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12, width: "100%",
+                        padding: "10px 14px", border: "none", cursor: "pointer",
+                        background: idx === focusIdx ? theme.surfaceAlt : "transparent",
+                        textAlign: "left", transition: "background 0.1s",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontSize: 13, fontWeight: 600, color: theme.text, fontFamily: F,
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        }}>
+                          {r.title}
+                        </div>
+                        {r.sub && (
+                          <div style={{
+                            fontSize: 11.5, color: theme.textMuted, fontFamily: F, marginTop: 1,
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                          }}>
+                            {r.sub}
+                          </div>
+                        )}
+                      </div>
                     </button>
                   );
                 })}

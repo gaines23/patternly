@@ -1131,7 +1131,7 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
 
 const emptyTrigger = () => ({ type:"", detail:"" });
 const emptyAction = () => ({ type:"", detail:"" });
-const emptyAutomation = () => ({ platform:"clickup", automation_mode:"pipeline", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", map_description:"", use_agent:false });
+const emptyAutomation = () => ({ platform:"clickup", automation_mode:"pipeline", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], automation_prompt:"", instructions:"", map_description:"", use_agent:false });
 const emptyList = () => ({ name:"", statuses:"", customFields:"", automations:[] });
 
 function summarizeInstructions(text) {
@@ -1141,7 +1141,7 @@ function summarizeInstructions(text) {
 }
 const emptyWorkflow = () => ({ name:"", notes:"", pipeline:[], lists:[emptyList()], status:"Mapping", replaces:"", learnings:{ rating:"", whatWorked:"", whatToAvoid:"" } });
 
-function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp, onMoveDown, isFirst, isLast, color, pipelinePhases, suggestedAutomations }) {
+function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp, onMoveDown, isFirst, isLast, color, pipelinePhases, suggestedAutomations, wfIdx, listIdx }) {
   const { theme } = useTheme();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionQuery, setSuggestionQuery] = useState("");
@@ -1167,8 +1167,9 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
     return `${tLabel} → ${aLabel}`;
   };
 
+  const focusKey = (typeof wfIdx === "number" && typeof listIdx === "number") ? `${wfIdx}-${listIdx}-${autoIdx}` : undefined;
   return (
-    <div style={{ position:"relative", border:`1px solid ${color}20`, borderLeft:`3px solid ${color}80`, borderRadius:9, padding:"14px 16px", marginBottom:10, background:theme.surface }}>
+    <div data-fp-automation={focusKey} style={{ position:"relative", border:`1px solid ${color}20`, borderLeft:`3px solid ${color}80`, borderRadius:9, padding:"14px 16px", marginBottom:10, background:theme.surface }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:11, fontWeight:700, color, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em" }}>Automation {autoIdx+1}</span>
@@ -1340,6 +1341,17 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
             placeholder="e.g. Sends Slack alert and creates HubSpot record"
           />
         </div>
+        <div style={{ marginBottom:10 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+            Automation Prompt <span style={{ fontSize:10, fontWeight:400, textTransform:"none", letterSpacing:0, color:theme.textFaint }}>— short prompt that drives this automation</span>
+          </div>
+          <TI
+            rows={3}
+            value={auto.automation_prompt||""}
+            onChange={v=>onChange({...auto, automation_prompt:v})}
+            placeholder="e.g. When a task moves to Done, summarize the work and notify the assignee with next steps."
+          />
+        </div>
         <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
             Instructions
           </div>
@@ -1368,7 +1380,7 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
   );
 }
 
-function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color, pipelinePhases, suggestedAutomations }) {
+function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color, pipelinePhases, suggestedAutomations, wfIdx }) {
   const upd = (k,v) => onChange({ ...list, [k]: v });
   const autos = list.automations||[];
   const updAuto = (i,v) => upd("automations", autos.map((a,idx)=>idx===i?v:a));
@@ -1392,7 +1404,7 @@ function WorkflowListCard({ list, listIdx, onChange, onRemove, canRemove, color,
       <Field label="Custom fields"><TI rows={3} value={list.customFields} onChange={v=>upd("customFields",v)} placeholder={"Client Name — Text\nDue Date — Date\nPriority — Dropdown (High / Med / Low)"}/></Field>
       <HR label={`automations (${autos.length})`}/>
       {autos.map((auto,ai)=>(
-        <AutomationCard key={ai} auto={auto} autoIdx={ai} onChange={v=>updAuto(ai,v)} onRemove={()=>remAuto(ai)} canRemove={autos.length>0} onMoveUp={()=>moveAuto(ai,-1)} onMoveDown={()=>moveAuto(ai,1)} isFirst={ai===0} isLast={ai===autos.length-1} color={color} pipelinePhases={pipelinePhases} suggestedAutomations={suggestedAutomations}/>
+        <AutomationCard key={ai} auto={auto} autoIdx={ai} onChange={v=>updAuto(ai,v)} onRemove={()=>remAuto(ai)} canRemove={autos.length>0} onMoveUp={()=>moveAuto(ai,-1)} onMoveDown={()=>moveAuto(ai,1)} isFirst={ai===0} isLast={ai===autos.length-1} color={color} pipelinePhases={pipelinePhases} suggestedAutomations={suggestedAutomations} wfIdx={wfIdx} listIdx={listIdx}/>
       ))}
       <button type="button" onClick={addAuto} style={{ width:"100%", padding:"8px 0", background:"transparent", border:`1.5px dashed ${color}50`, borderRadius:9, color, fontSize:12, fontWeight:600, fontFamily:F, cursor:"pointer", marginTop:4 }}>
         + Add automation
@@ -1460,7 +1472,7 @@ function WorkflowBuildCard({ wf, wfIdx, onChange, onRemove, w, suggestedAutomati
           </div>
           <HR label={`lists (${wf.lists.length})`}/>
           {wf.lists.map((l,i)=>(
-            <WorkflowListCard key={i} list={l} listIdx={i} onChange={v=>updList(i,v)} onRemove={()=>remList(i)} canRemove={wf.lists.length>1} color={color} pipelinePhases={wf.pipeline||[]} suggestedAutomations={suggestedAutomations}/>
+            <WorkflowListCard key={i} list={l} listIdx={i} onChange={v=>updList(i,v)} onRemove={()=>remList(i)} canRemove={wf.lists.length>1} color={color} pipelinePhases={wf.pipeline||[]} suggestedAutomations={suggestedAutomations} wfIdx={wfIdx}/>
           ))}
           <button type="button" onClick={addList} style={{ width:"100%", padding:"9px 0", background:"transparent", border:`1.5px dashed ${color}50`, borderRadius:9, color, fontSize:12, fontWeight:600, fontFamily:F, cursor:"pointer", marginTop:4 }}>
             + Add list to this workflow
@@ -1506,7 +1518,7 @@ function formWfToMapWf(wf) {
   };
 }
 
-function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [], intakePrompt = "", isEditing = false }) {
+function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBuilds = [], intakePrompt = "", isEditing = false, focusPath = null }) {
   const { theme } = useTheme();
   const [mapWfIndex, setMapWfIndex] = useState(null);
   const workflows = data.workflows || [];
@@ -1567,7 +1579,7 @@ function StepBuild({ data, set, w, suggestedAutomations, auditData, suggestedBui
         </div>
       ) : (<>
         {workflows.map((wf,i) => (
-          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds} isMapActive={mapWfIndex===i} onToggleMap={()=>setMapWfIndex(mapWfIndex===i?null:i)} defaultCollapsed={isEditing}/>
+          <WorkflowBuildCard key={i} wf={wf} wfIdx={i} onChange={v=>updWf(i,v)} onRemove={()=>remWf(i)} w={w} suggestedAutomations={suggestedAutomations} previousBuilds={builds} isMapActive={mapWfIndex===i} onToggleMap={()=>setMapWfIndex(mapWfIndex===i?null:i)} defaultCollapsed={isEditing && focusPath?.workflow !== i}/>
         ))}
         <button type="button" onClick={addWf} style={{ width:"100%", padding:"11px 0", background:"transparent", border:"1.5px dashed #C8C2E8", borderRadius:10, color:"#0284C7", fontSize:13, fontWeight:600, fontFamily:F, cursor:"pointer", marginBottom:14 }}>
           + Add another workflow
@@ -1735,11 +1747,50 @@ function computeConfidence(data) {
 }
 
 // ── Main CaseFileForm ─────────────────────────────────────────────────────────
-export default function ProjectForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel, hideRawPrompt, suggestedAutomations, initialStep }) {
+export default function ProjectForm({ onSubmit, isSaving, initialData, initialName, initialEnteredBy, isEditing, onCancel, hideRawPrompt, suggestedAutomations, initialStep, focusPath }) {
   const shouldHidePrompt = hideRawPrompt || isEditing;
+  const buildStepIndex = SECTIONS.findIndex(s => s.id === "build");
   const [step, setStep] = useState(
-    typeof initialStep === "number" ? initialStep : (isEditing ? 0 : 2)
+    typeof initialStep === "number"
+      ? initialStep
+      : (focusPath ? buildStepIndex : (isEditing ? 0 : 2))
   );
+
+  // When a deep-link focusPath is provided, scroll the targeted automation
+  // (or list/workflow) into view once after we land on the build step.
+  // Only fires once per page load to avoid hijacking subsequent scroll.
+  const focusAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!focusPath || focusAppliedRef.current) return;
+    if (SECTIONS[step]?.id !== "build") return;
+    const wf = focusPath.workflow;
+    const list = focusPath.list;
+    const auto = focusPath.automation;
+    if (typeof wf !== "number") return;
+
+    // Wait a tick so the build step (and the now-expanded workflow card) renders.
+    const t = window.setTimeout(() => {
+      let target = null;
+      if (typeof list === "number" && typeof auto === "number") {
+        target = document.querySelector(`[data-fp-automation="${wf}-${list}-${auto}"]`);
+      }
+      if (!target) {
+        // Fall back to the workflow card header if a more specific target isn't found.
+        target = document.querySelectorAll(".fp-page-wrap, main")[0];
+      }
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.style.outline = "2px solid #7C3AED";
+        target.style.outlineOffset = "4px";
+        window.setTimeout(() => {
+          target.style.outline = "";
+          target.style.outlineOffset = "";
+        }, 1800);
+      }
+      focusAppliedRef.current = true;
+    }, 200);
+    return () => window.clearTimeout(t);
+  }, [focusPath, step]);
   const [data, setData] = useState(initialData || DEFAULT_STATE);
   const [enteredBy, setEnteredBy] = useState(initialEnteredBy || "");
   const [caseName, setCaseName] = useState(initialName || "");
@@ -2046,7 +2097,7 @@ export default function ProjectForm({ onSubmit, isSaving, initialData, initialNa
                 auditData={data.audit} setAudit={v=>setSD("audit",v)} w={w} isEditing={isEditing}/>
             )}
             {step===3 && <StepIntake data={data.intake} set={v=>setSD("intake",v)} w={w} hideRawPrompt={shouldHidePrompt} aiSuggestedFields={aiSuggestedFields}/>}
-            {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds} intakePrompt={data.intake?.rawPrompt || ""} isEditing={isEditing}/>}
+            {step===4 && <StepBuild data={data.build} set={v=>setSD("build",v)} w={w} suggestedAutomations={suggestedAutomations} auditData={data.audit} suggestedBuilds={suggestedBuilds} intakePrompt={data.intake?.rawPrompt || ""} isEditing={isEditing} focusPath={focusPath}/>}
             {step===5 && <StepDelta data={data.delta} set={v=>setSD("delta",v)} w={w} aiSuggestedFields={aiSuggestedFields}/>}
             {step===6 && <StepReasoning data={data.reasoning} set={v=>setSD("reasoning",v)} w={w}/>}
             {step===7 && <StepOutcome data={data.outcome} set={v=>setSD("outcome",v)} w={w}/>}

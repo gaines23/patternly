@@ -473,7 +473,7 @@ export default function CaseFileDetailPage() {
               if (s.id === "scopeCreep")     body = <ScopeCreepView    scopeCreep={delta?.scope_creep} theme={theme} onEdit={() => handleEditSection("scopeCreep")} />;
               if (s.id === "intake")         body = <IntakeSection    intake={intake}       theme={theme} layerTodos={todosByLayer.intake    || []} onEdit={() => handleEditSection("intake")} />;
               if (s.id === "audit")          body = <AuditSection     audit={audit}         theme={theme} layerTodos={todosByLayer.audit     || []} onEdit={() => handleEditSection("audit")} />;
-              if (s.id === "build")          body = <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} onEdit={() => handleEditSection("build")} />;
+              if (s.id === "build")          body = <BuildSection     build={build}         isPrinting={isPrinting} theme={theme} mapWfIndex={mapWfIndex} setMapWfIndex={setMapWfIndex} layerTodos={todosByLayer.build || []} onEdit={() => handleEditSection("build")} caseFileId={id} />;
               if (s.id === "delta")          body = <DeltaSection     delta={delta}         theme={theme} layerTodos={todosByLayer.delta     || []} onEdit={() => handleEditSection("delta")} />;
               if (s.id === "reasoning")      body = <ReasoningSection reasoning={reasoning} theme={theme} layerTodos={todosByLayer.reasoning || []} onEdit={() => handleEditSection("reasoning")} />;
               if (s.id === "outcome")        body = <OutcomeSection   outcome={outcome}     theme={theme} layerTodos={todosByLayer.outcome   || []} onEdit={() => handleEditSection("outcome")} />;

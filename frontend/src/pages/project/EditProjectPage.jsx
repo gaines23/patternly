@@ -1,19 +1,37 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useProject, useUpdateProject } from "@hooks/useProjects";
 import { formToProjectPayload, projectToFormState, briefToSuggestedAutomations } from "../../utils/transforms";
 import ProjectForm from "@components/ProjectForm";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "../../hooks/useTheme";
 import { useBriefByProject } from "../../hooks/useWorkflows";
+
+function parseIntOrNull(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 
 export default function EditCaseFilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { theme } = useTheme();
   const { data: caseFile, isLoading, isError } = useProject(id);
   const updateMutation = useUpdateProject(id);
   const { data: linkedBrief } = useBriefByProject(id);
   const [apiError, setApiError] = useState(null);
+
+  // Compute focusPath up-front (before any early returns) to keep hook order stable.
+  const focusPath = useMemo(() => {
+    const wf = parseIntOrNull(searchParams.get("workflow"));
+    if (wf === null) return null;
+    return {
+      workflow: wf,
+      list: parseIntOrNull(searchParams.get("list")),
+      automation: parseIntOrNull(searchParams.get("automation")),
+    };
+  }, [searchParams]);
 
   const handleSubmit = async (formData, enteredBy, caseName) => {
     setApiError(null);
@@ -84,6 +102,7 @@ export default function EditCaseFilePage() {
         hideRawPrompt
         onCancel={() => navigate(`/projects/${id}`)}
         suggestedAutomations={suggestedAutomations}
+        focusPath={focusPath}
       />
     </div>
   );

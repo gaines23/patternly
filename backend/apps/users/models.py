@@ -18,6 +18,22 @@ ACTION_CASE_FILE_UPDATED = "case_file_updated"
 ACTION_CASE_FILE_DELETED = "case_file_deleted"
 
 
+class Team(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=120)
+    slug = models.SlugField(unique=True)
+    logo = models.ImageField(upload_to="team_logos/", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "teams"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -47,6 +63,13 @@ class User(AbstractBaseUser, PermissionsMixin):
             ("viewer", "Viewer"),
         ],
         default="engineer",
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="members",
     )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

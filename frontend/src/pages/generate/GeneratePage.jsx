@@ -1,9 +1,82 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMatchTemplates } from "../../hooks/useWorkflows";
 import { useTheme } from "../../hooks/useTheme";
 
 const F = "'Plus Jakarta Sans', sans-serif";
+
+const LIBRARY_KIND_ACCENT = {
+  formula:            { bg: "#EEF2FF", color: "#4F46E5", border: "#C7D2FE" },
+  automation:         { bg: "#FFF7ED", color: "#C2410C", border: "#FED7AA" },
+  custom_field_set:   { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0" },
+  template:           { bg: "#F5F3FF", color: "#6D28D9", border: "#DDD6FE" },
+  integration_recipe: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+  snippet:            { bg: "#F1F5F9", color: "#334155", border: "#CBD5E1" },
+};
+
+function LibraryMatchesPanel({ matches, theme }) {
+  if (!matches || matches.length === 0) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#6D28D9", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+          From your team's library · {matches.length}
+        </p>
+      </div>
+      <p style={{ margin: "0 0 10px", fontSize: 12, color: theme.textMuted, fontFamily: F }}>
+        Reusable formulas, automations, and templates your team has saved that match this scenario. The AI will draw on these when generating.
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {matches.map(m => {
+          const accent = LIBRARY_KIND_ACCENT[m.kind] || LIBRARY_KIND_ACCENT.snippet;
+          return (
+            <Link
+              key={m.id}
+              to={`/library/${m.id}`}
+              style={{
+                textDecoration: "none", color: "inherit", display: "block",
+                padding: "10px 12px",
+                background: theme.surface, border: `1px solid ${theme.border}`,
+                borderRadius: 9,
+                transition: "border-color 0.12s, background 0.12s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent.border; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = theme.border; }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                  background: accent.bg, color: accent.color, border: `1px solid ${accent.border}`,
+                  fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em",
+                  whiteSpace: "nowrap",
+                }}>{m.kind_label || m.kind}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: theme.textFaint, fontFamily: F }}>
+                  {m.score}/100
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: theme.text, fontFamily: F, lineHeight: 1.4 }}>
+                {m.name}
+              </p>
+              {m.body_preview && (
+                <p style={{
+                  margin: "3px 0 0", fontSize: 11.5, color: theme.textMuted, fontFamily: F, lineHeight: 1.5,
+                  display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                }}>
+                  {m.body_preview}
+                </p>
+              )}
+              {m.source_case_file_name && (
+                <p style={{ margin: "4px 0 0", fontSize: 11, color: theme.textFaint, fontFamily: F }}>
+                  from {m.source_case_file_name}
+                </p>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const EXAMPLE_PROMPTS = [
   "We're a 9-person marketing agency managing 15 clients. We use Slack and HubSpot but nothing syncs. Deliverables fall through the cracks every week.",
@@ -308,6 +381,7 @@ Example: We're a 9-person marketing agency managing 15 clients. We use Slack and
         {matchResult && (
           <div style={{ background: theme.surfaceAlt, borderRadius: 12, padding: "20px", border: `1px solid ${theme.borderInput}` }}>
             <MatchResultsPanel result={matchResult} theme={theme} />
+            <LibraryMatchesPanel matches={matchResult.library_matches} theme={theme} />
           </div>
         )}
       </div>

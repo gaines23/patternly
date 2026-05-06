@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
 import {
   useUpdateMe, useChangePassword, useCreateInvite,
   useAuditLogs, useSignOutAll, useAdminUsers, useAdminUpdateUser,
+  useMyTeam, useUpdateMyTeam,
 } from "../../hooks/useUsers";
 import {
   usePlatforms, usePlatformKnowledge, useCommunityInsights,
@@ -270,9 +271,166 @@ function SecurityTab({ user, theme, changePassword, passwords, setPasswords, pas
   );
 }
 
-function TeamTab({ user, theme, createInvite, inviteLink, setInviteLink, inviteCopied, setInviteCopied, handleCreateInvite, handleCopyInvite, isAdmin, adminUsers, adminUpdateUser }) {
+function TeamTab({ user, theme, createInvite, inviteLink, setInviteLink, inviteCopied, setInviteCopied, handleCreateInvite, handleCopyInvite, isAdmin, adminUsers, adminUpdateUser, myTeam, updateMyTeam }) {
+  const [teamName, setTeamName] = useState("");
+  const [teamMsg, setTeamMsg] = useState(null);
+  const [logoMsg, setLogoMsg] = useState(null);
+  const logoInputRef = useRef(null);
+
+  useEffect(() => {
+    if (myTeam?.data?.name) setTeamName(myTeam.data.name);
+  }, [myTeam?.data?.name]);
+
+  const handleTeamSave = async (e) => {
+    e.preventDefault();
+    setTeamMsg(null);
+    const name = teamName.trim();
+    if (!name) {
+      setTeamMsg({ type: "error", message: "Team name is required." });
+      return;
+    }
+    try {
+      await updateMyTeam.mutateAsync({ name });
+      setTeamMsg({ type: "success", message: "Team updated." });
+    } catch (err) {
+      const msg = err.response?.data?.detail || "Failed to update team.";
+      setTeamMsg({ type: "error", message: msg });
+    }
+  };
+
+  const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+  const LOGO_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+  const currentLogoUrl = myTeam?.data?.logo || null;
+
+  const handleLogoPick = async (e) => {
+    setLogoMsg(null);
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!LOGO_ALLOWED_TYPES.includes(file.type)) {
+      setLogoMsg({ type: "error", message: "Logo must be a PNG, JPEG, or WebP image." });
+      return;
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoMsg({ type: "error", message: "Logo must be 2 MB or smaller." });
+      return;
+    }
+    try {
+      await updateMyTeam.mutateAsync({ logo: file });
+      setLogoMsg({ type: "success", message: "Logo updated." });
+    } catch (err) {
+      const detail = err.response?.data?.logo?.[0] || err.response?.data?.detail || "Failed to upload logo.";
+      setLogoMsg({ type: "error", message: detail });
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    setLogoMsg(null);
+    try {
+      await updateMyTeam.mutateAsync({ logo_clear: true });
+      setLogoMsg({ type: "success", message: "Logo removed." });
+    } catch (err) {
+      const msg = err.response?.data?.detail || "Failed to remove logo.";
+      setLogoMsg({ type: "error", message: msg });
+    }
+  };
+
   return (
     <>
+      <Card title="Team profile" sub="Your team's display name. Library items and shared content live under this team." theme={theme}>
+        {myTeam?.isLoading ? (
+          <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, padding: "8px 0" }}>Loading…</p>
+        ) : (
+          <form onSubmit={handleTeamSave} style={{ paddingTop: 4 }}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: theme.text, fontFamily: F, marginBottom: 6 }}>Team name</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                disabled={updateMyTeam.isPending}
+                placeholder="e.g. Acme Solutions"
+                style={{
+                  flex: 1, padding: "9px 13px",
+                  border: `1.5px solid ${theme.borderInput}`, borderRadius: 9,
+                  fontFamily: F, fontSize: 14, color: theme.text,
+                  background: theme.inputBg,
+                  outline: "none", boxSizing: "border-box",
+                  cursor: "text",
+                }}
+              />
+              <Btn
+                type="submit"
+                pending={updateMyTeam.isPending}
+                label="Save"
+                pendingLabel="Saving…"
+                theme={theme}
+              />
+            </div>
+            {teamMsg && <Alert type={teamMsg.type} message={teamMsg.message} />}
+          </form>
+        )}
+      </Card>
+
+      <Card title="Report logo" sub="Used on PDF exports and shared report links. Replaces the Patternly logo. PNG, JPEG, or WebP, up to 2 MB." theme={theme}>
+        <div style={{ paddingTop: 4, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{
+            width: 140, height: 64, borderRadius: 9,
+            border: `1.5px dashed ${theme.borderInput}`,
+            background: theme.inputBg,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            overflow: "hidden", flexShrink: 0,
+          }}>
+            {currentLogoUrl ? (
+              <img
+                src={currentLogoUrl}
+                alt="Team logo"
+                style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+              />
+            ) : (
+              <span style={{ fontSize: 11, color: theme.textFaint, fontFamily: F }}>No logo</span>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleLogoPick}
+              style={{ display: "none" }}
+            />
+            <Btn
+              onClick={() => logoInputRef.current?.click()}
+              disabled={updateMyTeam.isPending}
+              pending={updateMyTeam.isPending}
+              label={currentLogoUrl ? "Replace logo" : "Upload logo"}
+              pendingLabel="Uploading…"
+              theme={theme}
+            />
+            {currentLogoUrl && (
+              <button
+                type="button"
+                onClick={handleLogoRemove}
+                disabled={updateMyTeam.isPending}
+                style={{
+                  padding: "9px 16px",
+                  background: "#FEF2F2",
+                  border: "1px solid #FECACA",
+                  borderRadius: 9,
+                  color: "#DC2626",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: F,
+                  cursor: updateMyTeam.isPending ? "not-allowed" : "pointer",
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+        {logoMsg && <Alert type={logoMsg.type} message={logoMsg.message} />}
+      </Card>
+
       <Card title="Invite a user" sub="Generate a one-time invite link. It expires after 2 days." theme={theme}>
         <div style={{ paddingTop: 4 }}>
           <Btn onClick={handleCreateInvite} disabled={createInvite.isPending} pending={createInvite.isPending} label="Generate invite link" pendingLabel="Generating…" theme={theme} />
@@ -664,6 +822,8 @@ export default function SettingsPage() {
   const signOutAll = useSignOutAll();
   const adminUsers = useAdminUsers();
   const adminUpdateUser = useAdminUpdateUser();
+  const myTeam = useMyTeam();
+  const updateMyTeam = useUpdateMyTeam();
 
   const isAdmin = user?.role === "admin" || user?.is_staff;
 
@@ -776,6 +936,7 @@ export default function SettingsPage() {
           inviteCopied={inviteCopied} setInviteCopied={setInviteCopied}
           handleCreateInvite={handleCreateInvite} handleCopyInvite={handleCopyInvite}
           adminUsers={adminUsers} adminUpdateUser={adminUpdateUser}
+          myTeam={myTeam} updateMyTeam={updateMyTeam}
         />
       )}
 

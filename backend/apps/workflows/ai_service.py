@@ -26,6 +26,7 @@ from apps.briefs.models import (
     CaseFile, Roadblock, Platform,
     PlatformKnowledge, CommunityInsight, IntegrationPattern,
 )
+from apps.library.models import LibraryItem, LibraryItemKind
 from .models import GeneratedBrief, WorkflowTemplate
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ class RetrievedContext:
     community_insights: list = field(default_factory=list)
     matched_templates: list = field(default_factory=list)
     integration_patterns: list = field(default_factory=list)
+    library_items: list = field(default_factory=list)
 
 
 @dataclass
@@ -378,12 +380,14 @@ class PatternlyAIService:
         community_insights = self._get_community_insights(platforms, scenario)
         matched_templates = self._get_matched_templates(scenario)
         integration_patterns = self._get_integration_patterns(platforms)
+        library_items = self._get_matched_library_items(scenario)
 
         logger.info(
             "Retrieved context: %d case files, %d warnings, %d knowledge, "
-            "%d insights, %d templates, %d patterns",
+            "%d insights, %d templates, %d patterns, %d library items",
             len(case_files), len(warnings), len(platform_knowledge),
             len(community_insights), len(matched_templates), len(integration_patterns),
+            len(library_items),
         )
 
         return RetrievedContext(
@@ -394,6 +398,7 @@ class PatternlyAIService:
             community_insights=community_insights,
             matched_templates=matched_templates,
             integration_patterns=integration_patterns,
+            library_items=library_items,
         )
 
     def _serialise_case_file(self, cf: CaseFile) -> dict:
@@ -572,6 +577,107 @@ class PatternlyAIService:
             for tmpl, score in scored[:3]
         ]
 
+    def _get_matched_library_items(self, scenario: ParsedScenario, limit: int = 6) -> list:
+        """
+        Score LibraryItems against the parsed scenario by overlap of workflow_types,
+        industries, tools, platform, and tags. Returns the top matches with a
+        compact body suitable for prompt injection.
+        """
+        parsed_wf = (scenario.workflow_type or "").lower()
+        parsed_industries = set(i.lower() for i in scenario.industries)
+        parsed_tools = set(t.lower() for t in scenario.tools)
+
+        items = LibraryItem.objects.select_related("source_case_file", "platform").filter(
+            visibility__in=["team", "public"],
+        )
+        scored = []
+
+        for item in items:
+            score = 0
+            wfs = [w.lower() for w in (item.workflow_types or [])]
+            if parsed_wf and any(parsed_wf == w or parsed_wf in w for w in wfs):
+                score += 30
+            shared_ind = parsed_industries & set(i.lower() for i in (item.industries or []))
+            score += min(len(shared_ind) * 12, 30)
+            shared_tools = parsed_tools & set(t.lower() for t in (item.tools or []))
+            score += min(len(shared_tools) * 8, 24)
+
+            # Platform alignment — strong signal that the item was built for this stack.
+            # Match on platform name OR slug appearing in the scenario's tools list.
+            if item.platform_id and parsed_tools:
+                platform_name = (item.platform.name or "").lower()
+                platform_slug = (item.platform.slug or "").lower()
+                if platform_name and platform_name in parsed_tools:
+                    score += 20
+                elif platform_slug and platform_slug in parsed_tools:
+                    score += 20
+
+            shared_tags = parsed_industries & set(t.lower() for t in (item.tags or []))
+            score += min(len(shared_tags) * 4, 16)
+
+            # Library items that have been used by the team are higher signal
+            if item.usages.exists():
+                score += 5
+
+            if score > 0:
+                scored.append((item, min(score, 100)))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        return [
+            {
+                "id": str(item.id),
+                "name": item.name,
+                "kind": item.kind,
+                "kind_label": dict(LibraryItemKind.choices).get(item.kind, item.kind),
+                "score": score,
+                "description": (item.description or "")[:240],
+                "tags": list(item.tags or []),
+                "platform": item.platform.name if item.platform_id else None,
+                "source_case_file_id": str(item.source_case_file_id) if item.source_case_file_id else None,
+                "source_case_file_name": (
+                    (item.source_case_file.name or item.source_case_file.workflow_type or "")
+                    if item.source_case_file else ""
+                ),
+                "body_preview": self._library_item_body_preview(item),
+            }
+            for item, score in scored[:limit]
+        ]
+
+    @staticmethod
+    def _library_item_body_preview(item: LibraryItem, max_chars: int = 360) -> str:
+        """Render the most useful body fields per kind into a compact preview."""
+        body = item.body or {}
+        parts = []
+        if item.kind == LibraryItemKind.FORMULA:
+            if body.get("expression"):
+                parts.append(f"expr: {body['expression']}")
+            if body.get("inputs"):
+                parts.append(f"inputs: {body['inputs']}")
+        elif item.kind == LibraryItemKind.AUTOMATION:
+            for k in ("trigger", "actions", "notes"):
+                if body.get(k):
+                    parts.append(f"{k}: {body[k]}")
+            if body.get("notes") and "notes:" not in (parts and parts[0] or ""):
+                pass  # already added above
+        elif item.kind == LibraryItemKind.CUSTOM_FIELD_SET:
+            if body.get("fields_text"):
+                parts.append(body["fields_text"])
+        elif item.kind == LibraryItemKind.TEMPLATE:
+            if body.get("summary"):
+                parts.append(f"summary: {body['summary']}")
+            if body.get("steps"):
+                parts.append(f"steps: {body['steps']}")
+        elif item.kind == LibraryItemKind.INTEGRATION_RECIPE:
+            for k in ("source", "destination", "mapping"):
+                if body.get(k):
+                    parts.append(f"{k}: {body[k]}")
+        elif item.kind == LibraryItemKind.SNIPPET:
+            if body.get("content"):
+                parts.append(body["content"])
+        text = " | ".join(p for p in parts if p)
+        return (text[:max_chars] + "…") if len(text) > max_chars else text
+
     def _get_integration_patterns(self, platforms: list) -> list:
         """Retrieve known integration patterns for tool pairs in the user's stack."""
         if len(platforms) < 2:
@@ -706,6 +812,26 @@ class PatternlyAIService:
         else:
             parts.append("\n## Past Builds\nNo closely matching past builds found. Use general best practices.")
 
+        # Team library matches — formulas, automations, templates the team has already used
+        if context.library_items:
+            parts.append(f"\n## {len(context.library_items)} Team Library Matches")
+            parts.append(
+                "These are reusable building blocks the team has saved or promoted from past projects. "
+                "Prefer recommending these when they fit — the team has already validated them."
+            )
+            for li in context.library_items:
+                origin = f" (from {li['source_case_file_name']})" if li.get("source_case_file_name") else ""
+                platform = f" — {li['platform']}" if li.get("platform") else ""
+                parts.append(
+                    f"\n### {li['name']} [{li['kind_label']}]{platform} (match: {li['score']}/100){origin}"
+                )
+                if li.get("description"):
+                    parts.append(li["description"])
+                if li.get("body_preview"):
+                    parts.append(li["body_preview"])
+                if li.get("tags"):
+                    parts.append(f"tags: {', '.join(li['tags'][:6])}")
+
         # Matched templates — full build structure as starting points
         if context.matched_templates:
             parts.append(f"\n## {len(context.matched_templates)} Pre-Built Template Matches")
@@ -730,8 +856,9 @@ class PatternlyAIService:
         parts.append("\n## Instructions")
         parts.append(
             "Generate the optimal ClickUp workspace recommendation for this scenario. "
-            "Draw on past builds, platform knowledge, community insights, and matching templates above. "
+            "Draw on past builds, platform knowledge, community insights, matching templates, and the team's library above. "
             "Use matching templates as a structural starting point and adapt to this specific scenario. "
+            "When a Team Library Match fits, prefer reusing it — the team has already validated it; reference its name in build_notes so the user can find it in the library. "
             "Flag any known risks, limitations, or gotchas proactively. "
             "Be specific — every field should be actionable by someone building in ClickUp."
         )
@@ -783,7 +910,9 @@ class PatternlyAIService:
                     "community_insights_used": len(context.community_insights),
                     "templates_matched": len(context.matched_templates),
                     "integration_patterns_used": len(context.integration_patterns),
+                    "library_items_used": len(context.library_items),
                 },
+                "library_matches": context.library_items,
             },
             source_case_file_ids=recommendation.source_case_file_ids,
             confidence_score=recommendation.confidence_score,
@@ -905,7 +1034,9 @@ class PatternlyAIService:
                     "community_insights_used": len(context.community_insights),
                     "templates_matched": len(context.matched_templates),
                     "integration_patterns_used": len(context.integration_patterns),
+                    "library_items_used": len(context.library_items),
                 },
+                "library_matches": context.library_items,
             },
             source_case_file_ids=[cf["id"] for cf in context.case_files],
             confidence_score=top.confidence_score if top else 0,
@@ -944,4 +1075,5 @@ class PatternlyAIService:
                 }
                 for s in suggestions
             ],
+            "library_matches": context.library_items,
         }

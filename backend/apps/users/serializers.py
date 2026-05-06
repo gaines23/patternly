@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from django.contrib.auth import authenticate
-from .models import User, Invitation, PasswordResetToken, AuditLog
+from .models import User, Invitation, PasswordResetToken, AuditLog, Team
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -46,13 +46,46 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
+class TeamSerializer(serializers.ModelSerializer):
+    LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+    LOGO_ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp"}
+
+    logo = serializers.ImageField(required=False, allow_null=True)
+    logo_clear = serializers.BooleanField(write_only=True, required=False, default=False)
+
+    class Meta:
+        model = Team
+        fields = ["id", "name", "slug", "logo", "logo_clear", "created_at"]
+        read_only_fields = ["id", "slug", "created_at"]
+
+    def validate_logo(self, value):
+        if value is None:
+            return value
+        if value.size > self.LOGO_MAX_BYTES:
+            raise serializers.ValidationError("Logo must be 2 MB or smaller.")
+        content_type = getattr(value, "content_type", "") or ""
+        if content_type and content_type not in self.LOGO_ALLOWED_TYPES:
+            raise serializers.ValidationError("Logo must be a PNG, JPEG, WebP, or SVG image.")
+        return value
+
+    def update(self, instance, validated_data):
+        clear = validated_data.pop("logo_clear", False)
+        if clear:
+            if instance.logo:
+                instance.logo.delete(save=False)
+            instance.logo = None
+            validated_data.pop("logo", None)
+        return super().update(instance, validated_data)
+
+
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
+    team = TeamSerializer(read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name", "full_name", "role", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "email", "first_name", "last_name", "full_name", "role", "team", "created_at"]
+        read_only_fields = ["id", "created_at", "team"]
 
 
 class RegisterSerializer(serializers.ModelSerializer):

@@ -257,7 +257,13 @@ export default function SharedBriefPage() {
     <div style={{ minHeight: "100vh", background: "#F8FAFC" }}>
       {/* Branded top bar */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <img src="/mega-x-blk.png" alt="MEGAX" style={{ height: 28, display: "block" }} />
+        {cf.team_logo_url ? (
+          <img src={cf.team_logo_url} alt="" style={{ height: 32, maxWidth: 240, objectFit: "contain", display: "block" }} />
+        ) : (
+          <span style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#111827", fontWeight: 700, letterSpacing: "-0.02em" }}>
+            Patternly
+          </span>
+        )}
         <span style={{ fontSize: 12, color: "#9CA3AF", fontFamily: F, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "4px 12px" }}>
           Read-only · Client brief
         </span>

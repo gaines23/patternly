@@ -312,9 +312,12 @@ def match_templates(request):
         "team_size": scenario.team_size,
     }
 
+    library_matches = service._get_matched_library_items(scenario)
+
     return Response({
         "parsed": parsed_data,
         "matches": TemplateMatchResultSerializer(top_matches, many=True).data,
+        "library_matches": library_matches,
     })
 
 

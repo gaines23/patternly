@@ -4,6 +4,8 @@ from . import views
 urlpatterns = [
     path("register/", views.RegisterView.as_view(), name="user_register"),
     path("me/", views.MeView.as_view(), name="user_me"),
+    path("me/team/", views.MyTeamView.as_view(), name="user_my_team"),
+    path("me/team/members/", views.TeamMembersView.as_view(), name="user_team_members"),
     path("me/password/", views.change_password, name="user_change_password"),
     path("me/sign-out-all/", views.sign_out_all, name="user_sign_out_all"),
     path("password-reset/", views.request_password_reset, name="user_password_reset_request"),

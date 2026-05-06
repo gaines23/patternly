@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from .models import (
     CaseFile, Roadblock, ProjectStatus, ProjectUpdate,
     Platform, PlatformKnowledge, CommunityInsight,
+    BillingShare,
 )
 from .serializers import (
     CaseFileDetailSerializer,
@@ -275,7 +276,7 @@ def public_client_brief(request, share_token):
     Public read-only endpoint — shows only progress overview (updates summary).
     """
     try:
-        case_file = CaseFile.objects.select_related("logged_by").prefetch_related(
+        case_file = CaseFile.objects.select_related("logged_by__team").prefetch_related(
             "project_updates",
         ).get(
             client_share_token=share_token, client_share_enabled=True,
@@ -297,6 +298,11 @@ def public_client_brief(request, share_token):
         for pu in case_file.project_updates.all()
     ]
 
+    team = getattr(case_file.logged_by, "team", None) if case_file.logged_by else None
+    team_logo_url = None
+    if team and team.logo:
+        team_logo_url = request.build_absolute_uri(team.logo.url)
+
     return Response({
         "id": str(case_file.id),
         "name": case_file.name,
@@ -310,6 +316,7 @@ def public_client_brief(request, share_token):
         "created_at": case_file.created_at,
         "updated_at": case_file.updated_at,
         "project_updates": project_updates,
+        "team_logo_url": team_logo_url,
     })
 
 
@@ -321,7 +328,7 @@ def public_brief(request, share_token):
     Public read-only endpoint — no authentication required.
     """
     try:
-        case_file = CaseFile.objects.select_related("logged_by").prefetch_related(
+        case_file = CaseFile.objects.select_related("logged_by__team").prefetch_related(
             "audit__builds",
             "intake",
             "build",
@@ -333,7 +340,7 @@ def public_brief(request, share_token):
     except CaseFile.DoesNotExist:
         return Response({"detail": "This link is invalid or has been disabled."}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = PublicCaseFileSerializer(case_file)
+    serializer = PublicCaseFileSerializer(case_file, context={"request": request})
     return Response(serializer.data)
 
 
@@ -375,6 +382,191 @@ def roadblock_warnings(request):
     ]
 
     return Response({"warnings": matched[:10]})  # cap at 10
+
+
+def _parse_iso_date(value):
+    """Returns (date, error_message). On success error is None."""
+    if not value:
+        return None, None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date(), None
+    except ValueError:
+        return None, "Invalid date. Use YYYY-MM-DD."
+
+
+def _build_billing_report(user_filter, date_from=None, date_to=None, case_file_id=None):
+    """
+    Returns ({updates, total_minutes, projects}, error_response_or_None).
+
+    `user_filter` is a queryset filter dict applied to ProjectUpdate (e.g.
+    {"case_file__logged_by": user}). Pass an empty dict to scope to all users
+    (used only by admins).
+    """
+    qs = ProjectUpdate.objects.select_related("case_file").filter(
+        case_file__is_training_data=False,
+        **user_filter,
+    )
+
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    if case_file_id:
+        qs = qs.filter(case_file_id=case_file_id)
+
+    qs = qs.order_by("-created_at")
+
+    cf_qs = CaseFile.objects.filter(is_training_data=False)
+    cf_filter_kwargs = {
+        k.replace("case_file__", "", 1): v for k, v in user_filter.items()
+    }
+    cf_qs = cf_qs.filter(**cf_filter_kwargs)
+
+    projects = [
+        {
+            "id": str(p.id),
+            "name": p.name or p.workflow_type or "Untitled",
+        }
+        for p in cf_qs.order_by("-created_at").only("id", "name", "workflow_type")
+    ]
+
+    updates = [
+        {
+            "id": str(pu.id),
+            "case_file_id": str(pu.case_file_id),
+            "case_file_name": pu.case_file.name or pu.case_file.workflow_type or "Untitled",
+            "content": pu.content,
+            "attachments": pu.attachments,
+            "created_at": pu.created_at,
+            "minutes_spent": pu.minutes_spent,
+        }
+        for pu in qs
+    ]
+
+    total_minutes = sum((pu.get("minutes_spent") or 0) for pu in updates)
+
+    return {
+        "updates": updates,
+        "total_minutes": total_minutes,
+        "projects": projects,
+    }
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def billing(request):
+    """
+    GET /api/v1/briefs/billing/?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&case_file=<uuid>
+    Returns ProjectUpdates within a date range, optionally scoped to a single case file.
+    Non-admins only see updates from their own case files.
+    """
+    user = request.user
+    try:
+        is_admin = getattr(user, "role", None) == "admin" or user.is_staff
+    except AttributeError:
+        is_admin = False
+
+    date_from, err = _parse_iso_date(request.query_params.get("date_from"))
+    if err:
+        return Response({"detail": f"date_from: {err}"}, status=status.HTTP_400_BAD_REQUEST)
+    date_to, err = _parse_iso_date(request.query_params.get("date_to"))
+    if err:
+        return Response({"detail": f"date_to: {err}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    case_file_id = request.query_params.get("case_file")
+
+    user_filter = {} if is_admin else {"case_file__logged_by": user}
+    report = _build_billing_report(user_filter, date_from, date_to, case_file_id)
+
+    # Include the user's share state so the BillingPage can render the share modal.
+    share, _ = BillingShare.objects.get_or_create(user=user)
+    report["share_token"] = str(share.share_token)
+    report["share_enabled"] = share.enabled
+
+    return Response(report)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_billing_share(request):
+    """
+    POST /api/v1/briefs/billing/share/
+    Toggles the user's billing share link on/off. Returns {enabled, share_token}.
+    """
+    share, _ = BillingShare.objects.get_or_create(user=request.user)
+    share.enabled = not share.enabled
+    share.save(update_fields=["enabled", "updated_at"])
+    return Response({
+        "enabled": share.enabled,
+        "share_token": str(share.share_token),
+    })
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_billing_report(request, share_token):
+    """
+    GET /api/v1/briefs/billing/shared/<share_token>/?date_from=&date_to=
+    Public billing report — shows hours and notes grouped by client for the
+    owning user's case files within the given date range.
+    """
+    try:
+        share = BillingShare.objects.select_related("user__team").get(
+            share_token=share_token, enabled=True,
+        )
+    except BillingShare.DoesNotExist:
+        return Response(
+            {"detail": "This link is invalid or has been disabled."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    date_from, err = _parse_iso_date(request.query_params.get("date_from"))
+    if err:
+        return Response({"detail": f"date_from: {err}"}, status=status.HTTP_400_BAD_REQUEST)
+    date_to, err = _parse_iso_date(request.query_params.get("date_to"))
+    if err:
+        return Response({"detail": f"date_to: {err}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    report = _build_billing_report(
+        {"case_file__logged_by": share.user},
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    # Group updates by case_file for the public view (clients are projects here).
+    by_client = {}
+    for pu in report["updates"]:
+        cid = pu["case_file_id"]
+        bucket = by_client.setdefault(cid, {
+            "case_file_id": cid,
+            "case_file_name": pu["case_file_name"],
+            "total_minutes": 0,
+            "updates": [],
+        })
+        bucket["total_minutes"] += pu.get("minutes_spent") or 0
+        bucket["updates"].append({
+            "id": pu["id"],
+            "content": pu["content"],
+            "attachments": pu["attachments"],
+            "created_at": pu["created_at"],
+            "minutes_spent": pu["minutes_spent"],
+        })
+    clients = sorted(by_client.values(), key=lambda c: c["case_file_name"].lower())
+
+    user = share.user
+    team = getattr(user, "team", None)
+    team_logo_url = None
+    if team and team.logo:
+        team_logo_url = request.build_absolute_uri(team.logo.url)
+
+    return Response({
+        "owner_name": user.full_name,
+        "date_from": date_from.isoformat() if date_from else None,
+        "date_to": date_to.isoformat() if date_to else None,
+        "total_minutes": report["total_minutes"],
+        "clients": clients,
+        "team_logo_url": team_logo_url,
+    })
 
 
 @api_view(["GET"])
