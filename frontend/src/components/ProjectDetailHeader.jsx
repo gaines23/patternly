@@ -136,10 +136,16 @@ export default function ProjectDetailHeader({
     ? tools.slice(0, 4).join(" · ") + (tools.length > 4 ? ` · +${tools.length - 4}` : "")
     : "None";
 
-  const { label: durationLabel, range: durationRange } =
-    computeBuildDuration(cf.created_at, cf.updated_at);
-
   const updates = cf.project_updates || [];
+  const updateTimestamps = updates
+    .map(u => u.created_at)
+    .filter(Boolean)
+    .map(ts => new Date(ts).getTime())
+    .filter(t => !Number.isNaN(t));
+  const firstUpdateAt = updateTimestamps.length ? new Date(Math.min(...updateTimestamps)).toISOString() : null;
+  const lastUpdateAt  = updateTimestamps.length ? new Date(Math.max(...updateTimestamps)).toISOString() : null;
+  const { label: durationLabel, range: durationRange } =
+    computeBuildDuration(firstUpdateAt, lastUpdateAt);
   const timeSpentLabel = totalUpdatesDuration(updates) || "—";
   const updatesWithTime = updates.filter(u => u.minutes_spent != null && u.minutes_spent > 0).length;
   const timeSpentSub = updatesWithTime > 0
