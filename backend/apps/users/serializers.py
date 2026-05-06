@@ -47,10 +47,35 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class TeamSerializer(serializers.ModelSerializer):
+    LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+    LOGO_ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp"}
+
+    logo = serializers.ImageField(required=False, allow_null=True)
+    logo_clear = serializers.BooleanField(write_only=True, required=False, default=False)
+
     class Meta:
         model = Team
-        fields = ["id", "name", "slug", "created_at"]
+        fields = ["id", "name", "slug", "logo", "logo_clear", "created_at"]
         read_only_fields = ["id", "slug", "created_at"]
+
+    def validate_logo(self, value):
+        if value is None:
+            return value
+        if value.size > self.LOGO_MAX_BYTES:
+            raise serializers.ValidationError("Logo must be 2 MB or smaller.")
+        content_type = getattr(value, "content_type", "") or ""
+        if content_type and content_type not in self.LOGO_ALLOWED_TYPES:
+            raise serializers.ValidationError("Logo must be a PNG, JPEG, WebP, or SVG image.")
+        return value
+
+    def update(self, instance, validated_data):
+        clear = validated_data.pop("logo_clear", False)
+        if clear:
+            if instance.logo:
+                instance.logo.delete(save=False)
+            instance.logo = None
+            validated_data.pop("logo", None)
+        return super().update(instance, validated_data)
 
 
 class UserSerializer(serializers.ModelSerializer):

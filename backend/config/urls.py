@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, re_path, include
 from django.http import JsonResponse
+from django.views.static import serve as static_serve
 
 
 def health_check(request):
@@ -16,6 +18,10 @@ urlpatterns = [
 
     # API v1
     path("api/v1/", include("config.api_router")),
+
+    # User-uploaded media (team logos, etc.). Internal-use only — replace with
+    # cloud storage (S3) before opening to external traffic.
+    re_path(r"^media/(?P<path>.*)$", static_serve, {"document_root": settings.MEDIA_ROOT}),
 ]
 
 # Debug toolbar in dev

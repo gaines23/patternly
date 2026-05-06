@@ -4,6 +4,7 @@ import PrintRow from "./PrintRow";
 import PrintTagList from "./PrintTagList";
 import PrintBuildCard from "./PrintBuildCard";
 import PrintRoadblockCard from "./PrintRoadblockCard";
+import { useMyTeam } from "@hooks/useUsers";
 import { formatMinutes, totalUpdatesDuration } from "@utils/transforms";
 
 /**
@@ -16,13 +17,21 @@ import { formatMinutes, totalUpdatesDuration } from "@utils/transforms";
  */
 export default function PrintView({ cf }) {
   const { audit, intake, build, delta, reasoning, outcome, project_updates } = cf;
+  const myTeam = useMyTeam();
+  const teamLogoUrl = myTeam?.data?.logo || null;
 
   return (
     <div style={{ fontFamily: PF, background: "#fff" }}>
 
       {/* Branded top bar */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-        <img src="/mega-x-blk.png" alt="MEGAX" style={{ height: 28, display: "block" }} />
+        {teamLogoUrl ? (
+          <img src={teamLogoUrl} alt="" style={{ height: 32, maxWidth: 240, objectFit: "contain", display: "block" }} />
+        ) : (
+          <span style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#111827", fontWeight: 700, letterSpacing: "-0.02em" }}>
+            Patternly
+          </span>
+        )}
         <span style={{ fontSize: 12, color: "#9CA3AF", fontFamily: PF, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "4px 12px" }}>
           Read-only · Client brief
         </span>

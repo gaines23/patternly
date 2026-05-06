@@ -99,6 +99,20 @@ export function useUpdateMyTeam() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload) => {
+      // If payload contains a File (e.g. logo upload), send as multipart.
+      const hasFile = payload && Object.values(payload).some((v) => v instanceof File);
+      if (hasFile) {
+        const fd = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value === null || value === undefined) return;
+          if (typeof value === "boolean") fd.append(key, value ? "true" : "false");
+          else fd.append(key, value);
+        });
+        const { data } = await api.patch("/v1/users/me/team/", fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        return data;
+      }
       const { data } = await api.patch("/v1/users/me/team/", payload);
       return data;
     },

@@ -276,7 +276,7 @@ def public_client_brief(request, share_token):
     Public read-only endpoint — shows only progress overview (updates summary).
     """
     try:
-        case_file = CaseFile.objects.select_related("logged_by").prefetch_related(
+        case_file = CaseFile.objects.select_related("logged_by__team").prefetch_related(
             "project_updates",
         ).get(
             client_share_token=share_token, client_share_enabled=True,
@@ -298,6 +298,11 @@ def public_client_brief(request, share_token):
         for pu in case_file.project_updates.all()
     ]
 
+    team = getattr(case_file.logged_by, "team", None) if case_file.logged_by else None
+    team_logo_url = None
+    if team and team.logo:
+        team_logo_url = request.build_absolute_uri(team.logo.url)
+
     return Response({
         "id": str(case_file.id),
         "name": case_file.name,
@@ -311,6 +316,7 @@ def public_client_brief(request, share_token):
         "created_at": case_file.created_at,
         "updated_at": case_file.updated_at,
         "project_updates": project_updates,
+        "team_logo_url": team_logo_url,
     })
 
 
@@ -322,7 +328,7 @@ def public_brief(request, share_token):
     Public read-only endpoint — no authentication required.
     """
     try:
-        case_file = CaseFile.objects.select_related("logged_by").prefetch_related(
+        case_file = CaseFile.objects.select_related("logged_by__team").prefetch_related(
             "audit__builds",
             "intake",
             "build",
@@ -334,7 +340,7 @@ def public_brief(request, share_token):
     except CaseFile.DoesNotExist:
         return Response({"detail": "This link is invalid or has been disabled."}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = PublicCaseFileSerializer(case_file)
+    serializer = PublicCaseFileSerializer(case_file, context={"request": request})
     return Response(serializer.data)
 
 
@@ -505,7 +511,7 @@ def public_billing_report(request, share_token):
     owning user's case files within the given date range.
     """
     try:
-        share = BillingShare.objects.select_related("user").get(
+        share = BillingShare.objects.select_related("user__team").get(
             share_token=share_token, enabled=True,
         )
     except BillingShare.DoesNotExist:
@@ -548,12 +554,18 @@ def public_billing_report(request, share_token):
     clients = sorted(by_client.values(), key=lambda c: c["case_file_name"].lower())
 
     user = share.user
+    team = getattr(user, "team", None)
+    team_logo_url = None
+    if team and team.logo:
+        team_logo_url = request.build_absolute_uri(team.logo.url)
+
     return Response({
         "owner_name": user.full_name,
         "date_from": date_from.isoformat() if date_from else None,
         "date_to": date_to.isoformat() if date_to else None,
         "total_minutes": report["total_minutes"],
         "clients": clients,
+        "team_logo_url": team_logo_url,
     })
 
 

@@ -1,5 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
@@ -136,25 +137,18 @@ def sign_out_all(request):
 class MyTeamView(generics.RetrieveUpdateAPIView):
     """
     GET   /api/v1/users/me/team/  — return the current user's team.
-    PATCH /api/v1/users/me/team/  — update team (admin only).
+    PATCH /api/v1/users/me/team/  — update team name and/or logo. Accepts
+                                    multipart/form-data when uploading a logo.
     """
     serializer_class = TeamSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self):
         team = self.request.user.team
         if team is None:
             team, _ = Team.objects.get_or_create(slug="default", defaults={"name": "Default Team"})
         return team
-
-    def update(self, request, *args, **kwargs):
-        user = request.user
-        if not (user.role == "admin" or user.is_staff):
-            return Response(
-                {"detail": "Only admins can edit the team."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        return super().update(request, *args, **kwargs)
 
 
 class TeamMembersView(generics.ListAPIView):

@@ -2,11 +2,31 @@ import { useState, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { useTheme } from "@hooks/useTheme";
 import { useProjectSummary } from "@hooks/useProjects";
+import { useMyTeam } from "@hooks/useUsers";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import Section from "../components/Section";
 import { F } from "../constants";
+
+// Fetch a remote image and return a data URL. Avoids CORS issues when
+// html-to-image serializes the offscreen DOM for PDF capture.
+async function urlToDataUrl(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { credentials: "include" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
 
 // ── Shared brief Section component (matches SharedBriefPage exactly) ────────
 
@@ -65,14 +85,18 @@ function SummaryTextBlock({ text }) {
 
 // ── PDF page layout (renders exact SharedBriefPage layout as React → image) ─
 
-function PdfPageLayout({ projectName, preparedBy, sectionTitle, sectionSubtitle, sectionColor, summaryText }) {
+function PdfPageLayout({ projectName, preparedBy, sectionTitle, sectionSubtitle, sectionColor, summaryText, teamLogoDataUrl }) {
   return (
     <div style={{ width: 700, background: "#F8FAFC", fontFamily: F }}>
       {/* Top bar */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "10px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "#111827", fontWeight: 700, letterSpacing: "-0.02em" }}>
-          Patternly
-        </span>
+        {teamLogoDataUrl ? (
+          <img src={teamLogoDataUrl} alt="" style={{ height: 32, maxWidth: 220, objectFit: "contain", display: "block" }} />
+        ) : (
+          <span style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "#111827", fontWeight: 700, letterSpacing: "-0.02em" }}>
+            Patternly
+          </span>
+        )}
         <span style={{ fontSize: 11, color: "#9CA3AF", fontFamily: F, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "3px 10px" }}>
           Read-only
         </span>
@@ -239,6 +263,8 @@ export default function SummarySection({
   savedGeneratedAt = null,
 }) {
   const { theme } = useTheme();
+  const myTeam = useMyTeam();
+  const teamLogoUrl = myTeam?.data?.logo || null;
   const [mode, setMode] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -286,6 +312,10 @@ export default function SummarySection({
       : "Project updates and scope change summary";
     const sectionColor = summaryType === "full" ? "#6366F1" : "#6366F1";
 
+    // Inline the team logo (if any) as a data URL so html-to-image can
+    // serialize it without hitting CORS.
+    const teamLogoDataUrl = await urlToDataUrl(teamLogoUrl);
+
     // 1. Capture the summary page as an image (matches SharedBriefPage layout)
     const summaryImg = await captureReactElement(
       <PdfPageLayout
@@ -295,6 +325,7 @@ export default function SummarySection({
         sectionSubtitle={sectionSubtitle}
         sectionColor={sectionColor}
         summaryText={summaryText}
+        teamLogoDataUrl={teamLogoDataUrl}
       />
     );
 
@@ -356,7 +387,7 @@ export default function SummarySection({
     const slug = projectName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
     pdf.save(`${slug}_${summaryType}_summary.pdf`);
     setIsExporting(false);
-  }, [data, projectName, preparedBy, summaryType]);
+  }, [data, projectName, preparedBy, summaryType, teamLogoUrl]);
 
   const startExport = useCallback(() => {
     if (!data?.summary) return;
