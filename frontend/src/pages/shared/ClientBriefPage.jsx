@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import publicApi from "../../api/publicClient";
 import ProjectDetailHeader from "../../components/ProjectDetailHeader";
+import { WorkflowMapPanel } from "../../components/WorkflowMapPanel";
 import { PatternlyMark } from "../../components/brand/PatternlyMark";
 import { formatMinutes, totalUpdatesDuration } from "../../utils/transforms";
 
@@ -47,7 +48,7 @@ function UpdateItem({ pu }) {
   );
 }
 
-function BuildSection({ build }) {
+function BuildSection({ build, mapWfIndex, onToggleMap }) {
   if (!build) return null;
   const hasSpaces    = !!build.spaces;
   const hasWorkflows = build.workflows?.length > 0;
@@ -81,7 +82,15 @@ function BuildSection({ build }) {
             </div>
           </div>
         )}
-        {hasWorkflows && build.workflows.map((wf, wi) => <WorkflowItem key={wi} wf={wf} index={wi} />)}
+        {hasWorkflows && build.workflows.map((wf, wi) => (
+          <WorkflowItem
+            key={wi}
+            wf={wf}
+            index={wi}
+            mapOpen={mapWfIndex === wi}
+            onToggleMap={() => onToggleMap(wi)}
+          />
+        ))}
         {hasNotes && (
           <div style={{ marginTop: hasWorkflows ? 16 : 0, paddingTop: hasWorkflows ? 12 : 0, borderTop: hasWorkflows ? "1px solid #F3F4F6" : "none" }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", fontFamily: F, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>Build notes</span>
@@ -93,7 +102,7 @@ function BuildSection({ build }) {
   );
 }
 
-function WorkflowItem({ wf, index }) {
+function WorkflowItem({ wf, index, mapOpen, onToggleMap }) {
   const [open, setOpen] = useState(false);
   const listCount = wf.lists?.length || 0;
   return (
@@ -107,7 +116,21 @@ function WorkflowItem({ wf, index }) {
         {listCount > 0 && (
           <span style={{ fontSize: 11, fontWeight: 600, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>{listCount} {listCount === 1 ? "list" : "lists"}</span>
         )}
-        <span style={{ marginLeft: "auto", fontSize: 14, color: "#0284C7", display: "inline-block", transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}>▾</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleMap(); }}
+          style={{
+            marginLeft: "auto",
+            fontSize: 11, fontWeight: 600, fontFamily: F,
+            color: mapOpen ? "#fff" : "#0284C7",
+            background: mapOpen ? "#0284C7" : "#E0F2FE",
+            border: "1px solid #BAE6FD",
+            borderRadius: 6, padding: "3px 10px",
+            cursor: "pointer", lineHeight: 1.4,
+          }}
+        >
+          {mapOpen ? "✕ Map" : "Map ↗"}
+        </button>
+        <span style={{ fontSize: 14, color: "#0284C7", display: "inline-block", transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}>▾</span>
       </div>
       {open && (
         <div style={{ padding: "12px 14px", background: "#fff" }}>
@@ -219,6 +242,7 @@ function SummaryText({ text }) {
 
 export default function ClientBriefPage() {
   const { shareToken } = useParams();
+  const [mapWfIndex, setMapWfIndex] = useState(null);
 
   const { data: cf, isLoading, isError, error } = useQuery({
     queryKey: ["clientBrief", shareToken],
@@ -314,7 +338,11 @@ export default function ClientBriefPage() {
         )}
 
         {/* Build */}
-        <BuildSection build={cf.build} />
+        <BuildSection
+          build={cf.build}
+          mapWfIndex={mapWfIndex}
+          onToggleMap={(wi) => setMapWfIndex(prev => prev === wi ? null : wi)}
+        />
 
         {/* Project Updates */}
         {updates.length > 0 && (
@@ -349,6 +377,15 @@ export default function ClientBriefPage() {
           </p>
         </div>
       </div>
+
+      {/* Workflow map modal */}
+      {mapWfIndex !== null && cf.build?.workflows?.[mapWfIndex] && (
+        <WorkflowMapPanel
+          workflow={cf.build.workflows[mapWfIndex]}
+          onClose={() => setMapWfIndex(null)}
+          asModal
+        />
+      )}
     </div>
   );
 }
