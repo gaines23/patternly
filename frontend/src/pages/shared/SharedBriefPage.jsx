@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import publicApi from "../../api/publicClient";
 import ProjectDetailHeader from "../../components/ProjectDetailHeader";
 import { WorkflowMapPanel } from "../../components/WorkflowMapPanel";
+import { PatternlyMark } from "../../components/brand/PatternlyMark";
 import { formatMinutes, totalUpdatesDuration } from "../../utils/transforms";
 
 const F = "'Plus Jakarta Sans', sans-serif";
@@ -260,8 +261,11 @@ export default function SharedBriefPage() {
         {cf.team_logo_url ? (
           <img src={cf.team_logo_url} alt="" style={{ height: 32, maxWidth: 240, objectFit: "contain", display: "block" }} />
         ) : (
-          <span style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#111827", fontWeight: 700, letterSpacing: "-0.02em" }}>
-            Patternly
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+            <PatternlyMark size={32} />
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#111827", fontWeight: 700, letterSpacing: "-0.02em" }}>
+              Patternly
+            </span>
           </span>
         )}
         <span style={{ fontSize: 12, color: "#9CA3AF", fontFamily: F, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "4px 12px" }}>

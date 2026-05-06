@@ -14,9 +14,13 @@ export default defineConfig({
       clientPort: 80,  // nginx listens on 80
     },
 
-    // Dev proxy: /api → Django (only used when running Vite directly, not through nginx)
+    // Dev proxy: /api and /media → Django (only used when running Vite directly, not through nginx)
     proxy: {
       "/api": {
+        target: "http://api:8000",
+        changeOrigin: true,
+      },
+      "/media": {
         target: "http://api:8000",
         changeOrigin: true,
       },
