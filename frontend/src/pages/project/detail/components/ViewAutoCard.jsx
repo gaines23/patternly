@@ -117,6 +117,13 @@ export default function ViewAutoCard({ auto, autoIdx, forceOpen = false, caseFil
             </div>
           )}
 
+          {auto.automation_prompt && (
+            <div style={{ marginTop: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: theme.textMuted, fontFamily: F, textTransform: "uppercase", letterSpacing: "0.05em" }}>Automation Prompt</span>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: theme.textSec, fontFamily: F, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{auto.automation_prompt}</p>
+            </div>
+          )}
+
           {auto.instructions && (
             <div style={{ marginTop: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>

@@ -1131,7 +1131,7 @@ function StepIntake({ data, set, w, hideRawPrompt, aiSuggestedFields = new Set()
 
 const emptyTrigger = () => ({ type:"", detail:"" });
 const emptyAction = () => ({ type:"", detail:"" });
-const emptyAutomation = () => ({ platform:"clickup", automation_mode:"pipeline", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], instructions:"", map_description:"", use_agent:false });
+const emptyAutomation = () => ({ platform:"clickup", automation_mode:"pipeline", pipelinePhase:"", triggers:[emptyTrigger()], actions:[emptyAction()], automation_prompt:"", instructions:"", map_description:"", use_agent:false });
 const emptyList = () => ({ name:"", statuses:"", customFields:"", automations:[] });
 
 function summarizeInstructions(text) {
@@ -1339,6 +1339,17 @@ function AutomationCard({ auto, autoIdx, onChange, onRemove, canRemove, onMoveUp
             value={auto.map_description||""}
             onChange={v=>onChange({...auto, map_description:v})}
             placeholder="e.g. Sends Slack alert and creates HubSpot record"
+          />
+        </div>
+        <div style={{ marginBottom:10 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+            Automation Prompt <span style={{ fontSize:10, fontWeight:400, textTransform:"none", letterSpacing:0, color:theme.textFaint }}>— short prompt that drives this automation</span>
+          </div>
+          <TI
+            rows={3}
+            value={auto.automation_prompt||""}
+            onChange={v=>onChange({...auto, automation_prompt:v})}
+            placeholder="e.g. When a task moves to Done, summarize the work and notify the assignee with next steps."
           />
         </div>
         <div style={{ fontSize:11, fontWeight:700, color:theme.textMuted, fontFamily:F, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
