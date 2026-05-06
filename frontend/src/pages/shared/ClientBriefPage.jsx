@@ -221,23 +221,58 @@ function AutomationItem({ auto, index }) {
   );
 }
 
-function SummaryText({ text }) {
+function SummaryText({ text, maxKeyUpdates = 5 }) {
   if (!text) return null;
-  return text.split("\n").map((line, li) => {
+  const lines = text.split("\n");
+  const out = [];
+  let inKeyUpdates = false;
+  let bulletCount = 0;
+  let suppress = false;
+
+  lines.forEach((line, li) => {
     const trimmed = line.trim();
-    if (trimmed === "") return <div key={li} style={{ height: 8 }} />;
-    const boldMatch = trimmed.match(/^\*\*(.+?)\*\*$/);
-    if (boldMatch) {
-      return <p key={li} style={{ margin: "16px 0 6px", fontSize: 15, fontWeight: 700, color: "#1F2937", fontFamily: F }}>{boldMatch[1]}</p>;
+    if (trimmed === "") {
+      if (!suppress) out.push(<div key={li} style={{ height: 8 }} />);
+      return;
     }
+
+    const boldOnlyMatch = trimmed.match(/^\*\*(.+?)\*\*$/);
+    const isDateHeader = /^\*\*\d{1,2}\/\d{1,2}\/\d{2,4}\*\*/.test(trimmed);
+
+    // Bold-only section header (not a date) — switch sections, reset counters
+    if (boldOnlyMatch && !isDateHeader) {
+      inKeyUpdates = /key updates/i.test(boldOnlyMatch[1]);
+      bulletCount = 0;
+      suppress = false;
+      out.push(<p key={li} style={{ margin: "16px 0 6px", fontSize: 15, fontWeight: 700, color: "#1F2937", fontFamily: F }}>{boldOnlyMatch[1]}</p>);
+      return;
+    }
+
+    // Once cap is hit, drop everything else inside Key Updates (bullets + their date headers)
+    if (inKeyUpdates && suppress) return;
+
+    if (inKeyUpdates && trimmed.startsWith("- ")) {
+      bulletCount++;
+      if (bulletCount > maxKeyUpdates) {
+        suppress = true;
+        return;
+      }
+    }
+
+    if (boldOnlyMatch) {
+      out.push(<p key={li} style={{ margin: "16px 0 6px", fontSize: 15, fontWeight: 700, color: "#1F2937", fontFamily: F }}>{boldOnlyMatch[1]}</p>);
+      return;
+    }
+
     const parts = trimmed.split(/(\*\*.*?\*\*)/g);
     const rendered = parts.map((part, pi) => {
       const m = part.match(/^\*\*(.*?)\*\*$/);
       if (m) return <strong key={pi}>{m[1]}</strong>;
       return <span key={pi}>{part}</span>;
     });
-    return <p key={li} style={{ margin: "3px 0", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.7 }}>{rendered}</p>;
+    out.push(<p key={li} style={{ margin: "3px 0", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.7 }}>{rendered}</p>);
   });
+  return out;
 }
 
 export default function ClientBriefPage() {
