@@ -204,7 +204,7 @@ function ProjectRow({ cf, theme }) {
 export default function ProjectListPage() {
   const [filters, setFilters] = useState({ search: "", page: 1 });
   const [activeTab, setActiveTab] = useState("all"); // all | open | closed | roadblocks | needs_audit
-  const [sortBy, setSortBy] = useState("newest"); // newest | oldest | name
+  const [sortBy, setSortBy] = useState("name"); // newest | oldest | name
   const [sortOpen, setSortOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef(null);

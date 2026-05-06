@@ -338,7 +338,7 @@ const _TRIGGER_LIST = [
   "Task Created","Task Status Changed","Task Completed","Task Moved","Task Assigned","Task Unassigned",
   "Task Due Date Arrives","Task Start Date Arrives","Task Due Date Changed","Task Priority Changed",
   "Custom Field Changed","Custom Field Is","Comment Posted","Attachment Added","Tag Added","Tag Removed",
-  "Task Type Is","Checklist Item Completed","Time Estimate Changed","Dependency Resolved",
+  "Task Type Is","Task Name Contains","Checklist Item Completed","Time Estimate Changed","Dependency Resolved",
   "Form Submitted","Recurring Task Due",
 ];
 const _ACTION_LIST = [

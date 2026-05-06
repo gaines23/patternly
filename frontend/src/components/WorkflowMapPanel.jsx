@@ -287,14 +287,25 @@ function buildGraph(wf) {
   const wfHeight = 52 + wfNotesLines * 15 + (wf.pipeline?.length > 0 ? 26 : 0);
   rawNodes.push({ id: "wf", type: "workflowNode", data: { wf }, width: 280, height: wfHeight });
 
+  // Tracks the exit nodes that should feed into the NEXT list, so lists chain
+  // sequentially in creation order (list 1 → its autos → list 2 → its autos → …)
+  // instead of fanning out as parallel branches off the workflow node.
+  let prevListExits = ["wf"];
+
   (wf.lists || []).forEach((list, li) => {
     const listId      = `list-${li}`;
     const statusCount = list.statuses ? list.statuses.split(/→|,/).filter(Boolean).length : 0;
     const listHeight  = 70 + Math.max(0, statusCount - 2) * 22;
     rawNodes.push({ id: listId, type: "listNode", data: { list, li }, width: 250, height: listHeight });
-    edges.push({
-      id: `e-wf-${listId}`, source: "wf", target: listId,
-      type: "smoothstep", style: { stroke: "#0284C7", strokeWidth: 1.5 },
+    prevListExits.forEach((srcId, si) => {
+      edges.push({
+        id: `e-${srcId}-${listId}-s${si}`,
+        source: srcId, target: listId,
+        type: "smoothstep", style: { stroke: "#0284C7", strokeWidth: 1.5 },
+        ...(li > 0 && si === Math.floor(prevListExits.length / 2)
+          ? edgeLabel(`list ${li + 1}`, "#0284C7")
+          : {}),
+      });
     });
 
     const autos = list.automations || [];
@@ -391,6 +402,10 @@ function buildGraph(wf) {
       else if (trigIds.length)   prevExits = trigIds;
       else                       prevExits = [autoId];
     });
+
+    // Carry this list's final chain exits forward so the next list connects
+    // from them, preserving the order lists were added on the build.
+    prevListExits = prevExits;
   });
 
   // dagre layout
