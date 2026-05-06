@@ -23,6 +23,7 @@ from .serializers import (
     PlatformSerializer,
     PlatformKnowledgeSerializer,
     CommunityInsightSerializer,
+    BuildLayerSerializer,
 )
 from apps.users.audit import log_action
 from apps.users.models import (
@@ -276,7 +277,7 @@ def public_client_brief(request, share_token):
     Public read-only endpoint — shows only progress overview (updates summary).
     """
     try:
-        case_file = CaseFile.objects.select_related("logged_by__team").prefetch_related(
+        case_file = CaseFile.objects.select_related("logged_by__team", "build").prefetch_related(
             "project_updates",
         ).get(
             client_share_token=share_token, client_share_enabled=True,
@@ -298,10 +299,15 @@ def public_client_brief(request, share_token):
         for pu in case_file.project_updates.all()
     ]
 
+    build_data = None
+    if hasattr(case_file, "build") and case_file.build:
+        build_data = BuildLayerSerializer(case_file.build).data
+
+    # Path-relative URL — see TeamSerializer.to_representation for rationale
+    # (Railway proxies serve /media/ same-origin; absolute URL would leak the
+    # backend's internal hostname into the browser).
     team = getattr(case_file.logged_by, "team", None) if case_file.logged_by else None
-    team_logo_url = None
-    if team and team.logo:
-        team_logo_url = request.build_absolute_uri(team.logo.url)
+    team_logo_url = team.logo.url if (team and team.logo) else None
 
     return Response({
         "id": str(case_file.id),
@@ -316,6 +322,7 @@ def public_client_brief(request, share_token):
         "created_at": case_file.created_at,
         "updated_at": case_file.updated_at,
         "project_updates": project_updates,
+        "build": build_data,
         "team_logo_url": team_logo_url,
     })
 
@@ -784,7 +791,7 @@ Focus ONLY on the project updates and scope creep — do NOT reference build not
 
 Produce a structured summary with these sections:
 1. **Progress Overview** — 2-3 sentence summary of how the project has progressed. If Total Time Spent is provided, state it here (e.g. "Total time logged: 4h 30min").
-2. **Key Updates** — Organize updates by date. Use the date (MM/DD/YYYY) in **bold** as a header, then list the relevant notes as bullet points beneath it. Group multiple notes from the same date together under one date header. When an update has logged time, include the duration in parentheses at the end of that bullet (e.g. "- Wrapped up automations (1h 15min)"). When a date has a daily total, append it to the date header like "**MM/DD/YYYY** (2h total)".
+2. **Key Updates** — Show AT MOST 5 of the most important updates. Pick the highest-signal items (major milestones, blockers, deliverables, scope shifts, client-facing changes). Skip routine check-ins, small tweaks, and low-impact notes — even if there are more than 5 updates, never list more than 5. Organize the chosen updates by date. Use the date (MM/DD/YYYY) in **bold** as a header, then list the relevant notes as bullet points beneath it. Group multiple notes from the same date together under one date header. When an update has logged time, include the duration in parentheses at the end of that bullet (e.g. "- Wrapped up automations (1h 15min)"). When a date has a daily total, append it to the date header like "**MM/DD/YYYY** (2h total)".
 3. **Scope Changes** — Summary of scope creep: what was added, why, how it impacted the project, and whether changes were communicated to the client
 4. **Action Items & Concerns** — Any unresolved issues, uncommunicated scope changes, or items needing follow-up
 
