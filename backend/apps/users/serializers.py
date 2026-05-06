@@ -77,6 +77,16 @@ class TeamSerializer(serializers.ModelSerializer):
             validated_data.pop("logo", None)
         return super().update(instance, validated_data)
 
+    def to_representation(self, instance):
+        # Return a path-relative URL ("/media/team_logos/foo.png") so the browser
+        # resolves it via the same-origin nginx /media/ proxy. Default DRF
+        # behavior calls request.build_absolute_uri(), which on Railway uses the
+        # backend's internal hostname (patternly.railway.internal) — unreachable
+        # from the browser (NS_ERROR_UNKNOWN_HOST).
+        rep = super().to_representation(instance)
+        rep["logo"] = instance.logo.url if instance.logo else None
+        return rep
+
 
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
