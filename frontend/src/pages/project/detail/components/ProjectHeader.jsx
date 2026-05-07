@@ -21,6 +21,7 @@ export default function ProjectHeader({
   showOptions,
   setShowOptions,
   setIsPrinting,
+  onEditSummary,
 }) {
   const handleExportPdf = () => {
     setShowOptions(false);
@@ -107,6 +108,7 @@ export default function ProjectHeader({
       backTo="/projects"
       backLabel="Back to projects"
       actions={actions}
+      onEditSummary={onEditSummary}
     />
   );
 }

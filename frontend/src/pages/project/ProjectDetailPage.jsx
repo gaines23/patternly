@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@hooks/useTheme";
-import { useProject, useDeleteProject, useUpdateProject, useToggleProjectStatus } from "@hooks/useProjects";
+import { useProject, useDeleteProject, useUpdateProject, useUpdateProjectFields, useToggleProjectStatus } from "@hooks/useProjects";
 import { useBriefByProject } from "@hooks/useWorkflows";
 import { useTodos } from "@hooks/useTodos";
 import { formToProjectPayload, projectToFormState, briefToSuggestedAutomations, formatMinutes, totalUpdatesDuration } from "@utils/transforms";
@@ -272,6 +272,7 @@ export default function CaseFileDetailPage() {
   const { data: cf, isLoading, isError } = useProject(id);
   const deleteMutation  = useDeleteProject();
   const updateMutation  = useUpdateProject(id);
+  const patchMutation   = useUpdateProjectFields(id);
   const statusMutation  = useToggleProjectStatus(id);
   const { data: linkedBrief } = useBriefByProject(id);
   const { todos: caseFileTodos } = useTodos({ case_file_id: id });
@@ -408,6 +409,7 @@ export default function CaseFileDetailPage() {
           showOptions={showOptions}
           setShowOptions={setShowOptions}
           setIsPrinting={setIsPrinting}
+          onEditSummary={(value) => patchMutation.mutateAsync({ header_summary: value })}
         />
 
         {/* Mobile: horizontal section tabs */}

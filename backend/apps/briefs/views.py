@@ -318,6 +318,7 @@ def public_client_brief(request, share_token):
         "tools": case_file.tools,
         "updates_summary": case_file.updates_summary,
         "updates_summary_generated_at": case_file.updates_summary_generated_at,
+        "header_summary": case_file.header_summary,
         "status": case_file.status,
         "created_at": case_file.created_at,
         "updated_at": case_file.updated_at,
