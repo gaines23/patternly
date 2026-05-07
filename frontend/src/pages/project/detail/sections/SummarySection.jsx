@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { useTheme } from "@hooks/useTheme";
-import { useProjectSummary } from "@hooks/useProjects";
+import { useProjectSummary, useUpdateProjectFields } from "@hooks/useProjects";
 import { useMyTeam } from "@hooks/useUsers";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
-import { UpdatesSummary } from "@components/UpdatesSummary";
+import { UpdatesSummary, parseUpdatesSummary } from "@components/UpdatesSummary";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import Section from "../components/Section";
@@ -246,6 +246,184 @@ function OffscreenMapCapture({ workflow, onCaptured }) {
   );
 }
 
+// ── Inline editors ──────────────────────────────────────────────────────────
+
+function EditorButtons({ onSave, onCancel, saving, theme }) {
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saving}
+        style={{
+          padding: "7px 16px", borderRadius: 8,
+          background: "#4F46E5", color: "#fff", border: "none",
+          fontSize: 12.5, fontWeight: 600, fontFamily: F,
+          cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1,
+        }}
+      >
+        {saving ? "Saving…" : "Save"}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={saving}
+        style={{
+          padding: "7px 16px", borderRadius: 8,
+          background: "transparent", color: theme.textSec,
+          border: `1px solid ${theme.border}`,
+          fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: "pointer",
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function MarkdownSummaryEditor({ initialText, onSave, onCancel, theme }) {
+  const [text, setText] = useState(initialText || "");
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
+    setSaving(true);
+    try { await onSave(text); }
+    finally { setSaving(false); }
+  };
+  return (
+    <div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={20}
+        style={{
+          width: "100%", boxSizing: "border-box",
+          padding: "14px 16px",
+          fontSize: 13, fontFamily: F, color: theme.text, background: theme.surface,
+          border: `1px solid ${theme.border}`, borderRadius: 12,
+          lineHeight: 1.7, resize: "vertical", outline: "none",
+        }}
+      />
+      <EditorButtons onSave={handleSave} onCancel={onCancel} saving={saving} theme={theme} />
+    </div>
+  );
+}
+
+function StructuredUpdatesEditor({ initialData, onSave, onCancel, theme }) {
+  const [data, setData] = useState(() => ({
+    progress_overview: initialData.progress_overview || "",
+    top_updates: (initialData.top_updates || []).map(u => ({
+      date: u.date || "",
+      content: u.content || "",
+      time_label: u.time_label || "",
+      importance_reason: u.importance_reason || "",
+    })),
+    scope_changes: initialData.scope_changes || "",
+    action_items: initialData.action_items || "",
+  }));
+  const [saving, setSaving] = useState(false);
+
+  const setField = (key, value) => setData(d => ({ ...d, [key]: value }));
+  const setUpdateField = (idx, key, value) =>
+    setData(d => ({
+      ...d,
+      top_updates: d.top_updates.map((u, i) => i === idx ? { ...u, [key]: value } : u),
+    }));
+  const addUpdate = () => setData(d => ({
+    ...d,
+    top_updates: [...d.top_updates, { date: "", content: "", time_label: "", importance_reason: "" }],
+  }));
+  const removeUpdate = (idx) =>
+    setData(d => ({ ...d, top_updates: d.top_updates.filter((_, i) => i !== idx) }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try { await onSave(JSON.stringify(data)); }
+    finally { setSaving(false); }
+  };
+
+  const labelStyle = {
+    display: "block", fontSize: 11, fontWeight: 700, color: theme.textFaint, fontFamily: F,
+    textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5,
+  };
+  const inputStyle = {
+    width: "100%", boxSizing: "border-box",
+    padding: "8px 10px",
+    fontSize: 13, fontFamily: F, color: theme.text, background: theme.surface,
+    border: `1px solid ${theme.border}`, borderRadius: 8,
+    outline: "none",
+  };
+  const taStyle = { ...inputStyle, lineHeight: 1.6, resize: "vertical" };
+
+  return (
+    <div>
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>Progress Overview</label>
+        <textarea rows={3} value={data.progress_overview}
+          onChange={(e) => setField("progress_overview", e.target.value)} style={taStyle} />
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>Key Updates ({data.top_updates.length}/5)</label>
+        {data.top_updates.map((u, i) => (
+          <div key={i} style={{
+            border: `1px solid ${theme.border}`, borderLeft: "3px solid #8B5CF6",
+            borderRadius: 8, padding: "10px 12px", marginBottom: 8, background: theme.surface,
+          }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+              <input type="text" placeholder="MM/DD/YYYY" value={u.date}
+                onChange={(e) => setUpdateField(i, "date", e.target.value)}
+                style={{ ...inputStyle, width: 130 }} />
+              <input type="text" placeholder="Time (e.g. 1h 30min)" value={u.time_label}
+                onChange={(e) => setUpdateField(i, "time_label", e.target.value)}
+                style={{ ...inputStyle, width: 160 }} />
+              <button type="button" onClick={() => removeUpdate(i)}
+                style={{
+                  marginLeft: "auto",
+                  padding: "4px 10px", borderRadius: 6,
+                  background: "transparent", color: "#DC2626", border: "1px solid #FECACA",
+                  fontSize: 11, fontWeight: 600, fontFamily: F, cursor: "pointer",
+                }}>
+                Remove
+              </button>
+            </div>
+            <textarea rows={2} placeholder="Update content" value={u.content}
+              onChange={(e) => setUpdateField(i, "content", e.target.value)}
+              style={{ ...taStyle, marginBottom: 6 }} />
+            <textarea rows={1} placeholder="Why this stands out" value={u.importance_reason}
+              onChange={(e) => setUpdateField(i, "importance_reason", e.target.value)}
+              style={taStyle} />
+          </div>
+        ))}
+        {data.top_updates.length < 5 && (
+          <button type="button" onClick={addUpdate}
+            style={{
+              padding: "5px 12px", borderRadius: 6,
+              background: "transparent", color: "#8B5CF6",
+              border: "1px dashed #8B5CF660",
+              fontSize: 12, fontWeight: 600, fontFamily: F, cursor: "pointer",
+            }}>
+            + Add update
+          </button>
+        )}
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>Scope Changes</label>
+        <textarea rows={3} value={data.scope_changes}
+          onChange={(e) => setField("scope_changes", e.target.value)} style={taStyle} />
+      </div>
+
+      <div style={{ marginBottom: 4 }}>
+        <label style={labelStyle}>Action Items &amp; Concerns</label>
+        <textarea rows={3} value={data.action_items}
+          onChange={(e) => setField("action_items", e.target.value)} style={taStyle} />
+      </div>
+
+      <EditorButtons onSave={handleSave} onCancel={onCancel} saving={saving} theme={theme} />
+    </div>
+  );
+}
+
 // ── Main section component ──────────────────────────────────────────────────
 
 export default function SummarySection({
@@ -274,6 +452,11 @@ export default function SummarySection({
   const [isExporting, setIsExporting] = useState(false);
   const [captureQueue, setCaptureQueue] = useState(null);
 
+  // Edit state — overlays freshData/savedSummary once a manual edit is saved.
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedSummary, setEditedSummary] = useState(null);
+  const patchMutation = useUpdateProjectFields(caseFileId);
+
   const queryDates =
     mode === "range"
       ? { startDate, endDate }
@@ -285,16 +468,24 @@ export default function SummarySection({
     enabled: triggerFetch,
   });
 
-  const data = freshData || (savedSummary ? {
-    summary: savedSummary,
-    generated_at: savedGeneratedAt,
-    date_range: { start: null, end: null },
-    data_counts: {},
-  } : null);
+  // Manual edits win over both freshData and savedSummary so the user sees their
+  // changes immediately (the parent's React Query cache will also catch up).
+  const effectiveSummary = editedSummary
+    ?? freshData?.summary
+    ?? savedSummary
+    ?? null;
+  const data = effectiveSummary != null ? {
+    summary: effectiveSummary,
+    generated_at: freshData?.generated_at || savedGeneratedAt,
+    date_range: freshData?.date_range || { start: null, end: null },
+    data_counts: freshData?.data_counts || {},
+  } : null;
 
   const generatedAt = freshData?.generated_at || savedGeneratedAt;
 
   const handleGenerate = () => {
+    setEditedSummary(null);
+    setIsEditing(false);
     setTriggerFetch(false);
     setTimeout(() => setTriggerFetch(true), 50);
   };
@@ -523,29 +714,69 @@ export default function SummarySection({
             )}
           </div>
 
-          {/* Summary text */}
-          <div style={{ padding: "18px 20px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, fontSize: 13, color: theme.text, fontFamily: F, lineHeight: 1.8 }}>
-            <SummaryRenderer text={data.summary} workflows={workflows} onOpenMap={onOpenMap} summaryType={summaryType} />
-          </div>
+          {/* Summary text — renderer or editor */}
+          {isEditing ? (() => {
+            const fieldName = summaryType === "full" ? "full_summary" : "updates_summary";
+            const handleSave = async (newText) => {
+              await patchMutation.mutateAsync({ [fieldName]: newText });
+              setEditedSummary(newText);
+              setIsEditing(false);
+            };
+            const handleCancel = () => setIsEditing(false);
 
-          {/* Action buttons */}
-          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              onClick={() => navigator.clipboard.writeText(data.summary)}
-              style={{ ...btnBase, background: "transparent", color: theme.textSec, border: `1px solid ${theme.border}`, fontSize: 12 }}
-            >
-              Copy to Clipboard
-            </button>
-            <button
-              onClick={startExport}
-              disabled={isExporting}
-              style={{ ...btnBase, background: isExporting ? theme.border : "#6366F1", color: "#fff", fontSize: 12, opacity: isExporting ? 0.6 : 1 }}
-            >
-              {isExporting
-                ? `Exporting${captureQueue ? ` (map ${captureQueue.wfIndex + 1}/${workflows?.length || 0})` : ""}...`
-                : "Export Summary PDF"}
-            </button>
-          </div>
+            if (summaryType === "updates") {
+              const parsed = parseUpdatesSummary(data.summary);
+              if (parsed) {
+                return (
+                  <StructuredUpdatesEditor
+                    initialData={parsed}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                    theme={theme}
+                  />
+                );
+              }
+            }
+            return (
+              <MarkdownSummaryEditor
+                initialText={data.summary}
+                onSave={handleSave}
+                onCancel={handleCancel}
+                theme={theme}
+              />
+            );
+          })() : (
+            <div style={{ padding: "18px 20px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, fontSize: 13, color: theme.text, fontFamily: F, lineHeight: 1.8 }}>
+              <SummaryRenderer text={data.summary} workflows={workflows} onOpenMap={onOpenMap} summaryType={summaryType} />
+            </div>
+          )}
+
+          {/* Action buttons — hidden while editing */}
+          {!isEditing && (
+            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                onClick={() => setIsEditing(true)}
+                style={{ ...btnBase, background: "transparent", color: color, border: `1px solid ${color}60`, fontSize: 12 }}
+              >
+                ✎ Edit Summary
+              </button>
+              <button
+                onClick={() => navigator.clipboard.writeText(data.summary)}
+                style={{ ...btnBase, background: "transparent", color: theme.textSec, border: `1px solid ${theme.border}`, fontSize: 12 }}
+              >
+                Copy to Clipboard
+              </button>
+              <button
+                onClick={startExport}
+                disabled={isExporting}
+                style={{ ...btnBase, background: isExporting ? theme.border : "#6366F1", color: "#fff", fontSize: 12, opacity: isExporting ? 0.6 : 1 }}
+              >
+                {isExporting
+                  ? `Exporting${captureQueue ? ` (map ${captureQueue.wfIndex + 1}/${workflows?.length || 0})` : ""}...`
+                  : "Export Summary PDF"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
