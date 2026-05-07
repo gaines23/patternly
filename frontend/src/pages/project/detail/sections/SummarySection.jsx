@@ -4,6 +4,7 @@ import { useTheme } from "@hooks/useTheme";
 import { useProjectSummary } from "@hooks/useProjects";
 import { useMyTeam } from "@hooks/useUsers";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
+import { UpdatesSummary } from "@components/UpdatesSummary";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import Section from "../components/Section";
@@ -64,21 +65,11 @@ function SummaryTextBlock({ text }) {
   if (!text) return null;
   return (
     <div style={{ fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.45 }}>
-      {text.split("\n").map((line, li) => {
-        const trimmed = line.trim();
-        if (trimmed === "") return <div key={li} style={{ height: 4 }} />;
-        const boldMatch = trimmed.match(/^\*\*(.+?)\*\*$/);
-        if (boldMatch) {
-          return <p key={li} style={{ margin: "8px 0 2px", fontSize: 14, fontWeight: 700, color: "#1F2937", fontFamily: F }}>{boldMatch[1]}</p>;
-        }
-        const parts = trimmed.split(/(\*\*.*?\*\*)/g);
-        const rendered = parts.map((part, pi) => {
-          const m = part.match(/^\*\*(.*?)\*\*$/);
-          if (m) return <strong key={pi}>{m[1]}</strong>;
-          return <span key={pi}>{part}</span>;
-        });
-        return <p key={li} style={{ margin: "1px 0", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.45 }}>{rendered}</p>;
-      })}
+      <UpdatesSummary
+        text={text}
+        headingStyle={{ margin: "8px 0 2px", fontSize: 14, fontWeight: 700, color: "#1F2937", fontFamily: F }}
+        bodyStyle={{ margin: "1px 0", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.45 }}
+      />
     </div>
   );
 }
@@ -171,6 +162,15 @@ function captureReactElement(element) {
 // ── Inline summary renderer (for on-screen display) ─────────────────────────
 
 function SummaryRenderer({ text, workflows = [], onOpenMap, summaryType }) {
+  if (summaryType === "updates") {
+    return (
+      <UpdatesSummary
+        text={text}
+        headingStyle={{ margin: "10px 0 2px", fontSize: 14, fontWeight: 700, color: "#1F2937", fontFamily: F }}
+        bodyStyle={{ margin: "1px 0", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.45 }}
+      />
+    );
+  }
   if (summaryType !== "full" || !workflows?.length || !onOpenMap) {
     return <span style={{ whiteSpace: "pre-wrap" }}>{text}</span>;
   }
