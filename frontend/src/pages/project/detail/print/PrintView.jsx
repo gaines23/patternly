@@ -6,6 +6,7 @@ import PrintTagList from "./PrintTagList";
 import PrintBuildCard from "./PrintBuildCard";
 import PrintRoadblockCard from "./PrintRoadblockCard";
 import { useMyTeam } from "@hooks/useUsers";
+import { UpdatesSummary } from "@components/UpdatesSummary";
 import { formatMinutes, totalUpdatesDuration } from "@utils/transforms";
 
 /**
@@ -45,21 +46,11 @@ export default function PrintView({ cf }) {
       {cf.updates_summary && (
         <PrintSection title="Progress Overview" subtitle="AI-generated summary of updates and scope changes" color="#6366F1">
           <div style={{ fontSize: 13, color: "#374151", fontFamily: PF, lineHeight: 1.8 }}>
-            {cf.updates_summary.split("\n").map((line, li) => {
-              const trimmed = line.trim();
-              if (trimmed === "") return <div key={li} style={{ height: 8 }} />;
-              const boldMatch = trimmed.match(/^\*\*(.+?)\*\*$/);
-              if (boldMatch) {
-                return <p key={li} style={{ margin: "14px 0 4px", fontSize: 14, fontWeight: 700, color: "#1F2937", fontFamily: PF }}>{boldMatch[1]}</p>;
-              }
-              const parts = trimmed.split(/(\*\*.*?\*\*)/g);
-              const rendered = parts.map((part, pi) => {
-                const m = part.match(/^\*\*(.*?)\*\*$/);
-                if (m) return <strong key={pi}>{m[1]}</strong>;
-                return <span key={pi}>{part}</span>;
-              });
-              return <p key={li} style={{ margin: "2px 0", fontSize: 13, color: "#374151", fontFamily: PF, lineHeight: 1.7 }}>{rendered}</p>;
-            })}
+            <UpdatesSummary
+              text={cf.updates_summary}
+              headingStyle={{ margin: "14px 0 4px", fontSize: 14, fontWeight: 700, color: "#1F2937", fontFamily: PF }}
+              bodyStyle={{ margin: "2px 0", fontSize: 13, color: "#374151", fontFamily: PF, lineHeight: 1.7 }}
+            />
           </div>
         </PrintSection>
       )}

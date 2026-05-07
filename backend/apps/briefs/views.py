@@ -779,7 +779,7 @@ All dates must be formatted as MM/DD/YYYY.
 If a section has no data, say "No data logged." rather than omitting it."""
 
 UPDATES_SUMMARY_SYSTEM_PROMPT = """You are a project reporting assistant for a workflow consulting tool called Patternly.
-Your job is to produce clear, professional summaries of project updates and scope changes for reporting purposes.
+Your job is to produce a structured summary of project updates and scope changes for reporting purposes.
 
 You will receive:
 - Project name and metadata
@@ -789,18 +789,65 @@ You will receive:
 
 Focus ONLY on the project updates and scope creep — do NOT reference build notes or technical implementation details.
 
-Produce a structured summary with these sections:
-1. **Progress Overview** — 2-3 sentence summary of how the project has progressed. If Total Time Spent is provided, state it here (e.g. "Total time logged: 4h 30min").
-2. **Key Updates** — Show AT MOST 5 of the most important updates. Pick the highest-signal items (major milestones, blockers, deliverables, scope shifts, client-facing changes). Skip routine check-ins, small tweaks, and low-impact notes — even if there are more than 5 updates, never list more than 5. Organize the chosen updates by date. Use the date (MM/DD/YYYY) in **bold** as a header, then list the relevant notes as bullet points beneath it. Group multiple notes from the same date together under one date header. When an update has logged time, include the duration in parentheses at the end of that bullet (e.g. "- Wrapped up automations (1h 15min)"). When a date has a daily total, append it to the date header like "**MM/DD/YYYY** (2h total)".
-3. **Scope Changes** — Summary of scope creep: what was added, why, how it impacted the project, and whether changes were communicated to the client
-4. **Action Items & Concerns** — Any unresolved issues, uncommunicated scope changes, or items needing follow-up
+You MUST call the report_updates_summary tool to return your answer. Field guidance:
 
-Be concise and actionable. Write for a project manager or stakeholder audience.
-Do NOT use markdown headings (no #, ##, or ###). Use **bold** for section titles and date headers instead.
-Do NOT use horizontal rules (---) to separate sections. Use blank lines instead.
-Use -> instead of arrow characters for status flows.
-All dates must be formatted as MM/DD/YYYY.
-If a section has no data, say "No data logged." rather than omitting it."""
+- progress_overview: 2-3 sentences on how the project has progressed. If Total Time Spent is provided, state it here (e.g. "Total time logged: 4h 30min").
+
+- top_updates: AT MOST 5 of the highest-signal updates. Pick milestones, blockers, deliverables, scope shifts, client-facing changes, and key decisions. SKIP routine check-ins, small tweaks, and low-impact notes — even if there are dozens of updates, never list more than 5. Fewer than 5 is fine if there genuinely aren't 5 high-signal items. Sort most-recent-first. Each item must include:
+  - date: the update's date in MM/DD/YYYY
+  - content: cleaned-up, concise version of the update text (preserve meaning)
+  - time_label: human duration like "1h 30min", or empty string if no time was logged
+  - importance_reason: one short sentence explaining why this update made the cut. Be specific (don't just say "important" or "key update")
+
+- scope_changes: paragraph summarizing scope creep — what was added, why, impact, whether communicated. Use "None logged." if there's no scope creep.
+
+- action_items: paragraph summarizing unresolved issues, uncommunicated scope changes, or follow-up items. Use "None logged." if nothing to flag.
+
+Be concise and actionable. Write for a project manager or stakeholder audience. All dates MUST be MM/DD/YYYY."""
+
+UPDATES_SUMMARY_TOOL = {
+    "name": "report_updates_summary",
+    "description": "Report a structured client-facing summary of project updates and scope changes.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "progress_overview": {
+                "type": "string",
+                "description": "2-3 sentence summary of how the project has progressed. Mention Total Time Spent if provided.",
+            },
+            "top_updates": {
+                "type": "array",
+                "maxItems": 5,
+                "description": "Up to 5 highest-signal updates, sorted most-recent first. Skip routine/low-impact notes.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "date": {"type": "string", "description": "MM/DD/YYYY"},
+                        "content": {"type": "string", "description": "Cleaned-up, concise update text."},
+                        "time_label": {
+                            "type": "string",
+                            "description": "Duration like '1h 30min', or empty string if no time logged.",
+                        },
+                        "importance_reason": {
+                            "type": "string",
+                            "description": "One short sentence on why this update made the cut.",
+                        },
+                    },
+                    "required": ["date", "content", "importance_reason"],
+                },
+            },
+            "scope_changes": {
+                "type": "string",
+                "description": "Paragraph summarizing scope creep. Use 'None logged.' if none.",
+            },
+            "action_items": {
+                "type": "string",
+                "description": "Paragraph summarizing unresolved issues or follow-ups. Use 'None logged.' if none.",
+            },
+        },
+        "required": ["progress_overview", "top_updates", "scope_changes", "action_items"],
+    },
+}
 
 
 @api_view(["GET"])
@@ -992,13 +1039,32 @@ def project_summary(request, pk):
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1500,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
-        summary_text = message.content[0].text
+        if summary_type == "updates":
+            # Tool calling guarantees structured JSON: top_updates is capped at 5
+            # in the schema and the AI picks the highest-signal items.
+            message = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1500,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_message}],
+                tools=[UPDATES_SUMMARY_TOOL],
+                tool_choice={"type": "tool", "name": "report_updates_summary"},
+            )
+            tool_block = next(
+                (b for b in message.content if getattr(b, "type", None) == "tool_use"),
+                None,
+            )
+            if tool_block is None:
+                raise ValueError("Updates summary tool was not called by the model")
+            summary_text = json.dumps(tool_block.input)
+        else:
+            message = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1500,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_message}],
+            )
+            summary_text = message.content[0].text
     except Exception as e:
         logger.error("AI summary generation failed: %s", e)
         return Response(

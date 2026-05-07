@@ -5,6 +5,7 @@ import publicApi from "../../api/publicClient";
 import ProjectDetailHeader from "../../components/ProjectDetailHeader";
 import { WorkflowMapPanel } from "../../components/WorkflowMapPanel";
 import { PatternlyMark } from "../../components/brand/PatternlyMark";
+import { UpdatesSummary } from "../../components/UpdatesSummary";
 import { formatMinutes, totalUpdatesDuration } from "../../utils/transforms";
 
 const F = "'Plus Jakarta Sans', sans-serif";
@@ -221,60 +222,6 @@ function AutomationItem({ auto, index }) {
   );
 }
 
-function SummaryText({ text, maxKeyUpdates = 5 }) {
-  if (!text) return null;
-  const lines = text.split("\n");
-  const out = [];
-  let inKeyUpdates = false;
-  let bulletCount = 0;
-  let suppress = false;
-
-  lines.forEach((line, li) => {
-    const trimmed = line.trim();
-    if (trimmed === "") {
-      if (!suppress) out.push(<div key={li} style={{ height: 8 }} />);
-      return;
-    }
-
-    const boldOnlyMatch = trimmed.match(/^\*\*(.+?)\*\*$/);
-    const isDateHeader = /^\*\*\d{1,2}\/\d{1,2}\/\d{2,4}\*\*/.test(trimmed);
-
-    // Bold-only section header (not a date) — switch sections, reset counters
-    if (boldOnlyMatch && !isDateHeader) {
-      inKeyUpdates = /key updates/i.test(boldOnlyMatch[1]);
-      bulletCount = 0;
-      suppress = false;
-      out.push(<p key={li} style={{ margin: "16px 0 6px", fontSize: 15, fontWeight: 700, color: "#1F2937", fontFamily: F }}>{boldOnlyMatch[1]}</p>);
-      return;
-    }
-
-    // Once cap is hit, drop everything else inside Key Updates (bullets + their date headers)
-    if (inKeyUpdates && suppress) return;
-
-    if (inKeyUpdates && trimmed.startsWith("- ")) {
-      bulletCount++;
-      if (bulletCount > maxKeyUpdates) {
-        suppress = true;
-        return;
-      }
-    }
-
-    if (boldOnlyMatch) {
-      out.push(<p key={li} style={{ margin: "16px 0 6px", fontSize: 15, fontWeight: 700, color: "#1F2937", fontFamily: F }}>{boldOnlyMatch[1]}</p>);
-      return;
-    }
-
-    const parts = trimmed.split(/(\*\*.*?\*\*)/g);
-    const rendered = parts.map((part, pi) => {
-      const m = part.match(/^\*\*(.*?)\*\*$/);
-      if (m) return <strong key={pi}>{m[1]}</strong>;
-      return <span key={pi}>{part}</span>;
-    });
-    out.push(<p key={li} style={{ margin: "3px 0", fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.7 }}>{rendered}</p>);
-  });
-  return out;
-}
-
 export default function ClientBriefPage() {
   const { shareToken } = useParams();
   const [mapWfIndex, setMapWfIndex] = useState(null);
@@ -359,7 +306,7 @@ export default function ClientBriefPage() {
               </p>
             ) : (
               <div style={{ fontSize: 13, color: "#374151", fontFamily: F, lineHeight: 1.8 }}>
-                <SummaryText text={cf.updates_summary} />
+                <UpdatesSummary text={cf.updates_summary} />
               </div>
             )}
           </div>
