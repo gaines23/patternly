@@ -75,6 +75,23 @@ export function useUpdateProject(id) {
   });
 }
 
+// ── Patch a subset of project fields (partial update) ─────────────────────────
+// PUT requires the full nested payload; PATCH lets us update single fields like
+// header_summary without rebuilding intake/outcome/etc. payloads.
+export function useUpdateProjectFields(id) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (partial) => {
+      const { data } = await api.patch(`/v1/briefs/${id}/`, partial);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(projectKeys.detail(id), data);
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+  });
+}
+
 // ── Delete project ────────────────────────────────────────────────────────────
 export function useDeleteProject() {
   const queryClient = useQueryClient();

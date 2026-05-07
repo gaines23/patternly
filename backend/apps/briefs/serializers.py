@@ -236,6 +236,7 @@ class PublicCaseFileSerializer(CaseFileDetailSerializer):
             "status", "closed_at",
             "created_at", "updated_at",
             "updates_summary", "updates_summary_generated_at",
+            "header_summary",
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
             "team_logo_url",
@@ -302,6 +303,7 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
             "name", "logged_by_name", "status",
             "primary_platform", "connected_platforms",
             "source_type", "source_url", "source_attribution",
+            "header_summary",
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
         ]

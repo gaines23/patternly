@@ -217,6 +217,10 @@ class CaseFile(models.Model):
     updates_summary = models.TextField(blank=True)
     updates_summary_generated_at = models.DateTimeField(null=True, blank=True)
 
+    # User-editable lede shown under the project name on the detail/report header.
+    # When blank, the UI computes a default from intake/outcome/reasoning fields.
+    header_summary = models.TextField(blank=True)
+
     class Meta:
         db_table = "case_files"
         ordering = ["-created_at"]

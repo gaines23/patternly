@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { formatDate, totalUpdatesDuration } from "@utils/transforms";
 
@@ -91,6 +92,146 @@ function pluralize(n, singular, plural) {
 }
 
 /**
+ * Inline-editable lede for the project header.
+ * - Click "Edit" to enter edit mode; pre-fills with the currently displayed text.
+ * - Save calls onSave(newValue). Pass empty string to clear the override (revert
+ *   to the computed default).
+ * - "Reset to default" only appears when there is a saved override.
+ */
+function EditableSummary({ value, hasOverride, fallback, theme, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef(null);
+
+  useEffect(() => { setDraft(value || ""); }, [value]);
+
+  useEffect(() => {
+    if (editing && textareaRef.current) {
+      textareaRef.current.focus();
+      const len = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(len, len);
+    }
+  }, [editing]);
+
+  const commit = async (next) => {
+    setSaving(true);
+    try {
+      await onSave(next);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div style={{ maxWidth: "62ch" }}>
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={4}
+          style={{
+            width: "100%", boxSizing: "border-box",
+            fontSize: 15, color: theme.textSec, fontFamily: F, lineHeight: 1.55,
+            padding: "10px 12px",
+            background: theme.surface,
+            border: `1px solid ${theme.border}`, borderRadius: 8,
+            resize: "vertical", outline: "none",
+          }}
+        />
+        <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => commit(draft.trim())}
+            disabled={saving}
+            style={{
+              padding: "5px 12px", borderRadius: 6,
+              background: "#4F46E5", color: "#fff", border: "none",
+              fontSize: 12, fontWeight: 600, fontFamily: F,
+              cursor: saving ? "default" : "pointer",
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setDraft(value || ""); setEditing(false); }}
+            disabled={saving}
+            style={{
+              padding: "5px 12px", borderRadius: 6,
+              background: "transparent", color: theme.textMuted,
+              border: `1px solid ${theme.border}`,
+              fontSize: 12, fontWeight: 600, fontFamily: F, cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          {hasOverride && (
+            <button
+              type="button"
+              onClick={() => commit("")}
+              disabled={saving}
+              style={{
+                padding: "5px 12px", borderRadius: 6,
+                background: "transparent", color: theme.textMuted,
+                border: "none",
+                fontSize: 12, fontWeight: 500, fontFamily: F, cursor: "pointer",
+                marginLeft: "auto",
+              }}
+              title="Clear the override and revert to the auto-generated summary"
+            >
+              Reset to default
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: "62ch" }}>
+      {value ? (
+        <p style={{
+          margin: 0, fontSize: 15, color: theme.textSec, fontFamily: F,
+          lineHeight: 1.55,
+        }}>
+          {value}
+        </p>
+      ) : (
+        <p style={{
+          margin: 0, fontSize: 14, color: theme.textFaint, fontFamily: F,
+          lineHeight: 1.55, fontStyle: "italic",
+        }}>
+          No summary yet — add one to set the lede shown on reports and share links.
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => { setDraft(value || fallback || ""); setEditing(true); }}
+        className="fp-no-print"
+        style={{
+          marginTop: 6,
+          padding: "2px 8px", borderRadius: 5,
+          background: "transparent", color: theme.textMuted,
+          border: `1px solid ${theme.border}`,
+          fontSize: 11, fontWeight: 500, fontFamily: F, cursor: "pointer",
+        }}
+      >
+        {value ? "Edit summary" : "Add summary"}
+      </button>
+      {hasOverride && (
+        <span style={{ marginLeft: 8, fontSize: 11, color: theme.textFaint, fontFamily: F }}>
+          Custom — {value.length} chars
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
  * Shared project detail header — used on:
  *   - Authenticated detail page (with action buttons)
  *   - Public shared link page (read-only)
@@ -111,6 +252,7 @@ export default function ProjectDetailHeader({
   backLabel = "Back to projects",
   actions,
   hideMetrics = [],
+  onEditSummary,
 }) {
   const theme = themeProp || LIGHT_THEME;
   const hidden = new Set(hideMetrics);
@@ -152,15 +294,18 @@ export default function ProjectDetailHeader({
     ? `Across ${pluralize(updatesWithTime, "update", "updates")}`
     : "None logged";
 
-  // Summary lede: prefer intake.raw_prompt → outcome.what_worked → reasoning.why_structure.
-  // Cap at 3 sentences so the header stays compact regardless of source length.
-  const summary = truncateToSentences(
+  // Summary lede priority:
+  //   1. user-edited override (cf.header_summary) — shown verbatim, no truncation
+  //   2. computed default from intake → outcome → reasoning, capped at 3 sentences
+  const computedSummary = truncateToSentences(
     cf.intake?.raw_prompt
       || cf.outcome?.what_worked
       || cf.reasoning?.why_structure
       || "",
     3,
   );
+  const summary = cf.header_summary?.trim() || computedSummary;
+  const isEditable = typeof onEditSummary === "function";
 
   const caseFileLabel = cf.short_id
     || cf.case_number
@@ -216,14 +361,24 @@ export default function ProjectDetailHeader({
             {cf.name || cf.workflow_type || "Untitled workflow"}
           </h1>
 
-          {/* Summary / lede */}
-          {summary && (
-            <p style={{
-              margin: 0, fontSize: 15, color: theme.textSec, fontFamily: F,
-              lineHeight: 1.55, maxWidth: "62ch",
-            }}>
-              {summary}
-            </p>
+          {/* Summary / lede — editable on the authenticated page, read-only elsewhere */}
+          {isEditable ? (
+            <EditableSummary
+              value={summary}
+              hasOverride={Boolean(cf.header_summary?.trim())}
+              fallback={computedSummary}
+              theme={theme}
+              onSave={onEditSummary}
+            />
+          ) : (
+            summary && (
+              <p style={{
+                margin: 0, fontSize: 15, color: theme.textSec, fontFamily: F,
+                lineHeight: 1.55, maxWidth: "62ch",
+              }}>
+                {summary}
+              </p>
+            )
           )}
         </div>
 
