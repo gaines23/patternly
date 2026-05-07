@@ -304,6 +304,7 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
             "primary_platform", "connected_platforms",
             "source_type", "source_url", "source_attribution",
             "header_summary",
+            "full_summary", "updates_summary",
             "audit", "intake", "build", "delta", "reasoning", "outcome",
             "project_updates",
         ]
