@@ -159,7 +159,7 @@ export default function PatternsPage() {
     <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 860 }}>
       <div style={{ marginBottom: 28, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 240 }}>
-          <h1 style={{ margin: "0 0 6px", fontSize: 26, fontFamily: "'Fraunces', serif" }}>Patterns</h1>
+          <h1 style={{ margin: "0 0 6px", fontSize: 26, fontFamily: F, fontWeight: 500, letterSpacing: "-0.025em" }}>Patterns</h1>
           <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F }}>
             Browse platform knowledge, community insights, and training case files from ingestion.
           </p>

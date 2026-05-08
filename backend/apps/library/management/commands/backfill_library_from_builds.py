@@ -45,7 +45,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, dry_run=False, only_live=False, case_file=None, **options):
-        qs = CaseFile.objects.select_related("build", "logged_by", "logged_by__team")
+        qs = CaseFile.objects.select_related("build", "logged_by", "team", "logged_by__active_team")
         if case_file:
             qs = qs.filter(id=case_file)
 

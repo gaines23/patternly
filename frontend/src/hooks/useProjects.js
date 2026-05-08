@@ -195,33 +195,43 @@ export function useProjectSummary(id, { summaryType = "full", startDate, endDate
 }
 
 // ── Billing — hours/notes across projects within a date range ────────────────
-export function useBilling({ dateFrom, dateTo, caseFile } = {}) {
+export function useBilling({ dateFrom, dateTo, caseFile, scope = "mine" } = {}) {
   return useQuery({
-    queryKey: projectKeys.billing({ dateFrom, dateTo, caseFile }),
+    // Scope is part of the cache key — switching from "mine" to "all" must
+    // refetch rather than reuse the prior payload.
+    queryKey: projectKeys.billing({ dateFrom, dateTo, caseFile, scope }),
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateFrom) params.set("date_from", dateFrom);
       if (dateTo)   params.set("date_to",   dateTo);
       if (caseFile) params.set("case_file", caseFile);
+      if (scope)    params.set("scope",     scope);
       const { data } = await api.get(`/v1/briefs/billing/?${params}`);
       return data;
     },
   });
 }
 
-// ── Toggle the current user's billing share link ─────────────────────────────
+// ── Toggle the current user's billing share link (per-scope) ─────────────────
+//
+// Each scope on the billing page (mine / team_projects / all) has its own
+// share token + enabled flag, so a user can publicly share their personal
+// hours while keeping the team views private. Pass the scope being toggled
+// so the right row is updated.
 export function useToggleBillingShare() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post("/v1/briefs/billing/share/");
-      return data; // { enabled, share_token }
+    mutationFn: async (scope = "mine") => {
+      const { data } = await api.post("/v1/briefs/billing/share/", { scope });
+      return data; // { enabled, share_token, scope }
     },
     onSuccess: (data) => {
-      // Patch any cached billing responses with the new share state.
-      queryClient.setQueriesData({ queryKey: [...projectKeys.all, "billing"] }, (old) =>
-        old ? { ...old, share_enabled: data.enabled, share_token: data.share_token } : old
-      );
+      // Patch only the cached billing responses for THIS scope — flipping
+      // "mine" off must not affect the share state shown on "team_projects".
+      queryClient.setQueriesData({ queryKey: [...projectKeys.all, "billing"] }, (old) => {
+        if (!old || old.scope !== data.scope) return old;
+        return { ...old, share_enabled: data.enabled, share_token: data.share_token };
+      });
     },
   });
 }

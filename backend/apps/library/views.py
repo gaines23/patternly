@@ -15,8 +15,13 @@ from .serializers import (
 
 
 def _user_team(user):
-    """Resolve the user's team. Falls back to the bootstrapped Default Team."""
-    return getattr(user, "team", None)
+    """
+    Resolve the user's currently active team. Library items are scoped per
+    team, so a user with multiple memberships sees a different library when
+    they switch teams. Falls back to None for users without any team yet —
+    the queryset below handles that case.
+    """
+    return getattr(user, "active_team", None)
 
 
 def _scoped_queryset(user):
@@ -223,7 +228,7 @@ class LibraryItemCommentDetailView(generics.RetrieveUpdateDestroyAPIView):
             return LibraryItemComment.objects.none()
         qs = item.comments.select_related("author")
         user = self.request.user
-        is_admin = getattr(user, "role", None) == "admin" or user.is_staff
+        is_admin = user.is_staff or user.is_admin_of(getattr(user, "active_team", None))
         if self.request.method in ("PATCH", "PUT", "DELETE") and not is_admin:
             qs = qs.filter(author=user)
         return qs

@@ -4,7 +4,7 @@ import { useTheme } from "../../hooks/useTheme";
 import {
   useUpdateMe, useChangePassword, useCreateInvite,
   useAuditLogs, useSignOutAll, useAdminUsers, useAdminUpdateUser,
-  useMyTeam, useUpdateMyTeam,
+  useMyTeam, useUpdateMyTeam, useMyTeams, useSwitchTeam,
 } from "../../hooks/useUsers";
 import {
   usePlatforms, usePlatformKnowledge, useCommunityInsights,
@@ -271,7 +271,7 @@ function SecurityTab({ user, theme, changePassword, passwords, setPasswords, pas
   );
 }
 
-function TeamTab({ user, theme, createInvite, inviteLink, setInviteLink, inviteCopied, setInviteCopied, handleCreateInvite, handleCopyInvite, isAdmin, adminUsers, adminUpdateUser, myTeam, updateMyTeam }) {
+function TeamTab({ user, theme, createInvite, inviteLink, setInviteLink, inviteCopied, setInviteCopied, handleCreateInvite, handleCopyInvite, isAdmin, adminUsers, adminUpdateUser, myTeam, updateMyTeam, myTeams, switchTeam, refreshUser }) {
   const [teamName, setTeamName] = useState("");
   const [teamMsg, setTeamMsg] = useState(null);
   const [logoMsg, setLogoMsg] = useState(null);
@@ -335,8 +335,68 @@ function TeamTab({ user, theme, createInvite, inviteLink, setInviteLink, inviteC
     }
   };
 
+  const teams = myTeams?.data?.results || myTeams?.data || [];
+  const activeTeamId = user?.active_team?.id;
+
+  const handleSwitch = async (teamId) => {
+    if (teamId === activeTeamId) return;
+    try {
+      await switchTeam.mutateAsync(teamId);
+      // useAuth keeps its own copy of the user — re-fetch so the UI everywhere
+      // reflects the new active team without a hard reload.
+      if (refreshUser) await refreshUser();
+    } catch {
+      // Mutation surfaces its own error state on the button.
+    }
+  };
+
   return (
     <>
+      {teams.length > 1 && (
+        <Card title="Your teams" sub="You belong to multiple teams. Switch to change which team's projects, library, and members you see." theme={theme}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 4 }}>
+            {teams.map((m) => {
+              const isCurrent = m.team.id === activeTeamId;
+              return (
+                <div
+                  key={m.id}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 12, padding: "10px 14px",
+                    background: isCurrent ? theme.blueLight : theme.surface,
+                    border: `1px solid ${isCurrent ? theme.blueBorder : theme.borderSubtle}`,
+                    borderRadius: 9,
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: theme.text, fontFamily: F }}>{m.team.name}</p>
+                    <p style={{ margin: "2px 0 0", fontSize: 11, color: theme.textFaint, fontFamily: F }}>
+                      {m.role}{isCurrent ? " · current" : ""}
+                    </p>
+                  </div>
+                  {!isCurrent && (
+                    <button
+                      type="button"
+                      onClick={() => handleSwitch(m.team.id)}
+                      disabled={switchTeam.isPending}
+                      style={{
+                        padding: "6px 14px", borderRadius: 7,
+                        border: `1px solid ${theme.blueBorder}`,
+                        background: theme.surface, color: theme.blue,
+                        fontSize: 12, fontWeight: 600, fontFamily: F,
+                        cursor: switchTeam.isPending ? "wait" : "pointer",
+                      }}
+                    >
+                      Switch
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       <Card title="Team profile" sub="Your team's display name. Library items and shared content live under this team." theme={theme}>
         {myTeam?.isLoading ? (
           <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, padding: "8px 0" }}>Loading…</p>
@@ -458,7 +518,7 @@ function TeamTab({ user, theme, createInvite, inviteLink, setInviteLink, inviteC
       </Card>
 
       {isAdmin && (
-        <Card title="Team members" sub="Manage roles and access for all users in your organization." theme={theme}>
+        <Card title="Team members" sub="Manage roles and access for all users on this team." theme={theme}>
           {adminUsers.isLoading && <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, padding: "8px 0" }}>Loading…</p>}
           {adminUsers.isError && <p style={{ fontSize: 13, color: "#DC2626", fontFamily: F, padding: "8px 0" }}>Failed to load team members.</p>}
           {adminUsers.data?.results?.length > 0 && (
@@ -492,8 +552,7 @@ function TeamTab({ user, theme, createInvite, inviteLink, setInviteLink, inviteC
                               style={{ padding: "5px 8px", border: `1px solid ${theme.borderInput}`, borderRadius: 7, fontFamily: F, fontSize: 13, color: theme.text, background: theme.inputBg, cursor: "pointer" }}
                             >
                               <option value="admin">Admin</option>
-                              <option value="engineer">Engineer</option>
-                              <option value="viewer">Viewer</option>
+                              <option value="member">Member</option>
                             </select>
                           )}
                         </td>
@@ -813,7 +872,7 @@ function DataTab({ theme }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { mode, toggle, theme } = useTheme();
   const updateMe = useUpdateMe();
   const changePassword = useChangePassword();
@@ -824,6 +883,8 @@ export default function SettingsPage() {
   const adminUpdateUser = useAdminUpdateUser();
   const myTeam = useMyTeam();
   const updateMyTeam = useUpdateMyTeam();
+  const myTeams = useMyTeams();
+  const switchTeam = useSwitchTeam();
 
   const isAdmin = user?.role === "admin" || user?.is_staff;
 
@@ -905,7 +966,7 @@ export default function SettingsPage() {
   return (
     <div className="fp-page-wrap" style={{ padding: "32px 32px 80px", maxWidth: 720 }}>
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: "0 0 6px", fontSize: 26, fontFamily: "'Fraunces', serif" }}>Settings</h1>
+        <h1 style={{ margin: "0 0 6px", fontSize: 26, fontFamily: F, fontWeight: 500, letterSpacing: "-0.025em" }}>Settings</h1>
         <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F }}>Manage your account and preferences.</p>
       </div>
 
@@ -937,6 +998,7 @@ export default function SettingsPage() {
           handleCreateInvite={handleCreateInvite} handleCopyInvite={handleCopyInvite}
           adminUsers={adminUsers} adminUpdateUser={adminUpdateUser}
           myTeam={myTeam} updateMyTeam={updateMyTeam}
+          myTeams={myTeams} switchTeam={switchTeam} refreshUser={refreshUser}
         />
       )}
 

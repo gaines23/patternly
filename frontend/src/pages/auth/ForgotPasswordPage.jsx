@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
           padding: "32px 28px",
           boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
         }}>
-          <h1 style={{ margin: "0 0 6px", fontSize: 22, fontFamily: "'Fraunces', serif", color: theme.text }}>
+          <h1 style={{ margin: "0 0 6px", fontSize: 22, fontFamily: F, fontWeight: 500, letterSpacing: "-0.025em", color: theme.text }}>
             Forgot password?
           </h1>
           <p style={{ margin: "0 0 24px", fontSize: 13, color: theme.textMuted, fontFamily: F }}>

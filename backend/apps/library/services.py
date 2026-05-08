@@ -80,9 +80,15 @@ def _workflow_steps(workflow: dict) -> str:
 
 
 def _resolve_team(case_file: CaseFile) -> Team:
+    # Library items inherit the case file's team — that's the team the project
+    # was logged under. Fall back to the owner's active team (covers older
+    # case files synced before CaseFile.team was populated) and finally to
+    # the bootstrapped Default Team.
+    if case_file.team_id:
+        return case_file.team
     owner = case_file.logged_by
-    if owner and owner.team_id:
-        return owner.team
+    if owner and owner.active_team_id:
+        return owner.active_team
     team, _ = Team.objects.get_or_create(slug="default", defaults={"name": "Default Team"})
     return team
 
