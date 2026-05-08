@@ -8,6 +8,7 @@ import { formToProjectPayload, projectToFormState, briefToSuggestedAutomations, 
 import ProjectForm from "@components/ProjectForm";
 import DeleteConfirmModal from "@components/DeleteConfirmModal";
 import { WorkflowMapPanel } from "@components/WorkflowMapPanel";
+import { parseUpdatesSummary } from "@components/UpdatesSummary";
 
 // Detail-layer components
 import CaseFileHeader  from "./detail/components/ProjectHeader";
@@ -114,14 +115,132 @@ function ProjectUpdatesView({ projectUpdates, theme, caseFileId, projectName, pr
           savedGeneratedAt={savedUpdatesGeneratedAt}
         />
       ) : (
-        !projectUpdates?.length
-          ? <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, fontStyle: "italic", margin: 0 }}>No updates logged.</p>
-          : <div>{[...projectUpdates]
-              .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
-              .map((pu, i) => <ProjectUpdateItem key={pu.id || i} pu={pu} />)
-            }</div>
+        <>
+          {/* Inline AI summary preview — shown above the notes list whenever
+              a summary has already been generated. Lets the user read the
+              rolled-up view without leaving the notes tab. The AI Summary
+              button still switches into the full editor/regenerate view. */}
+          {savedUpdatesSummary && (
+            <InlineUpdatesSummary
+              text={savedUpdatesSummary}
+              generatedAt={savedUpdatesGeneratedAt}
+              theme={theme}
+            />
+          )}
+          {!projectUpdates?.length
+            ? <p style={{ fontSize: 13, color: theme.textFaint, fontFamily: F, fontStyle: "italic", margin: 0 }}>No updates logged.</p>
+            : <div>{[...projectUpdates]
+                .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
+                .map((pu, i) => <ProjectUpdateItem key={pu.id || i} pu={pu} />)
+              }</div>}
+        </>
       )}
     </Section>
+  );
+}
+
+// Pull just the "Progress Overview" / "Overview" section out of either the
+// structured JSON shape or the markdown shape the AI returns. Returns the
+// body text (no heading) so the inline preview can render the overview
+// without re-stating its title — the card itself already says "AI Summary".
+function extractProgressOverview(text) {
+  if (!text) return "";
+
+  const structured = parseUpdatesSummary(text);
+  if (structured) {
+    return (structured.progress_overview || "").trim();
+  }
+
+  // Markdown path: scan for a bold-only line whose label is "overview" or
+  // "progress overview", then collect lines until the next bold-only heading.
+  const lines = text.split("\n");
+  const overviewLines = [];
+  let inOverview = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const boldOnly = trimmed.match(/^\*\*(.+?)\*\*$/);
+    if (boldOnly) {
+      const label = boldOnly[1].toLowerCase().trim();
+      if (/^(progress\s+)?overview$/.test(label)) {
+        inOverview = true;
+        continue;
+      }
+      // Hit the next section — stop collecting.
+      if (inOverview) break;
+    }
+    if (inOverview) overviewLines.push(line);
+  }
+
+  return overviewLines.join("\n").trim();
+}
+
+function InlineUpdatesSummary({ text, generatedAt, theme }) {
+  const [open, setOpen] = useState(true);
+
+  // Light purple chrome that mirrors the AI Summary button so it's
+  // visually obvious this content came from the same AI flow.
+  const PURPLE = "#8B5CF6";
+  const PURPLE_BG = "#F5F3FF";
+  const PURPLE_BORDER = "#DDD6FE";
+
+  const overview = extractProgressOverview(text);
+  if (!overview) return null;
+
+  const generatedLabel = generatedAt
+    ? new Date(generatedAt).toLocaleDateString("en-US", {
+        month: "short", day: "numeric", year: "numeric",
+      })
+    : null;
+
+  return (
+    <div style={{
+      border: `1px solid ${PURPLE_BORDER}`,
+      borderRadius: 10,
+      background: PURPLE_BG,
+      marginBottom: 14,
+      overflow: "hidden",
+    }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: "flex", alignItems: "center", gap: 10,
+          width: "100%", padding: "10px 14px", border: "none",
+          background: "transparent", cursor: "pointer", textAlign: "left",
+          fontFamily: F,
+        }}
+      >
+        <span style={{ fontSize: 14 }}>✨</span>
+        <span style={{
+          fontSize: 12, fontWeight: 700, color: PURPLE,
+          textTransform: "uppercase", letterSpacing: "0.08em",
+        }}>
+          AI Summary
+        </span>
+        {generatedLabel && (
+          <span style={{ fontSize: 11, color: PURPLE, opacity: 0.7, fontWeight: 500 }}>
+            generated {generatedLabel}
+          </span>
+        )}
+        <span style={{
+          marginLeft: "auto", fontSize: 14, color: PURPLE,
+          transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+          transition: "transform 0.2s",
+        }}>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div style={{
+          padding: "0 14px 14px",
+          fontSize: 13, color: theme.textSec, fontFamily: F, lineHeight: 1.55,
+          whiteSpace: "pre-wrap",
+        }}>
+          {overview}
+        </div>
+      )}
+    </div>
   );
 }
 
