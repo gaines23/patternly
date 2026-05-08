@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import { useTheme } from "@hooks/useTheme";
+import { useAuth } from "@hooks/useAuth";
 import { useBilling, useToggleBillingShare } from "@hooks/useProjects";
 import { formatMinutes } from "@utils/transforms";
 
@@ -68,7 +69,7 @@ const paperSx = (theme) => ({
 
 // ── Note card — mirrors ProjectUpdateItem in ProjectDetailPage ───────────────
 
-function NoteCard({ pu, showProject = false }) {
+function NoteCard({ pu, showProject = false, showCreator = false }) {
   const [open, setOpen] = useState(false);
   const dateLabel = formatDateLabel(pu.created_at);
   const durationLabel = formatMinutes(pu.minutes_spent);
@@ -86,6 +87,11 @@ function NoteCard({ pu, showProject = false }) {
         {showProject && pu.case_file_name && (
           <span style={{ fontSize: 11, fontWeight: 600, color: ACCENT, fontFamily: F, opacity: 0.8 }}>
             · {pu.case_file_name}
+          </span>
+        )}
+        {showCreator && pu.created_by_name && (
+          <span style={{ fontSize: 11, color: ACCENT, fontFamily: F, opacity: 0.75 }}>
+            by {pu.created_by_name}
           </span>
         )}
         {durationLabel && (
@@ -139,7 +145,7 @@ function NoteCard({ pu, showProject = false }) {
 
 // ── Project section (collapsible) — used when "All projects" is selected ────
 
-function ProjectGroup({ projectName, updates, theme }) {
+function ProjectGroup({ projectName, updates, theme, showCreator = false }) {
   const [open, setOpen] = useState(true);
   const totalLabel = formatMinutes(totalMinutes(updates));
   const sorted = useMemo(
@@ -204,19 +210,81 @@ function ProjectGroup({ projectName, updates, theme }) {
           borderRadius: "0 0 10px 10px",
           padding: "14px",
         }}>
-          {sorted.map(pu => <NoteCard key={pu.id} pu={pu} />)}
+          {sorted.map(pu => <NoteCard key={pu.id} pu={pu} showCreator={showCreator} />)}
         </div>
       )}
     </div>
   );
 }
 
+// ── Scope tabs ───────────────────────────────────────────────────────────────
+
+// Three visibility scopes for the billing report. "Everyone" is admin-only;
+// hide it from members rather than 403'ing them after the fact.
+function ScopeTabs({ scope, setScope, isAdmin, theme }) {
+  const tabs = [
+    { id: "mine", label: "My hours", sub: "Only what I logged" },
+    { id: "team_projects", label: "My projects", sub: "All team hours on my clients" },
+    ...(isAdmin
+      ? [{ id: "all", label: "Everyone", sub: "All team hours, all projects" }]
+      : []),
+  ];
+
+  return (
+    <div
+      role="tablist"
+      style={{
+        display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap",
+      }}
+    >
+      {tabs.map((tab) => {
+        const active = scope === tab.id;
+        return (
+          <button
+            key={tab.id}
+            role="tab"
+            aria-selected={active}
+            onClick={() => setScope(tab.id)}
+            style={{
+              padding: "8px 14px", borderRadius: 9,
+              border: `1.5px solid ${active ? ACCENT : theme.borderInput}`,
+              background: active ? ACCENT_BG : theme.surface,
+              color: active ? ACCENT : theme.text,
+              fontFamily: F, fontSize: 13, fontWeight: 600,
+              cursor: "pointer", textAlign: "left", lineHeight: 1.2,
+              transition: "background 0.15s, border-color 0.15s, color 0.15s",
+            }}
+            title={tab.sub}
+          >
+            <div>{tab.label}</div>
+            <div style={{
+              fontSize: 11, fontWeight: 500, marginTop: 2,
+              color: active ? ACCENT : theme.textFaint, opacity: active ? 0.85 : 1,
+            }}>
+              {tab.sub}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Share modal ──────────────────────────────────────────────────────────────
 
-function BillingShareModal({ shareToken, shareEnabled, dateFrom, dateTo, onClose }) {
+// Human-readable label for the scope being shared, used in the modal copy
+// so the user knows exactly what data the link will expose.
+const SCOPE_LABELS = {
+  mine: { title: "My hours", body: "the hours you personally logged" },
+  team_projects: { title: "My projects", body: "every teammate's hours on the projects you're involved in" },
+  all: { title: "Everyone", body: "every hour logged on every project in your team" },
+};
+
+function BillingShareModal({ shareToken, shareEnabled, scope, dateFrom, dateTo, onClose }) {
   const { theme } = useTheme();
   const toggle = useToggleBillingShare();
   const [copied, setCopied] = useState(false);
+  const labels = SCOPE_LABELS[scope] || SCOPE_LABELS.mine;
 
   const shareUrl = shareToken
     ? (() => {
@@ -252,13 +320,13 @@ function BillingShareModal({ shareToken, shareEnabled, dateFrom, dateTo, onClose
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontFamily: "'Fraunces', serif", color: theme.text }}>
-            Share billing report
+          <h2 style={{ margin: 0, fontSize: 18, fontFamily: F, fontWeight: 600, letterSpacing: "-0.015em", color: theme.text }}>
+            Share billing report — {labels.title}
           </h2>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: theme.textFaint, lineHeight: 1 }}>x</button>
         </div>
         <p style={{ margin: "0 0 16px", fontSize: 13, color: theme.textMuted, fontFamily: F, lineHeight: 1.6 }}>
-          Generate a read-only link recipients can use to view your billing report. The link uses the date range currently selected.
+          Generate a read-only link recipients can use to view {labels.body}. The link uses the date range currently selected. Each scope has its own toggle and link.
         </p>
 
         <div style={{ padding: "16px 0", borderBottom: `1px solid ${theme.border}` }}>
@@ -267,7 +335,7 @@ function BillingShareModal({ shareToken, shareEnabled, dateFrom, dateTo, onClose
               Public link
             </span>
             <button
-              onClick={() => toggle.mutate()}
+              onClick={() => toggle.mutate(scope)}
               disabled={toggle.isPending}
               style={{
                 width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
@@ -328,15 +396,24 @@ function BillingShareModal({ shareToken, shareEnabled, dateFrom, dateTo, onClose
 
 export default function BillingPage() {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin" || !!user?.is_staff;
+
   const [dateFrom, setDateFrom] = useState(firstOfMonthISO());
   const [dateTo, setDateTo] = useState(todayISO());
   const [selectedProject, setSelectedProject] = useState(null); // {id, name} | null
   const [shareOpen, setShareOpen] = useState(false);
+  // Scope of the billing report:
+  //   mine            — only what I logged (default).
+  //   team_projects   — every teammate's hours on projects I've worked on.
+  //   all             — admin-only; every hour on every project in the team.
+  const [scope, setScope] = useState("mine");
 
   const { data, isLoading, isError } = useBilling({
     dateFrom,
     dateTo,
     caseFile: selectedProject?.id,
+    scope,
   });
 
   const updates = data?.updates || [];
@@ -415,6 +492,9 @@ export default function BillingPage() {
           </button>
         </div>
       </div>
+
+      {/* Scope tabs */}
+      <ScopeTabs scope={scope} setScope={setScope} isAdmin={isAdmin} theme={theme} />
 
       {/* Filters */}
       <div style={{
@@ -516,12 +596,20 @@ export default function BillingPage() {
         </div>
       ) : selectedProject ? (
         <div>
-          {singleProjectSorted.map(pu => <NoteCard key={pu.id} pu={pu} />)}
+          {singleProjectSorted.map(pu => (
+            <NoteCard key={pu.id} pu={pu} showCreator={scope !== "mine"} />
+          ))}
         </div>
       ) : (
         <div>
           {groupedByProject.map(g => (
-            <ProjectGroup key={g.id} projectName={g.name} updates={g.updates} theme={theme} />
+            <ProjectGroup
+              key={g.id}
+              projectName={g.name}
+              updates={g.updates}
+              theme={theme}
+              showCreator={scope !== "mine"}
+            />
           ))}
         </div>
       )}
@@ -530,6 +618,7 @@ export default function BillingPage() {
         <BillingShareModal
           shareToken={shareToken}
           shareEnabled={shareEnabled}
+          scope={scope}
           dateFrom={dateFrom}
           dateTo={dateTo}
           onClose={() => setShareOpen(false)}

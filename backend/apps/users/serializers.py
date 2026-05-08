@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from django.contrib.auth import authenticate
-from .models import User, Invitation, PasswordResetToken, AuditLog, Team
+from .models import User, Invitation, PasswordResetToken, AuditLog, Team, TeamMembership
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -88,14 +88,32 @@ class TeamSerializer(serializers.ModelSerializer):
         return rep
 
 
-class UserSerializer(serializers.ModelSerializer):
-    full_name = serializers.ReadOnlyField()
+class TeamMembershipSerializer(serializers.ModelSerializer):
     team = TeamSerializer(read_only=True)
 
     class Meta:
+        model = TeamMembership
+        fields = ["id", "team", "role", "joined_at"]
+        read_only_fields = ["id", "team", "joined_at"]
+
+
+class UserSerializer(serializers.ModelSerializer):
+    full_name = serializers.ReadOnlyField()
+    role = serializers.ReadOnlyField()
+    active_team = TeamSerializer(read_only=True)
+    teams = serializers.SerializerMethodField()
+
+    class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name", "full_name", "role", "team", "created_at"]
-        read_only_fields = ["id", "created_at", "team"]
+        fields = [
+            "id", "email", "first_name", "last_name", "full_name",
+            "role", "active_team", "teams", "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "active_team", "teams", "role"]
+
+    def get_teams(self, obj):
+        memberships = obj.team_memberships.select_related("team").all()
+        return TeamMembershipSerializer(memberships, many=True).data
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -109,7 +127,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_invite_token(self, value):
         try:
-            invite = Invitation.objects.get(token=value)
+            invite = Invitation.objects.select_related("invited_to_team").get(token=value)
         except Invitation.DoesNotExist:
             raise serializers.ValidationError("Invalid or expired invite link.")
         if not invite.is_valid():
@@ -120,6 +138,20 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop("invite_token")
         user = User.objects.create_user(**validated_data)
+
+        # An invite carries the team the inviter wants this user to join. Mint
+        # a membership and set it as their active team so they land in the
+        # right place on first login. The first user to ever join a team
+        # becomes its admin automatically — otherwise nobody on a fresh team
+        # would have permission to manage members or invite others.
+        team = self._invite.invited_to_team
+        if team is not None:
+            is_first_member = not team.memberships.exists()
+            role = "admin" if is_first_member else "member"
+            TeamMembership.objects.create(user=user, team=team, role=role)
+            user.active_team = team
+            user.save(update_fields=["active_team"])
+
         self._invite.is_used = True
         self._invite.save(update_fields=["is_used"])
         return user
@@ -142,24 +174,61 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class InviteSerializer(serializers.ModelSerializer):
     token = serializers.UUIDField(read_only=True)
     created_by = serializers.StringRelatedField(read_only=True)
+    invited_to_team = TeamSerializer(read_only=True)
     is_valid = serializers.SerializerMethodField()
 
     class Meta:
         model = Invitation
-        fields = ["token", "email", "is_used", "is_valid", "created_by", "created_at", "expires_at"]
-        read_only_fields = ["token", "is_used", "created_at", "expires_at"]
+        fields = [
+            "token", "email", "is_used", "is_valid",
+            "created_by", "invited_to_team", "created_at", "expires_at",
+        ]
+        read_only_fields = ["token", "is_used", "created_at", "expires_at", "invited_to_team"]
 
     def get_is_valid(self, obj):
         return obj.is_valid()
 
 
 class UserAdminSerializer(serializers.ModelSerializer):
-    """Used by admins to list/update users. Never exposes password."""
+    """
+    Used by admins to list/update members of the active team. Role is sourced
+    from the TeamMembership for the requested team (passed via context as
+    ``team``), not from the user globally.
+    """
+
+    role = serializers.SerializerMethodField()
+    full_name = serializers.ReadOnlyField()
 
     class Meta:
         model = User
         fields = ["id", "email", "first_name", "last_name", "full_name", "role", "is_active", "created_at"]
         read_only_fields = ["id", "email", "full_name", "created_at"]
+
+    def _team(self):
+        return self.context.get("team")
+
+    def get_role(self, obj):
+        team = self._team()
+        if team is None:
+            return ""
+        m = obj.team_memberships.filter(team=team).first()
+        return m.role if m else ""
+
+    def update(self, instance, validated_data):
+        # Role updates write to the active team's TeamMembership, not the user.
+        # is_active stays on the user (it's a global account flag).
+        role = self.initial_data.get("role")
+        team = self._team()
+        if role and team is not None:
+            valid_roles = {choice[0] for choice in TeamMembership.ROLE_CHOICES}
+            if role not in valid_roles:
+                raise serializers.ValidationError({"role": "Invalid role."})
+            TeamMembership.objects.filter(user=instance, team=team).update(role=role)
+        is_active = validated_data.get("is_active")
+        if is_active is not None:
+            instance.is_active = is_active
+            instance.save(update_fields=["is_active"])
+        return instance
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

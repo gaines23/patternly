@@ -175,9 +175,23 @@ class DeltaLayerSerializer(NestedLayerMixin, serializers.ModelSerializer):
 
 
 class ProjectUpdateSerializer(serializers.ModelSerializer):
+    # `id` is writable-on-input so that the parent CaseFileWriteSerializer
+    # can preserve created_by attribution when a teammate edits a shared
+    # project (the update path deletes and recreates rows; matching by id
+    # is the only way to keep the original logger's hours intact).
+    id = serializers.UUIDField(required=False)
+    created_by_id = serializers.UUIDField(read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = ProjectUpdate
-        exclude = ["case_file"]
+        exclude = ["case_file", "created_by"]
+
+    def get_created_by_name(self, obj):
+        u = obj.created_by
+        if not u:
+            return ""
+        return u.full_name or u.email
 
 
 class ReasoningLayerSerializer(serializers.ModelSerializer):
@@ -319,10 +333,13 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
         project_updates_data = validated_data.pop("project_updates", [])
         connected_platforms = validated_data.pop("connected_platforms", [])
 
-        # Attach the authenticated user
+        # Attach the authenticated user and stamp the project with the user's
+        # active team so it's visible to (and editable by) every teammate on
+        # that team. The team scoping is what enables shared project editing.
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             validated_data["logged_by"] = request.user
+            validated_data["team"] = getattr(request.user, "active_team", None)
 
         # User-created projects keep is_training_data=False (model default)
         # so they appear in the project list. Ingested data sets True via
@@ -348,10 +365,16 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
                 s.is_valid(raise_exception=True)
                 s.save(case_file=case_file)
 
-        # Create project updates
+        # Create project updates. Stamp created_by from the request user so
+        # billing attributes hours to whoever logged them — this is what
+        # makes per-teammate billing work on team-shared projects.
+        creator = request.user if (request and request.user.is_authenticated) else None
         for i, pu in enumerate(project_updates_data):
             pu.pop("order", None)
-            ProjectUpdate.objects.create(case_file=case_file, order=i, **pu)
+            # The id field is writable for round-tripping, but on create we
+            # always mint a fresh primary key — drop any client-supplied id.
+            pu.pop("id", None)
+            ProjectUpdate.objects.create(case_file=case_file, order=i, created_by=creator, **pu)
 
         # Denormalise key fields onto the CaseFile for fast filtering
         self._denormalise(case_file)
@@ -396,10 +419,27 @@ class CaseFileWriteSerializer(serializers.ModelSerializer):
                 s.save(case_file=instance)
 
         if project_updates_data is not None:
+            # The write API replaces the entire updates list every save. To
+            # avoid clobbering billing attribution when a teammate edits a
+            # shared project, preserve the original created_by for any rows
+            # the client round-tripped (matched by id) and stamp request.user
+            # only on rows that don't have a prior id (genuinely new entries).
+            request = self.context.get("request")
+            current_user = request.user if (request and request.user.is_authenticated) else None
+            prior_creators = dict(
+                instance.project_updates.values_list("id", "created_by_id")
+            )
             instance.project_updates.all().delete()
             for i, pu in enumerate(project_updates_data):
                 pu.pop("order", None)
-                ProjectUpdate.objects.create(case_file=instance, order=i, **pu)
+                pu_id = pu.pop("id", None)
+                preserved_creator_id = prior_creators.get(pu_id) if pu_id else None
+                ProjectUpdate.objects.create(
+                    case_file=instance,
+                    order=i,
+                    created_by_id=preserved_creator_id or (current_user.id if current_user else None),
+                    **pu,
+                )
 
         self._denormalise(instance)
         return instance

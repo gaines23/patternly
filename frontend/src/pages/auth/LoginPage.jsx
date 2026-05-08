@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
 
@@ -12,7 +12,10 @@ export default function LoginPage() {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || "/dashboard";
+  const [searchParams] = useSearchParams();
+  // ?next= comes from invite-flow handoffs ("Sign in to join Team X"); the
+  // ProtectedRoute redirect uses location.state. Either source is fine.
+  const from = searchParams.get("next") || location.state?.from?.pathname || "/dashboard";
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -80,7 +83,7 @@ export default function LoginPage() {
           padding: "32px 28px",
           boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
         }}>
-          <h1 style={{ margin: "0 0 6px", fontSize: 22, fontFamily: "'Fraunces', serif", color: theme.text }}>
+          <h1 style={{ margin: "0 0 6px", fontSize: 22, fontFamily: F, fontWeight: 500, letterSpacing: "-0.025em", color: theme.text }}>
             Sign in
           </h1>
           <p style={{ margin: "0 0 24px", fontSize: 13, color: theme.textMuted, fontFamily: F }}>

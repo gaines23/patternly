@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../api/client";
 import { useTheme } from "../../hooks/useTheme";
+import { useAuth } from "../../hooks/useAuth";
+import { useMyTeams, useSwitchTeam } from "../../hooks/useUsers";
 
 const F = "'Plus Jakarta Sans', sans-serif";
 const MONO = "'JetBrains Mono', 'Fira Code', monospace";
@@ -429,8 +431,139 @@ export default function TopBar() {
         )}
       </div>
 
-      {/* Right spacer — balances breadcrumb so search stays centered */}
-      <div style={{ flex: 1 }} />
+      {/* Right side — team switcher */}
+      <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+        <TeamSwitcher theme={theme} />
+      </div>
+    </div>
+  );
+}
+
+
+function TeamSwitcher({ theme }) {
+  const { user, refreshUser } = useAuth();
+  const { data: memberships } = useMyTeams();
+  const switchTeam = useSwitchTeam();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const teams = memberships?.results || memberships || [];
+  const activeTeamId = user?.active_team?.id;
+  const activeTeam = user?.active_team;
+
+  // If the user only belongs to one team, no point showing a dropdown — just
+  // render the team name as a static label.
+  if (!user) return null;
+  if (teams.length <= 1) {
+    return activeTeam ? (
+      <span style={{ fontSize: 12.5, fontFamily: F, color: theme.textMuted }}>
+        {activeTeam.name}
+      </span>
+    ) : null;
+  }
+
+  const handleSwitch = async (teamId) => {
+    if (teamId === activeTeamId) {
+      setOpen(false);
+      return;
+    }
+    try {
+      await switchTeam.mutateAsync(teamId);
+      await refreshUser();
+    } finally {
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div ref={rootRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={switchTeam.isPending}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "6px 10px", borderRadius: 8,
+          background: theme.surface, border: `1px solid ${theme.border}`,
+          fontSize: 12.5, fontFamily: F, color: theme.text,
+          cursor: switchTeam.isPending ? "wait" : "pointer",
+          maxWidth: 220,
+        }}
+        title="Switch team"
+      >
+        <span style={{
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1,
+        }}>
+          {activeTeam?.name || "Select team"}
+        </span>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke={theme.textMuted} strokeWidth="1.5">
+          <path d="M2 3.5L5 6.5L8 3.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", right: 0,
+          background: theme.surfaceRaised || theme.surface,
+          border: `1px solid ${theme.border}`, borderRadius: 10,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          minWidth: 220, zIndex: 30, overflow: "hidden",
+        }}>
+          <div style={{
+            padding: "8px 14px", fontSize: 10.5, fontWeight: 600, color: theme.textFaint,
+            fontFamily: F, textTransform: "uppercase", letterSpacing: "0.1em",
+            borderBottom: `1px solid ${theme.borderSubtle}`,
+          }}>
+            Switch team
+          </div>
+          {teams.map((m) => {
+            const isActive = m.team.id === activeTeamId;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => handleSwitch(m.team.id)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 12, width: "100%", padding: "10px 14px",
+                  border: "none", cursor: "pointer", textAlign: "left",
+                  background: isActive ? theme.surfaceAlt : "transparent",
+                  fontFamily: F,
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 600, color: theme.text,
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>
+                    {m.team.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 1 }}>
+                    {m.role}
+                  </div>
+                </div>
+                {isActive && (
+                  <span style={{
+                    fontFamily: MONO, fontSize: 9.5, fontWeight: 600,
+                    padding: "2px 6px", borderRadius: 4,
+                    background: "#E8F1EB", color: "#204A33",
+                    textTransform: "uppercase", letterSpacing: "0.1em",
+                  }}>
+                    Current
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

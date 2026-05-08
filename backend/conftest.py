@@ -1,6 +1,7 @@
 import pytest
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
+from apps.users.models import Team, TeamMembership
 
 User = get_user_model()
 
@@ -12,24 +13,37 @@ def api_client():
 
 
 @pytest.fixture
-def user(db):
-    """A standard authenticated user."""
-    return User.objects.create_user(
+def team(db):
+    """A team that test users can be members of."""
+    return Team.objects.create(name="Test Team", slug="test-team")
+
+
+@pytest.fixture
+def user(db, team):
+    """A standard authenticated user with a member-role membership on the test team."""
+    u = User.objects.create_user(
         email="test@patternly.dev",
         password="testpass123",
         first_name="Test",
         last_name="User",
-        role="engineer",
     )
+    TeamMembership.objects.create(user=u, team=team, role="member")
+    u.active_team = team
+    u.save(update_fields=["active_team"])
+    return u
 
 
 @pytest.fixture
-def admin_user(db):
-    """A superuser."""
-    return User.objects.create_superuser(
+def admin_user(db, team):
+    """A superuser. is_staff implies admin in our IsAdmin permission."""
+    u = User.objects.create_superuser(
         email="admin@patternly.dev",
         password="adminpass123",
     )
+    TeamMembership.objects.create(user=u, team=team, role="admin")
+    u.active_team = team
+    u.save(update_fields=["active_team"])
+    return u
 
 
 @pytest.fixture

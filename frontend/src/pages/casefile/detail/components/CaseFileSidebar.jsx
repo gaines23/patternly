@@ -16,6 +16,11 @@ function UpdateItem({ pu, theme }) {
         style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#0284C712", borderBottom: open ? "1px solid #BAE6FD" : "none", cursor: "pointer", userSelect: "none" }}
       >
         <span style={{ fontSize: 13, fontWeight: 700, color: "#0284C7", fontFamily: F }}>{dateLabel}</span>
+        {pu.created_by_name && (
+          <span style={{ fontSize: 11, color: "#0284C7", opacity: 0.75, fontFamily: F }}>
+            by {pu.created_by_name}
+          </span>
+        )}
         {durationLabel && (
           <span style={{ fontSize: 11, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 8, padding: "2px 8px", fontFamily: F }}>
             ⏱ {durationLabel}

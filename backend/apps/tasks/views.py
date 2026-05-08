@@ -7,11 +7,20 @@ from .models import Todo
 from .serializers import TodoSerializer, TodoWriteSerializer
 
 
-def _is_admin(user):
-    try:
-        return getattr(user, "role", None) == "admin" or user.is_staff
-    except AttributeError:
-        return False
+def _scope_todos(qs, user):
+    """
+    Limit todos to ones the user can act on. Staff sees everything. Other
+    users see todos they created, todos assigned to them, and todos attached
+    to a case file in their active team — that last clause is what lets
+    teammates manage each other's project todos.
+    """
+    if user.is_staff:
+        return qs
+    active_team = getattr(user, "active_team", None)
+    own = Q(created_by=user) | Q(assigned_to=user)
+    if active_team is None:
+        return qs.filter(own)
+    return qs.filter(own | Q(case_file__team=active_team))
 
 
 class TodoListCreateView(generics.ListCreateAPIView):
@@ -34,9 +43,10 @@ class TodoListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         qs = Todo.objects.select_related("case_file", "assigned_to", "created_by")
 
-        # Admins see all todos; others see todos they created or are assigned to
-        if not _is_admin(user):
-            qs = qs.filter(Q(created_by=user) | Q(assigned_to=user))
+        # Staff see all todos. Everyone else sees their own todos plus any
+        # todo on a case file in their active team — so teammates can manage
+        # each other's project work.
+        qs = _scope_todos(qs, user)
 
         # Optional query param filters
         status = self.request.query_params.get("status")
@@ -74,9 +84,7 @@ class TodoDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         user = self.request.user
         qs = Todo.objects.select_related("case_file", "assigned_to", "created_by")
-        if not _is_admin(user):
-            qs = qs.filter(Q(created_by=user) | Q(assigned_to=user))
-        return qs
+        return _scope_todos(qs, user)
 
     def get_serializer_class(self):
         if self.request.method == "PATCH":

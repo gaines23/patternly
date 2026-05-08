@@ -51,7 +51,7 @@ export default function ShareModal({ cf, onClose }) {
       >
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontFamily: "'Fraunces', serif" }}>Share client brief</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontFamily: F, fontWeight: 600, letterSpacing: "-0.015em" }}>Share client brief</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: theme.textFaint, lineHeight: 1 }}>×</button>
         </div>
 

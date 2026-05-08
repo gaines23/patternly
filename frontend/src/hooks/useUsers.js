@@ -95,6 +95,49 @@ export function useMyTeam() {
   });
 }
 
+export function useMyTeams() {
+  return useQuery({
+    queryKey: ["my-teams"],
+    queryFn: async () => {
+      const { data } = await api.get("/v1/users/me/teams/");
+      return data;
+    },
+  });
+}
+
+export function useSwitchTeam() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (teamId) => {
+      const { data } = await api.post("/v1/users/me/active-team/", { team_id: teamId });
+      return data;
+    },
+    onSuccess: (data) => {
+      // The user's active_team has changed, so every team-scoped cache
+      // (briefs, library, todos, members) is now stale. Reset everything
+      // and let components refetch under the new team.
+      queryClient.setQueryData(["me"], data);
+      queryClient.invalidateQueries();
+    },
+  });
+}
+
+export function useAcceptInvite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (token) => {
+      const { data } = await api.post("/v1/users/me/invites/accept/", { token });
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data?.user) {
+        queryClient.setQueryData(["me"], data.user);
+      }
+      queryClient.invalidateQueries();
+    },
+  });
+}
+
 export function useUpdateMyTeam() {
   const queryClient = useQueryClient();
   return useMutation({
