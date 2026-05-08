@@ -55,21 +55,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
-    role = models.CharField(
-        max_length=50,
-        choices=[
-            ("admin", "Admin"),
-            ("engineer", "Solutions Engineer"),
-            ("viewer", "Viewer"),
-        ],
-        default="engineer",
-    )
-    team = models.ForeignKey(
+    active_team = models.ForeignKey(
         Team,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="members",
+        related_name="active_members",
     )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -91,6 +82,45 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip() or self.email
+
+    def membership_for(self, team):
+        if team is None:
+            return None
+        return self.team_memberships.filter(team=team).first()
+
+    @property
+    def active_membership(self):
+        return self.membership_for(self.active_team)
+
+    @property
+    def role(self):
+        # Role is now per-team. Returns the role on the active team, or "" if none.
+        m = self.active_membership
+        return m.role if m else ""
+
+    def is_admin_of(self, team):
+        m = self.membership_for(team)
+        return bool(m and m.role == "admin") or self.is_staff
+
+
+class TeamMembership(models.Model):
+    ROLE_CHOICES = [
+        ("admin", "Admin"),
+        ("member", "Member"),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="team_memberships")
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="memberships")
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default="member")
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "team_memberships"
+        unique_together = [["user", "team"]]
+        ordering = ["-joined_at"]
+
+    def __str__(self):
+        return f"{self.user.email} in {self.team.name} ({self.role})"
 
 
 class PasswordResetToken(models.Model):
@@ -120,6 +150,13 @@ class Invitation(models.Model):
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="invitations")
     email = models.EmailField(blank=True)
+    invited_to_team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="invitations",
+    )
     is_used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()

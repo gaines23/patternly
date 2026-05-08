@@ -53,8 +53,17 @@ export function AuthProvider({ children }) {
     return login(payload.email, payload.password);
   }, [login]);
 
+  // Re-fetch the current user. Call this after mutations that change team
+  // membership or the active team so the auth context reflects the latest
+  // server state — components that read `user.active_team` will re-render.
+  const refreshUser = useCallback(async () => {
+    const { data } = await api.get("/v1/users/me/");
+    setUser(data);
+    return data;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

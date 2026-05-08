@@ -22,7 +22,9 @@ class TestUserModel:
         assert not user.is_staff
         assert not user.is_superuser
         assert user.is_active
-        assert user.role == "engineer"
+        # Role lives on TeamMembership now, not on the user. A fresh user
+        # with no memberships has no role.
+        assert user.role == ""
 
     def test_full_name_property(self):
         user = User.objects.create_user(
@@ -99,7 +101,7 @@ class TestAuthEndpoints:
         response = auth_client.get(url)
         assert response.status_code == 200
         assert response.data["email"] == user.email
-        assert response.data["role"] == "engineer"
+        assert response.data["role"] == "member"
 
     def test_me_unauthenticated(self, api_client):
         url = reverse("user_me")

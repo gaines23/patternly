@@ -297,7 +297,7 @@ export default function GeneratePage() {
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <div style={{ width: 36, height: 36, background: theme.blueLight, border: `1px solid ${theme.blueBorder}`, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✨</div>
-          <h1 style={{ margin: 0, fontSize: 24, fontFamily: "'Fraunces', serif" }}>Find a Workflow Template</h1>
+          <h1 style={{ margin: 0, fontSize: 24, fontFamily: F, fontWeight: 500, letterSpacing: "-0.025em" }}>Find a Workflow Template</h1>
         </div>
         <p style={{ margin: 0, fontSize: 14, color: theme.textMuted, fontFamily: F, maxWidth: 600 }}>
           Describe your team and what you're trying to solve. Patternly will match you to the best pre-built workflow template.

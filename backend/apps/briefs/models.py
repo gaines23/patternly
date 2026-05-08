@@ -142,6 +142,13 @@ class CaseFile(models.Model):
         related_name="case_files",
     )
     logged_by_name = models.CharField(max_length=255, blank=True)  # fallback if no user account
+    team = models.ForeignKey(
+        "users.Team",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="case_files",
+    )
     name = models.CharField(max_length=255, blank=True)  # user-given name for the case file
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -373,6 +380,17 @@ class Roadblock(models.Model):
 class ProjectUpdate(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     case_file = models.ForeignKey(CaseFile, on_delete=models.CASCADE, related_name="project_updates")
+    # The user who logged this entry. Drives billing attribution on
+    # team-shared projects: each teammate's hours roll up to them, not to the
+    # original project owner. Nullable so updates survive user deletion and
+    # so legacy ingested data (no logged_by) doesn't break.
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_updates_created",
+    )
     content = models.TextField(blank=True)
     attachments = models.JSONField(default=list)  # [{name, url}]
     created_at = models.DateTimeField()
@@ -580,14 +598,28 @@ class CommunityInsight(models.Model):
 
 class BillingShare(models.Model):
     """
-    A user-scoped shareable link for the billing report.
-    Recipients of the URL can view any date range for that user's logged hours
-    via query params on the public endpoint, until the share is disabled.
+    A user-scoped shareable link for the billing report. One row per
+    (user, scope) so each scope on the billing page (mine, team_projects,
+    all) is independently toggleable with its own token. Recipients can
+    pick a date range via query params; the scope is baked into the
+    token, so changing the URL won't escalate visibility.
     """
-    user = models.OneToOneField(
+    SCOPE_MINE = "mine"
+    SCOPE_TEAM_PROJECTS = "team_projects"
+    SCOPE_ALL = "all"
+    SCOPE_CHOICES = [
+        (SCOPE_MINE, "My hours"),
+        (SCOPE_TEAM_PROJECTS, "My projects"),
+        (SCOPE_ALL, "Everyone"),
+    ]
+
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="billing_share",
+        related_name="billing_shares",
+    )
+    scope = models.CharField(
+        max_length=20, choices=SCOPE_CHOICES, default=SCOPE_MINE,
     )
     share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     enabled = models.BooleanField(default=False)
@@ -596,3 +628,4 @@ class BillingShare(models.Model):
 
     class Meta:
         db_table = "billing_shares"
+        unique_together = [["user", "scope"]]

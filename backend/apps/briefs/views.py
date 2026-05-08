@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import datetime
 
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, status, filters
 from rest_framework.decorators import api_view, permission_classes
@@ -57,12 +58,10 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        try:
-            is_admin = getattr(user, "role", None) == "admin" or user.is_staff
-        except AttributeError:
-            is_admin = False
+        is_staff = bool(getattr(user, "is_staff", False))
+        active_team = getattr(user, "active_team", None)
         qs = CaseFile.objects.select_related(
-            "logged_by", "primary_platform",
+            "logged_by", "primary_platform", "team",
         ).prefetch_related(
             "connected_platforms",
             "audit__builds",
@@ -72,9 +71,13 @@ class CaseFileListCreateView(generics.ListCreateAPIView):
             "reasoning",
             "outcome",
         )
-        # Admins see all; everyone else only sees their own files
-        if not is_admin:
-            qs = qs.filter(logged_by=user)
+        # Projects are team-scoped — anyone in the user's active team can see
+        # and edit each other's case files. Staff users see across teams.
+        if not is_staff:
+            if active_team is None:
+                qs = qs.none()
+            else:
+                qs = qs.filter(team=active_team)
 
         # Filtering by training data status:
         #   default          → only user projects (is_training_data=False)
@@ -145,12 +148,10 @@ class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        try:
-            is_admin = getattr(user, "role", None) == "admin" or user.is_staff
-        except AttributeError:
-            is_admin = False
+        is_staff = bool(getattr(user, "is_staff", False))
+        active_team = getattr(user, "active_team", None)
         qs = CaseFile.objects.select_related(
-            "logged_by", "primary_platform",
+            "logged_by", "primary_platform", "team",
         ).prefetch_related(
             "connected_platforms",
             "audit__builds",
@@ -160,8 +161,10 @@ class CaseFileDetailView(generics.RetrieveUpdateDestroyAPIView):
             "reasoning",
             "outcome",
         )
-        if not is_admin:
-            qs = qs.filter(logged_by=user)
+        if not is_staff:
+            if active_team is None:
+                return qs.none()
+            qs = qs.filter(team=active_team)
         return qs
 
     def get_serializer_class(self):
@@ -404,13 +407,19 @@ def _parse_iso_date(value):
 
 def _build_billing_report(user_filter, date_from=None, date_to=None, case_file_id=None):
     """
-    Returns ({updates, total_minutes, projects}, error_response_or_None).
+    Returns ({updates, total_minutes, projects}).
 
-    `user_filter` is a queryset filter dict applied to ProjectUpdate (e.g.
-    {"case_file__logged_by": user}). Pass an empty dict to scope to all users
-    (used only by admins).
+    `user_filter` is a queryset filter dict applied to ProjectUpdate. Three
+    canonical shapes today:
+      * Personal hours: {"created_by": user} — what each user logged.
+      * Team-projects view: {"case_file_id__in": [...], "case_file__team": ...}
+        — every teammate's hours on projects this user has touched.
+      * Admin "see everyone": {"case_file__team": active_team} — all team hours.
+
+    Each entry in `updates` carries created_by_id/name so the UI can render
+    per-user attribution in team-scope views.
     """
-    qs = ProjectUpdate.objects.select_related("case_file").filter(
+    qs = ProjectUpdate.objects.select_related("case_file", "created_by").filter(
         case_file__is_training_data=False,
         **user_filter,
     )
@@ -424,11 +433,12 @@ def _build_billing_report(user_filter, date_from=None, date_to=None, case_file_i
 
     qs = qs.order_by("-created_at")
 
-    cf_qs = CaseFile.objects.filter(is_training_data=False)
-    cf_filter_kwargs = {
-        k.replace("case_file__", "", 1): v for k, v in user_filter.items()
-    }
-    cf_qs = cf_qs.filter(**cf_filter_kwargs)
+    # The project list needs to mirror the filtered updates: every project
+    # the report covers (within the date range / case_file filter) — derive
+    # it from the same queryset rather than re-filtering CaseFile, which
+    # can't accept created_by directly anyway.
+    cf_ids = list(qs.values_list("case_file_id", flat=True).distinct())
+    cf_qs = CaseFile.objects.filter(id__in=cf_ids)
 
     projects = [
         {
@@ -437,6 +447,12 @@ def _build_billing_report(user_filter, date_from=None, date_to=None, case_file_i
         }
         for p in cf_qs.order_by("-created_at").only("id", "name", "workflow_type")
     ]
+
+    def _creator_name(pu):
+        u = pu.created_by
+        if not u:
+            return ""
+        return u.full_name or u.email
 
     updates = [
         {
@@ -447,6 +463,8 @@ def _build_billing_report(user_filter, date_from=None, date_to=None, case_file_i
             "attachments": pu.attachments,
             "created_at": pu.created_at,
             "minutes_spent": pu.minutes_spent,
+            "created_by_id": str(pu.created_by_id) if pu.created_by_id else None,
+            "created_by_name": _creator_name(pu),
         }
         for pu in qs
     ]
@@ -465,14 +483,28 @@ def _build_billing_report(user_filter, date_from=None, date_to=None, case_file_i
 def billing(request):
     """
     GET /api/v1/briefs/billing/?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&case_file=<uuid>
-    Returns ProjectUpdates within a date range, optionally scoped to a single case file.
-    Non-admins only see updates from their own case files.
+    Returns ProjectUpdates within a date range, optionally scoped to a single
+    case file. The `scope` query param controls who's hours are visible:
+
+      mine            (default) Only what the requesting user logged.
+      team_projects   Every teammate's hours on projects this user has logged
+                      time on. Lets a member see total client effort across
+                      the team without leaking unrelated projects.
+      all             Admin-only. Every hour on every project in the active
+                      team. Staff users always behave as `all`.
+
+    Team scoping (case_file__team = active_team) is enforced for non-staff
+    so a user in multiple teams can only see the active team's hours.
     """
     user = request.user
-    try:
-        is_admin = getattr(user, "role", None) == "admin" or user.is_staff
-    except AttributeError:
-        is_admin = False
+    is_staff = bool(getattr(user, "is_staff", False))
+    active_team = getattr(user, "active_team", None)
+    scope = (request.query_params.get("scope") or "mine").lower()
+    if scope not in {"mine", "team_projects", "all"}:
+        return Response(
+            {"detail": "Invalid scope. Use mine, team_projects, or all."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     date_from, err = _parse_iso_date(request.query_params.get("date_from"))
     if err:
@@ -483,11 +515,56 @@ def billing(request):
 
     case_file_id = request.query_params.get("case_file")
 
-    user_filter = {} if is_admin else {"case_file__logged_by": user}
-    report = _build_billing_report(user_filter, date_from, date_to, case_file_id)
+    # Build the report filter from scope + team membership. Staff bypass team
+    # scoping entirely; everyone else is locked to their active team.
+    if is_staff:
+        team_filter = {}
+    elif active_team is None:
+        # No active team → no data is visible. Empty out gracefully.
+        share, _ = BillingShare.objects.get_or_create(user=user)
+        return Response({
+            "updates": [], "total_minutes": 0, "projects": [],
+            "share_token": str(share.share_token),
+            "share_enabled": share.enabled,
+            "scope": scope,
+        })
+    else:
+        team_filter = {"case_file__team": active_team}
 
-    # Include the user's share state so the BillingPage can render the share modal.
-    share, _ = BillingShare.objects.get_or_create(user=user)
+    if scope == "all":
+        # Only team admins (or staff) can see everyone's hours.
+        if not is_staff and not user.is_admin_of(active_team):
+            return Response(
+                {"detail": "Only team admins can view everyone's hours."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        user_filter = team_filter
+    elif scope == "team_projects":
+        # "My projects" = case files I'm involved in. Two ways to be involved:
+        #   1. I created the project (case_file.logged_by == me), OR
+        #   2. I've logged time on it (any ProjectUpdate.created_by == me).
+        # Without (1) a brand-new project a user just created wouldn't show up
+        # until they logged their first hour — confusing because the project
+        # is clearly theirs. The OR ensures both authorship paths count.
+        cf_qs = CaseFile.objects.filter(is_training_data=False)
+        if not is_staff:
+            cf_qs = cf_qs.filter(team=active_team)
+        my_cf_ids = list(
+            cf_qs.filter(
+                Q(logged_by=user) | Q(project_updates__created_by=user)
+            ).values_list("id", flat=True).distinct()
+        )
+        user_filter = {**team_filter, "case_file_id__in": my_cf_ids}
+    else:  # "mine"
+        user_filter = {**team_filter, "created_by": user}
+
+    report = _build_billing_report(user_filter, date_from, date_to, case_file_id)
+    report["scope"] = scope
+
+    # Each scope owns its own share toggle and token — the user can share
+    # their personal hours on while keeping team-wide views private. Look
+    # up (or create) the row for the scope we're currently rendering.
+    share, _ = BillingShare.objects.get_or_create(user=user, scope=scope)
     report["share_token"] = str(share.share_token)
     report["share_enabled"] = share.enabled
 
@@ -498,15 +575,35 @@ def billing(request):
 @permission_classes([IsAuthenticated])
 def toggle_billing_share(request):
     """
-    POST /api/v1/briefs/billing/share/
-    Toggles the user's billing share link on/off. Returns {enabled, share_token}.
+    POST /api/v1/briefs/billing/share/  body: {scope?}
+
+    Toggles the user's share link for the given scope (default 'mine').
+    Each scope has its own token + enabled flag, so a user can publicly
+    share their personal hours while keeping the team views private.
+
+    Only admins may toggle the 'all' scope share — that's the same gate
+    used on the billing endpoint, applied here so links can't be created
+    by non-admins in the first place.
     """
-    share, _ = BillingShare.objects.get_or_create(user=request.user)
+    scope = (request.data.get("scope") or "mine").lower()
+    if scope not in {"mine", "team_projects", "all"}:
+        return Response({"detail": "Invalid scope."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if scope == "all":
+        active_team = getattr(request.user, "active_team", None)
+        if not request.user.is_staff and not request.user.is_admin_of(active_team):
+            return Response(
+                {"detail": "Only team admins can share the 'everyone' billing view."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    share, _ = BillingShare.objects.get_or_create(user=request.user, scope=scope)
     share.enabled = not share.enabled
     share.save(update_fields=["enabled", "updated_at"])
     return Response({
         "enabled": share.enabled,
         "share_token": str(share.share_token),
+        "scope": scope,
     })
 
 
@@ -519,7 +616,7 @@ def public_billing_report(request, share_token):
     owning user's case files within the given date range.
     """
     try:
-        share = BillingShare.objects.select_related("user__team").get(
+        share = BillingShare.objects.select_related("user__active_team").get(
             share_token=share_token, enabled=True,
         )
     except BillingShare.DoesNotExist:
@@ -535,8 +632,47 @@ def public_billing_report(request, share_token):
     if err:
         return Response({"detail": f"date_to: {err}"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # The share row's `scope` decides what data the recipient sees. Scope is
+    # baked into the token at creation, so changing the URL won't escalate
+    # visibility — and the original gate (only admins can enable scope=all)
+    # is rechecked here in case the share owner has been demoted since.
+    share_user = share.user
+    share_scope = share.scope
+    active_team = getattr(share_user, "active_team", None)
+    is_staff = bool(getattr(share_user, "is_staff", False))
+
+    # Non-staff share owners are always team-scoped to their active team.
+    team_filter = {} if is_staff else {"case_file__team": active_team}
+    if not is_staff and active_team is None:
+        return Response(
+            {"detail": "This link is invalid or has been disabled."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if share_scope == "all":
+        # Admin status is checked at view time, not at share creation, so a
+        # demoted user's "everyone" link goes dead automatically.
+        if not is_staff and not share_user.is_admin_of(active_team):
+            return Response(
+                {"detail": "This link is invalid or has been disabled."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        scoped_filter = team_filter
+    elif share_scope == "team_projects":
+        cf_qs = CaseFile.objects.filter(is_training_data=False)
+        if not is_staff:
+            cf_qs = cf_qs.filter(team=active_team)
+        my_cf_ids = list(
+            cf_qs.filter(
+                Q(logged_by=share_user) | Q(project_updates__created_by=share_user)
+            ).values_list("id", flat=True).distinct()
+        )
+        scoped_filter = {**team_filter, "case_file_id__in": my_cf_ids}
+    else:  # "mine"
+        scoped_filter = {**team_filter, "created_by": share_user}
+
     report = _build_billing_report(
-        {"case_file__logged_by": share.user},
+        scoped_filter,
         date_from=date_from,
         date_to=date_to,
     )
@@ -562,7 +698,7 @@ def public_billing_report(request, share_token):
     clients = sorted(by_client.values(), key=lambda c: c["case_file_name"].lower())
 
     user = share.user
-    team = getattr(user, "team", None)
+    team = getattr(user, "active_team", None)
     team_logo_url = None
     if team and team.logo:
         team_logo_url = request.build_absolute_uri(team.logo.url)
@@ -583,28 +719,32 @@ def stats(request):
     """
     GET /api/v1/briefs/stats/
     Dashboard stats — totals, satisfaction, roadblock analytics, scope creep signals.
-    Non-admins see only stats derived from their own case files. Admins see all.
+    Scoped to the requesting user's active team. Staff users see all.
     """
     from django.db import connection
     from django.db.models import Avg, Count
 
     user = request.user
-    try:
-        is_admin = getattr(user, "role", None) == "admin" or user.is_staff
-    except AttributeError:
-        is_admin = False
+    is_staff = bool(getattr(user, "is_staff", False))
+    active_team = getattr(user, "active_team", None)
+    team_scoped = not is_staff
 
-    # Base querysets — non-admins only see their own case files (and roadblocks
-    # attached to them). Mirrors the scoping on CaseFileListCreateView.
+    # Base querysets — non-staff users see their team's case files and the
+    # roadblocks attached to them. Mirrors the scoping on CaseFileListCreateView.
     case_file_qs = CaseFile.objects.filter(is_training_data=False)
     roadblock_qs = Roadblock.objects.filter(time_cost_hours__isnull=False)
     sat_wf_qs = CaseFile.objects.exclude(workflow_type="").exclude(
         satisfaction_score__isnull=True
     )
-    if not is_admin:
-        case_file_qs = case_file_qs.filter(logged_by=user)
-        roadblock_qs = roadblock_qs.filter(delta__case_file__logged_by=user)
-        sat_wf_qs = sat_wf_qs.filter(logged_by=user)
+    if team_scoped:
+        if active_team is None:
+            case_file_qs = case_file_qs.none()
+            roadblock_qs = roadblock_qs.none()
+            sat_wf_qs = sat_wf_qs.none()
+        else:
+            case_file_qs = case_file_qs.filter(team=active_team)
+            roadblock_qs = roadblock_qs.filter(delta__case_file__team=active_team)
+            sat_wf_qs = sat_wf_qs.filter(team=active_team)
 
     totals = case_file_qs.aggregate(
         total=Count("id"),
@@ -620,22 +760,27 @@ def stats(request):
         .order_by("-avg_sat")[:10]
     )
 
-    # Parameterised user-scope clauses for the raw SQL below. For admins these
-    # stay empty (no WHERE addition); for non-admins they bind the user id.
-    cf_scope_sql = "" if is_admin else " AND logged_by_id = %s"
-    cf_alias_scope_sql = "" if is_admin else " AND cf.logged_by_id = %s"
-    rb_join_scope_sql = (
-        ""
-        if is_admin
-        else (
+    # Parameterised team-scope clauses for the raw SQL below. Staff users see
+    # everything; everyone else is scoped to their active team. If the user
+    # has no active team yet, force-empty by binding an impossible team_id.
+    if not team_scoped:
+        cf_scope_sql = ""
+        cf_alias_scope_sql = ""
+        rb_join_scope_sql = ""
+        scope_params = ()
+    else:
+        cf_scope_sql = " AND team_id = %s"
+        cf_alias_scope_sql = " AND cf.team_id = %s"
+        rb_join_scope_sql = (
             " AND rb.delta_id IN ("
             "SELECT dl.id FROM delta_layers dl "
             "JOIN case_files cf ON cf.id = dl.case_file_id "
-            "WHERE cf.logged_by_id = %s"
+            "WHERE cf.team_id = %s"
             ")"
         )
-    )
-    scope_params = () if is_admin else (user.id,)
+        # When active_team is None we already none()'d the ORM querysets above;
+        # the raw queries get a sentinel UUID that matches nothing.
+        scope_params = (active_team.id if active_team else "00000000-0000-0000-0000-000000000000",)
 
     with connection.cursor() as cursor:
         # Top tools — unnest the tools JSON array at the DB level
