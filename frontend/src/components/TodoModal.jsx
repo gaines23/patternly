@@ -19,9 +19,10 @@ export default function TodoModal({ initial, onClose, onSave, onDelete, isSaving
   const { theme } = useTheme();
   const { user } = useAuth();
   const { data: projectsData } = useProjects({ page: 1 });
-  const { data: members } = useAdminUsers();
+  const { data: membersData } = useAdminUsers();
 
   const projects = projectsData?.results || [];
+  const members = membersData?.results ?? (Array.isArray(membersData) ? membersData : []);
   const isAdmin = user?.role === "admin";
 
   const [form, setForm] = useState({
@@ -47,7 +48,7 @@ export default function TodoModal({ initial, onClose, onSave, onDelete, isSaving
   };
 
   const handleAssigneeChange = (e) => {
-    const selected = (members || []).find((m) => m.id === e.target.value);
+    const selected = members.find((m) => m.id === e.target.value);
     set("assigned_to", e.target.value);
     set("assigned_to_name", selected
       ? `${selected.first_name} ${selected.last_name}`.trim() || selected.email
@@ -180,7 +181,7 @@ export default function TodoModal({ initial, onClose, onSave, onDelete, isSaving
                 <select value={form.assigned_to} onChange={handleAssigneeChange}
                   style={{ ...inputStyle, cursor: "pointer" }} onFocus={focusOn} onBlur={focusOff}>
                   <option value="">— Unassigned —</option>
-                  {(members || []).map((m) => (
+                  {members.map((m) => (
                     <option key={m.id} value={m.id}>
                       {`${m.first_name} ${m.last_name}`.trim() || m.email}
                     </option>

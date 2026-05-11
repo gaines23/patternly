@@ -82,7 +82,8 @@ export function useBriefByProject(projectId) {
     queryKey: [...briefKeys.all, "byProject", projectId],
     queryFn: async () => {
       const { data } = await api.get(`/v1/workflows/briefs/?case_file_id=${projectId}`);
-      return data[0] || null;
+      const list = Array.isArray(data) ? data : data?.results;
+      return list?.[0] || null;
     },
     enabled: !!projectId,
   });
