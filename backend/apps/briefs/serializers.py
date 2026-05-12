@@ -260,7 +260,7 @@ class PublicCaseFileSerializer(CaseFileDetailSerializer):
         # Return a path-relative URL so the browser resolves it via the same-origin
         # nginx /media/ proxy. build_absolute_uri() on Railway uses the backend's
         # internal hostname, which the browser can't reach (NS_ERROR_UNKNOWN_HOST).
-        team = getattr(obj.logged_by, "team", None) if obj.logged_by else None
+        team = obj.team
         if not team or not team.logo:
             return None
         return team.logo.url
