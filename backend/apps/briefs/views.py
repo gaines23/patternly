@@ -280,7 +280,7 @@ def public_client_brief(request, share_token):
     Public read-only endpoint — shows only progress overview (updates summary).
     """
     try:
-        case_file = CaseFile.objects.select_related("logged_by__team", "build").prefetch_related(
+        case_file = CaseFile.objects.select_related("team", "logged_by", "build").prefetch_related(
             "project_updates",
         ).get(
             client_share_token=share_token, client_share_enabled=True,
@@ -309,7 +309,7 @@ def public_client_brief(request, share_token):
     # Path-relative URL — see TeamSerializer.to_representation for rationale
     # (Railway proxies serve /media/ same-origin; absolute URL would leak the
     # backend's internal hostname into the browser).
-    team = getattr(case_file.logged_by, "team", None) if case_file.logged_by else None
+    team = case_file.team
     team_logo_url = team.logo.url if (team and team.logo) else None
 
     return Response({
@@ -339,7 +339,7 @@ def public_brief(request, share_token):
     Public read-only endpoint — no authentication required.
     """
     try:
-        case_file = CaseFile.objects.select_related("logged_by__team").prefetch_related(
+        case_file = CaseFile.objects.select_related("team", "logged_by").prefetch_related(
             "audit__builds",
             "intake",
             "build",
